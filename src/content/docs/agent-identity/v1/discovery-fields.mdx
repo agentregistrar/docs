@@ -70,7 +70,7 @@ This document contains only the required identity fields. Its `terms.sha256` is 
   "protocol": "agent-identity-v1",
   "audience": "example-rp",
   "provider_name": "Example RP",
-  "issuer_allowlist": ["https://id.agentregistrar.dev"],
+  "issuer_allowlist": ["https://agentregistrar.dev"],
   "required_scopes": ["tos:accept"],
   "terms": {
     "version": "2026.1",
@@ -84,7 +84,7 @@ This document contains only the required identity fields. Its `terms.sha256` is 
 }
 ```
 
-The example is illustrative. Replace the audience, URLs, scopes and terms with the service's own values, and recompute the hash.
+The example is illustrative. Replace the audience, URLs, scopes and terms with the service's own values, and recompute the hash. The allowlist entry is the live broker origin (`https://agentregistrar.dev`); a provider that accepts a different broker lists that broker's origin instead.
 
 ## Known limits
 

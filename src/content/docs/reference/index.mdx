@@ -3,16 +3,29 @@ title: Reference
 description: MCP tools, broker endpoints, error codes and canonical definitions.
 audience: both
 aiGenerated: true
+verifiedAgainst: "broker dec84d9, spec v1.1.0, 2026-10-21"
+sidebar:
+  order: 1
 ---
 
 The reference pages hold the stable lookup material: tool names and inputs, broker HTTP and OAuth endpoints, error envelopes and the glossary that other pages reuse. Behavior pages link here instead of restating the tables.
 
 ## What this section covers
 
-- MCP tools: all eight broker tools with inputs, outputs, side effects and examples.
-- Broker HTTP and OAuth: metadata, JWKS, the MCP endpoint and the OAuth endpoints.
-- Error codes: broker, provider and MCP errors with retry guidance.
-- Glossary: canonical definitions of the terms used across the site.
+| Page | Use it for |
+| :--- | :--- |
+| [MCP tools](/reference/mcp-tools/) | All eight broker tools: inputs, result keys, side effects, retry rules, errors and an example each. |
+| [Broker HTTP and OAuth](/reference/broker-http/) | Metadata, JWKS, the `/mcp` transport, dynamic registration, the consent and token endpoints, abuse reports and signup receipts. |
+| [Error codes](/reference/error-codes/) | Broker, transport, tool, provider and inbox codes with status, retryability and the next action. |
+| [Glossary](/reference/glossary/) | One canonical definition per term, with a link to the page that owns the detail. |
+
+## Protocol reference
+
+The field-level protocol pages are part of the [Protocol](/protocol/) section, not this one:
+
+- [Discovery fields](/agent-identity/v1/discovery-fields/) - the `agent-signup.json` document field by field.
+- [Assertion claims](/agent-identity/v1/assertion-claims/) - the Contract A claim set and the relying-party checks.
+- [Receipt and context](/agent-identity/v1/receipt-and-context/) - Contract E, the context pointer and credential handoff.
 
 ## Primary next step
 

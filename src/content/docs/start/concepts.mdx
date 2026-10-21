@@ -1,42 +1,32 @@
 ---
 title: Key concepts
-description: The vocabulary of a brokered signup, defined once and used across this site.
+description: The vocabulary of a brokered signup, as short summaries that link to the canonical glossary.
 audience: both
 aiGenerated: true
-verifiedAgainst: "broker monorepo c7ddfa7 and spec v1.1.0, 2026-10-21"
+verifiedAgainst: "broker dec84d9 and spec v1.1.0, 2026-10-21"
 sidebar:
   order: 2
 ---
 
-These definitions are the ones this site uses. The authoritative field-level glossary lives in the [reference section](/reference/); this page is the short version you need before the quickstart.
+The [glossary](/reference/glossary/) holds the canonical definition of every term this site uses, one per term. This page is the quickstart's short version: a summary line per term, each linking to the glossary section that owns the detail. It defines nothing the glossary does not.
 
 ## Roles and records
 
-**Human owner.** The verified human principal behind every agent. The human verifies an email address, signs the master delegation agreement, and is legally attributed for what the agent does. The broker identifies the principal with a stable `human.id`.
-
-**Agent (sub-identity).** A broker record with an id (`agt_...`), a display name, a harness label, a dedicated inbox address and a set of delegated scopes. It is not a model and not a process; it is the identity the model acts under.
-
-**Harness.** The client that connects to the broker's MCP endpoint and runs the agent: OpenCode V2, Claude Code, Codex CLI, Cursor, Gemini CLI, VS Code, Claude Desktop or a generic MCP client. The harness holds the OAuth session; the agent identity is bound to it.
-
-**Broker.** The service that verifies the human, holds the agent sub-identity and inbox, mints assertions, records acceptances and receipts, and exposes the MCP tools. In this documentation the broker is `agentregistrar.dev`.
-
-**Relying party (provider).** A service that accepts brokered agent signups by publishing a discovery document and verifying an assertion. VaporCloud is the reference implementation used in the tutorials.
+- **Human owner**: the verified human principal behind every agent. [Glossary](/reference/glossary/#roles-and-records)
+- **Agent (sub-identity)**: a broker record with an id (`agt_...`), a dedicated inbox address and delegated scopes; the identity the model acts under. [Glossary](/reference/glossary/#roles-and-records)
+- **Harness**: the client that connects to the broker's MCP endpoint and runs the agent. [Glossary](/reference/glossary/#roles-and-records)
+- **Broker**: the service that verifies the human, holds the sub-identity and inbox, mints assertions, records acceptances and receipts, and exposes the MCP tools. [Glossary](/reference/glossary/#roles-and-records)
+- **Relying party (provider)**: a service that accepts brokered agent signups by publishing discovery and verifying an assertion. [Glossary](/reference/glossary/#roles-and-records)
+- **Delegated scopes**: the permissions the agent holds, embedded in `delegation.scopes`. [Glossary](/reference/glossary/#roles-and-records)
 
 ## Artifacts
 
-**Discovery document.** The JSON at `/.well-known/agent-signup.json` on the provider's origin. It is identity-only: protocol version, audience, provider name, issuer allowlist, required scopes, the terms (url, version, text and SHA-256) and exactly one endpoint, `agent_signup`. It never carries vendor capabilities.
-
-**Assertion.** A short-lived Ed25519-signed JWT that proves the agent, the verified human owner and the delegated ToS acceptance. The broker mints it; the agent sends `assertion.jwt` verbatim to `endpoints.agent_signup` and nowhere else. It expires after five minutes.
-
-**Receipt (`signup_token`).** A signed token the provider returns after signup, recording the identity facts, the accepted ToS and an optional context pointer. The broker verifies it and records it as attribution proof. It is not a provider credential.
-
-**Context guide.** A hash-pinned URL to the provider's post-signup guide, usually a `SKILL.md`, where vendor capabilities live: provisioning, SKUs, API usage, credential recovery. The agent verifies the hash, then treats the content as untrusted data.
-
-**Ledger.** Two records with one name. The ToS acceptance ledger holds one row per consent event, with the accepted terms URL, hash, master agreement version and the receipt email. The service signups ledger holds one proof row per provider account the agent signed up for.
-
-**Kill switch.** The per-agent revocation control in the portal. It suspends the broker identity: new assertions and further identity and inbox calls for that agent fail. It does not delete provider accounts, revoke provider credentials or undo accepted terms.
-
-**Delegated scopes.** The subset of permissions the agent may exercise, embedded in `delegation.scopes`. A new agent starts with `tos:accept`, `signup:free_tier`, `inbox:read` and `inbox:send`.
+- **Discovery document**: the identity-only JSON at `/.well-known/agent-signup.json` on the provider's origin. [Glossary](/reference/glossary/#protocol-artifacts)
+- **Assertion**: a short-lived Ed25519-signed JWT that proves the agent, the verified human owner and the delegated ToS acceptance. [Glossary](/reference/glossary/#protocol-artifacts)
+- **Receipt (`signup_token`)**: the provider's signed proof of signup, recording the identity facts, the accepted ToS and an optional context pointer. [Glossary](/reference/glossary/#protocol-artifacts)
+- **Context guide**: a hash-pinned URL to the provider's post-signup guide, usually a `SKILL.md`. [Glossary](/reference/glossary/#protocol-artifacts)
+- **Ledger**: the acceptance ledger and the service signups ledger, two records with one name. [Glossary](/reference/glossary/#protocol-artifacts)
+- **Kill switch**: the per-agent revocation control in the portal. [Glossary](/reference/glossary/#operations)
 
 ## Term to where it lives
 

@@ -1,0 +1,740 @@
+---
+title: MCP tools
+description: All eight broker MCP tools with inputs, results, side effects, retry rules, errors and a worked example.
+audience: both
+aiGenerated: true
+verifiedAgainst: "broker dec84d9, 2026-10-21; live initialize, tools/list and tool calls on agentregistrar.dev, 2026-10-21"
+sidebar:
+  order: 2
+---
+
+The broker exposes eight tools over the Model Context Protocol (MCP) at `https://agentregistrar.dev/mcp`. Four manage the agent identity and four manage its inbox. This page is the lookup table: inputs, result keys, side effects, retry rules, error codes and one example per tool.
+
+The normative contracts are elsewhere. Inputs and the two structured results are defined in `packages/shared/src/schemas/mcp-tools.ts`; the behavior is in the broker's tool modules. The [error reference](/reference/error-codes/) holds the code list, and the [broker HTTP reference](/reference/broker-http/) holds the transport and OAuth endpoints. This page links to both rather than repeating them.
+
+## Endpoint and discovery
+
+- URL: `https://agentregistrar.dev/mcp` (Streamable HTTP, JSON-RPC 2.0).
+- Auth: OAuth 2.1 bearer access token (`mca_...`), sent as `Authorization: Bearer`. The token is bound to one verified human owner.
+- Transport: one stateless handler per request. There is no session id to keep, and `POST` is the only method the tool flow needs.
+- `initialize` reports `serverInfo.name` `agentregistrar`, version `1.0.0`, capabilities `tools` and `resources`, and the system instructions that describe the workflow.
+- `tools/list` returns exactly eight tools.
+- `resources/list` returns four static `text/markdown` resources. They repeat documented material for clients that cannot follow links; the pages they point at stay canonical.
+
+```bash
+export MCP_TOKEN="<the mca_ access token from your client's OAuth flow>"
+curl -sS -X POST https://agentregistrar.dev/mcp \
+  -H "Authorization: Bearer $MCP_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+The handler also accepts a POST with only `Accept: application/json` and defaults a missing `Content-Type` to `application/json`, so plain `curl` calls work. A request without a bearer token gets `401` with a JSON-RPC error code `-32001` and a `WWW-Authenticate` challenge; see the [transport errors](/reference/error-codes/#mcp-transport-and-gate-errors).
+
+### MCP resources
+
+| URI | Title | Material also published at |
+| :--- | :--- | :--- |
+| `agentregistrar://docs/quickstart` | Agent Registrar quickstart | [Agent quickstart](/agents/quickstart/) |
+| `agentregistrar://docs/assertion-claims` | Agent assertion claims (Contract A) | [Assertion claims](/agent-identity/v1/assertion-claims/) |
+| `agentregistrar://docs/error-recovery` | Tool error recovery | [Error codes](/reference/error-codes/) |
+| `agentregistrar://docs/spec` | Agent Identity specification | [Specification](/agent-identity/v1/specification/) |
+
+Resources are read-only and carry no per-request state. The tool result is the reliable surface; a resource is supporting depth.
+
+## Before you call
+
+The transport gate runs before any tool:
+
+1. The bearer token must resolve to an `mca_...` token row that is not revoked and not expired. Otherwise `401`, code `-32001`.
+2. The token's human owner must be `active` and must have signed the Master Agent Delegation agreement. Otherwise `403`, code `-32003`.
+3. The agent sub-identity must exist and be `active`. `identity_register` creates it; `identity_whoami`, `identity_prove` and the inbox tools resolve it and auto-provision a default one when the session has none.
+
+A revoked agent fails at the tool layer with `agent_revoked`, not at the transport. Scope checks are per tool: `identity_prove` needs `tos:accept`, the inbox tools need `inbox:read` or `inbox:send`.
+
+## How to read each entry
+
+- **Purpose**: what the call is for.
+- **Inputs**: the exact JSON Schema properties from `tools/list`, with type, required marker (`required`), default and constraint.
+- **Result**: the keys the agent sees. `identity_prove` and `identity_record_signup` also register an `outputSchema`; the other six return a text JSON payload only.
+- **Side effects**: what changes in the broker, including whether mail is sent.
+- **Retry**: whether repeating the same call is safe, and what to change when it is not.
+- **Errors**: the stable codes, linked to [Error codes](/reference/error-codes/).
+- **Example**: `arguments` and the parsed result object. Response bodies are illustrative unless marked live; IDs and emails are synthetic.
+
+A tool failure is not an HTTP error. It returns a normal JSON-RPC result with `isError: true` and the error envelope as text content:
+
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"error\":{\"code\":\"wait_timeout\",\"message\":\"...\",\"retryable\":true,\"side_effects\":{},\"next_step\":\"...\",\"docs\":\"agentregistrar://docs/error-recovery\"}}"
+    }
+  ],
+  "isError": true
+}
+```
+
+The `text` value is a JSON string: parse it before reading `code`. `message` is human-readable and may change; `code`, `retryable`, `side_effects` and `next_step` are stable.
+
+## Tools at a glance
+
+| Tool | Group | Purpose | `readOnlyHint` | `idempotentHint` |
+| :--- | :--- | :--- | :-: | :-: |
+| [`identity_register`](#identity_register) | Identity | Create or resume the agent sub-identity for this session | no | yes |
+| [`identity_whoami`](#identity_whoami) | Identity | Show the agent, human owner, scopes, recent signups and acceptances | yes | yes |
+| [`identity_prove`](#identity_prove) | Identity | Record the delegated ToS acceptance and mint a signed assertion | no | yes |
+| [`identity_record_signup`](#identity_record_signup) | Identity | Verify and record a provider `signup_token` | no | yes |
+| [`inbox_list`](#inbox_list) | Inbox | List recent messages, newest first | yes | yes |
+| [`inbox_read`](#inbox_read) | Inbox | Read one message body, headers and detected OTP | yes | yes |
+| [`inbox_wait_for_email`](#inbox_wait_for_email) | Inbox | Wait for a matching inbound message | yes | yes |
+| [`inbox_send`](#inbox_send) | Inbox | Send mail from the agent address | no | no |
+
+## identity_register
+
+Title: "Create or resume agent sub-identity". Registers the agent sub-identity for the authenticated session, or returns the one already bound to it.
+
+**Inputs**
+
+| Field | Type | Required | Default | Constraint and meaning |
+| :--- | :--- | :-: | :--- | :--- |
+| `name` | string | no | `opencode-agent` | `minLength: 1`. Display name; also the base of the email slug. A repeated call with the same name and harness for the same human reuses the existing agent. |
+| `harness` | string | no | `opencode-v2` | `minLength: 1`. Harness identifier, stored on the agent and embedded in the assertion `agent.harness`. |
+
+The input object is closed (`additionalProperties: false`).
+
+Lookup order: the agent bound to this OAuth token first, then an agent with the same `name` and `harness` for the same human, then create. A token-bound agent wins, so a different `name` does not create a second identity in the same session.
+
+**Result**
+
+```json
+{
+  "id": "agt_01jdocsverify0000000000000",
+  "name": "example-agent",
+  "slug": "example-agent-0abc12",
+  "harness": "opencode-v2",
+  "email_address": "example-agent-0abc12@agents.agentregistrar.dev",
+  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"],
+  "status": "active",
+  "created_at": "2026-10-21T10:00:00.000Z",
+  "human_owner": {
+    "id": "hum_01jdocsverify00000000000",
+    "name": "Example Human",
+    "email": "human@example.com",
+    "master_tos_version": "2026-10-01",
+    "verified": true
+  }
+}
+```
+
+`created_at` is present on `identity_register` and absent from `identity_whoami`, which is otherwise the same flat profile.
+
+**Side effects and retry**
+
+- Creates one `agents` row with the default scopes, a `<slug>@agents.agentregistrar.dev` address and `status: active`.
+- Sends no email. The inbox address exists from registration; messages arrive later.
+- Retry: safe and idempotent. Repeating the call returns the active agent.
+- A revoked agent is not silently replaced: the call fails with `agent_revoked`.
+
+**Errors**
+
+| Code | Retryable | Meaning |
+| :--- | :-: | :--- |
+| `agent_revoked` | no | The resolved agent is revoked. Ask the human to review it, or register from a new session. |
+| `internal_error` | yes | Unexpected broker or database failure. |
+
+The human-account gates (`human_suspended`, `human_email_unverified`, `master_tos_unsigned`) are enforced by `identity_prove`. The transport enforces only the first and third: a suspended human or an unsigned Master agreement returns `403` code `-32003` before any tool runs, while `human_email_unverified` is tool-layer only.
+
+**Example**
+
+```json
+{ "name": "example-agent", "harness": "opencode-v2" }
+```
+
+Live result keys on 2026-10-21, from an existing agent, were exactly `id`, `name`, `slug`, `harness`, `email_address`, `scopes`, `status`, `created_at`, `human_owner`.
+
+## identity_whoami
+
+Title: "Show agent identity & signup state". Answers "who am I, on whose behalf, and have I already signed up here?" before a side-effecting call.
+
+**Inputs**
+
+None. The schema is an empty closed object.
+
+**Result**
+
+| Key | Type | Meaning |
+| :--- | :--- | :--- |
+| `id`, `name`, `slug`, `harness`, `email_address`, `status`, `scopes` | string / array | The active agent profile. |
+| `agent` | object | The same seven fields, nested. Kept for clients that read a nested identity block. |
+| `human_owner` | object | `id`, `name`, `email`, `master_tos_version`, `verified`. |
+| `signup_state.recent_signups` | array | Up to 10 newest signups for the **human owner**, across all of their agents. |
+| `signup_state.recent_signups_truncated` | boolean | True when more than 10 signups exist. |
+| `signup_state.last_acceptances` | array | The newest acceptance per service for **this agent**. |
+| `signup_state.notes` | string | States the two scopes in one sentence. |
+| `docs` | object | `quickstart`, `assertion_claims`, `error_recovery`, `spec`, `public_docs`. |
+
+`recent_signups[]` keys: `signup_id`, `service_audience`, `provider_name`, `provider_account_id`, `agent_id`, `agent_name`, `accepted_tos_hash`, `context_url`, `context_sha256`, `signed_up_at`, `status`.
+
+`last_acceptances[]` keys: `acceptance_id`, `service_audience`, `service_tos_url`, `service_tos_hash`, `master_tos_version`, `accepted_at`, `ledger_email_delivered`.
+
+Both arrays are empty, not an error, when there is no history.
+
+**Side effects and retry**
+
+- Read-only for the data it returns.
+- One caveat: if the session has no agent at all, the resolver auto-provisions a default one, the same row `identity_register` would create. That is the only write.
+- Retry: safe.
+
+**Errors**
+
+| Code | Retryable | Meaning |
+| :--- | :-: | :--- |
+| `agent_revoked` | no | The resolved agent is revoked. |
+| `internal_error` | yes | Broker or database failure. |
+
+**Example**
+
+```json
+{}
+```
+
+A live call on 2026-10-21 returned the flat profile, the nested `agent`, `human_owner`, a `signup_state` whose `recent_signups` included a recorded `vaporcloud` signup with its `provider_account_id` and `context_url`, and the five `docs` links.
+
+## identity_prove
+
+Title: "Accept ToS & mint identity assertion". Records the human owner's delegated acceptance of a relying party's terms and returns a signed Ed25519 assertion for that audience. This is the only tool with a legal side effect.
+
+**Inputs**
+
+| Field | Type | Required | Default | Constraint and meaning |
+| :--- | :--- | :-: | :--- | :--- |
+| `audience` | string | yes | - | `minLength: 1`. Exact case-sensitive `audience` from the relying party's discovery document; becomes `aud`. |
+| `accept_tos_url` | string | yes | - | `format: uri`. `terms.url` from discovery: the URL a human can read. |
+| `accept_tos_hash` | string | yes | - | Must equal `sha256:` plus 64 lowercase hex characters over `accepted_tos_text`. The broker recomputes and compares it; a mismatch fails before any side effect. |
+| `accepted_tos_text` | string | yes | - | `minLength: 1`. The complete `terms.text` exactly as received. |
+| `requested_scopes` | array of strings | no | `["tos:accept","signup:free_tier"]` | Every entry must already be held by the agent; the list is embedded in `delegation.scopes`. |
+| `force_new` | boolean | no | `false` (absent) | Record a new consent event even when an acceptance for the same service and terms exists. |
+
+The advertised JSON Schema for `accept_tos_hash` carries `pattern: "^sha256:"` only. The effective rule is stricter: the value must equal the recomputed digest, so a malformed hash can never match.
+
+Gate order, all before the acceptance, assertion or ledger mail: text-hash match, human active, human email verified, Master ToS signed, agent not revoked, `tos:accept` held, requested scopes held. The one write before those gates is the default-agent auto-provision described above: it runs after the human gates and before the revoked and scope checks, and it records no acceptance and sends no mail.
+
+**Result**
+
+`identity_prove` registers an `outputSchema`, so the payload is returned both as text content and as `structuredContent`.
+
+| Key | Type | Meaning |
+| :--- | :--- | :--- |
+| `assertion.jwt` | string | The compact signed JWT. Send it verbatim to `endpoints.agent_signup`. |
+| `assertion.jti` | string (`jti_...`) | Assertion id, also `claims.jti`. |
+| `assertion.kid` | string | Signing key id; `broker-key-1`. |
+| `assertion.typ` | string | JOSE `typ`; `agent-id+jwt`. |
+| `assertion.jwt_sha256` | string (`sha256:...`) | Digest of the JWT string, for logging without storing the token. |
+| `assertion.issued_at` | ISO 8601 string | From `claims.iat`. |
+| `assertion.expires_at` | ISO 8601 string | From `claims.exp`. |
+| `assertion.expires_at_unix` | integer | `claims.exp`. |
+| `assertion.claims` | object | The exact signed payload. Inspection only. See [Assertion claims](/agent-identity/v1/assertion-claims/). |
+| `verification.algorithm` | string | `EdDSA`. |
+| `verification.issuer` | string | `claims.iss`, the broker origin. |
+| `verification.audience` | string | The audience argument. |
+| `verification.jwks_url` | string (URL) | `<iss>/.well-known/jwks.json`. |
+| `verification.instructions` | string | The no-decode / send-verbatim instruction. |
+| `scopes` | array of strings | `claims.delegation.scopes`. |
+| `acceptance.id` | string | Durable acceptance row. |
+| `acceptance.accepted_at` | ISO 8601 string with offset | Consent time. Stays the original time when an assertion is re-minted. |
+| `acceptance.accepted_tos_url` | string | The accepted `terms.url`. |
+| `acceptance.accepted_tos_hash` | string | The accepted `terms.sha256`. |
+| `acceptance.master_tos_version` | string | Master agreement version. |
+| `reuse.reused` | boolean | True when this call returned a stored assertion. |
+| `reuse.acceptance_reused` | boolean | True when the acceptance already existed. |
+| `reuse.reason` | string | `new_acceptance`, `forced_new_acceptance`, `existing_assertion` or `fresh_assertion_existing_acceptance`. |
+| `side_effects.acceptance_recorded` | boolean | An acceptance row exists after the call. |
+| `side_effects.acceptance_created` | boolean | This call created it. |
+| `side_effects.ledger_email_sent_to_agent` | boolean | This call sent the ledger email. |
+| `side_effects.ledger_email_forwarded_to_human` | boolean | This call forwarded it to the human. |
+| `agent_id`, `agent_email` | string | The acting agent. |
+| `audience` | string | The audience argument. |
+| `tos_ledger_email.sent_to_agent_email` | string | Recipient of the ledger receipt. |
+| `tos_ledger_email.ledger_email_id` | string | Mail provider id. |
+| `tos_ledger_email.inbox_message_id` | string | Broker inbox row. |
+| `tos_ledger_email.forwarded_to_human_email` | string | Forward recipient. |
+| `tos_ledger_email.forwarded` | boolean | Forward status. |
+
+### Behavior, reuse and side effects
+
+- Irreversible: records one `tos_acceptances` row (a durable legal event) and dispatches one ToS Acceptance Ledger email to the agent inbox plus a forward to the human owner's verified address.
+- An identical call while the stored assertion is unexpired returns the byte-identical JWT, same `jti`, same `exp`, and sends no new mail. `reuse.reason` is `existing_assertion`.
+- After the assertion expires, a fresh `jti` references the same acceptance. `accepted_at` does not move. `reuse.reason` is `fresh_assertion_existing_acceptance`.
+- `force_new: true` records a genuinely new consent event (`forced_new_acceptance`). A different `(audience, url, terms_hash)` does too (`new_acceptance`).
+- The acceptance get-or-create is atomic, so concurrent identical calls cannot create two acceptances. The ledger email is sent at most once per acceptance.
+- The assertion lifetime is 300 seconds.
+
+**Retry**
+
+- Safe to retry with the same inputs. Read `reuse` and `side_effects` rather than assuming a new acceptance.
+- `ledger_email_failed`: the acceptance is recorded and the assertion exists; a retry re-sends only the ledger email.
+- `internal_error` after signing: `side_effects.assertion_minted` is `true`; a retry re-mints against the existing acceptance.
+- Never retry by changing `accepted_tos_text` or `accept_tos_hash` unless the terms changed. That would be a different acceptance.
+
+**Errors**
+
+| Code | Retryable | Meaning |
+| :--- | :-: | :--- |
+| `tos_text_hash_mismatch` | no | `accepted_tos_text` does not hash to `accept_tos_hash`. Re-read the terms and recompute. |
+| `human_suspended` | no | The human account is suspended. |
+| `human_email_unverified` | no | The human has not verified their email. |
+| `master_tos_unsigned` | no | The human has not signed the Master Agent Delegation agreement. |
+| `agent_revoked` | no | The agent is revoked (kill switch or abuse report). |
+| `scope_not_granted` | no | The agent lacks `tos:accept` or one of `requested_scopes`. |
+| `ledger_email_failed` | yes | Acceptance recorded, mail dispatch incomplete. |
+| `internal_error` | yes | Broker, database or issuance failure. |
+
+### Examples
+
+A successful call, illustrative:
+
+```json
+{
+  "audience": "example-rp",
+  "accept_tos_url": "https://example.com/terms",
+  "accept_tos_hash": "sha256:05435fa3eaee7f3534b4a771ab2328d66d33f712f3534b29e9035717c246d953",
+  "accepted_tos_text": "Example RP Terms of Service. The agent acts for a verified human owner, and the human owner is bound by these terms."
+}
+```
+
+```json
+{
+  "assertion": {
+    "jwt": "eyJhbGciOiJFZERTQSIsImtpZCI6ImJyb2tlci1rZXktMSIsInR5cCI6ImFnZW50LWlkK2p3dCJ9.<payload>.<signature>",
+    "jti": "jti_01jdocsverify0000000000000",
+    "kid": "broker-key-1",
+    "typ": "agent-id+jwt",
+    "jwt_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "issued_at": "2026-10-21T10:00:00.000Z",
+    "expires_at": "2026-10-21T10:05:00.000Z",
+    "expires_at_unix": 1792577100,
+    "claims": {
+      "iss": "https://agentregistrar.dev",
+      "sub": "agt_01jdocsverify0000000000000",
+      "aud": "example-rp",
+      "jti": "jti_01jdocsverify0000000000000",
+      "iat": 1792576800,
+      "exp": 1792577100,
+      "agent": {
+        "id": "agt_01jdocsverify0000000000000",
+        "name": "example-agent",
+        "email": "example-agent-0abc12@agents.agentregistrar.dev",
+        "harness": "opencode-v2"
+      },
+      "human": {
+        "id": "hum_01jdocsverify00000000000",
+        "name": "Example Human",
+        "email": "human@example.com",
+        "verified": true
+      },
+      "delegation": {
+        "master_tos_version": "2026-10-01",
+        "master_tos_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "accepted_rp_tos_url": "https://example.com/terms",
+        "accepted_rp_tos_hash": "sha256:05435fa3eaee7f3534b4a771ab2328d66d33f712f3534b29e9035717c246d953",
+        "accepted_at": 1792576800,
+        "scopes": ["tos:accept", "signup:free_tier"]
+      }
+    }
+  },
+  "verification": {
+    "algorithm": "EdDSA",
+    "issuer": "https://agentregistrar.dev",
+    "audience": "example-rp",
+    "jwks_url": "https://agentregistrar.dev/.well-known/jwks.json",
+    "instructions": "Send `assertion.jwt` verbatim to the relying party's `endpoints.agent_signup` endpoint. The relying party verifies the signature against the issuer JWKS. Do not decode, re-encode, or modify the JWT; use `assertion.claims` for inspection only."
+  },
+  "scopes": ["tos:accept", "signup:free_tier"],
+  "acceptance": {
+    "id": "7c1e0a52-docs-4a11-8e21-000000000000",
+    "accepted_at": "2026-10-21T10:00:00.000+00:00",
+    "accepted_tos_url": "https://example.com/terms",
+    "accepted_tos_hash": "sha256:05435fa3eaee7f3534b4a771ab2328d66d33f712f3534b29e9035717c246d953",
+    "master_tos_version": "2026-10-01"
+  },
+  "reuse": {
+    "reused": false,
+    "acceptance_reused": false,
+    "reason": "new_acceptance"
+  },
+  "side_effects": {
+    "acceptance_recorded": true,
+    "acceptance_created": true,
+    "ledger_email_sent_to_agent": true,
+    "ledger_email_forwarded_to_human": true
+  },
+  "agent_id": "agt_01jdocsverify0000000000000",
+  "agent_email": "example-agent-0abc12@agents.agentregistrar.dev",
+  "audience": "example-rp",
+  "tos_ledger_email": {
+    "sent_to_agent_email": "example-agent-0abc12@agents.agentregistrar.dev",
+    "ledger_email_id": "re_01jdocsverify",
+    "inbox_message_id": "7c1e0a52-docs-4a11-8e21-000000000001",
+    "forwarded_to_human_email": "human@example.com",
+    "forwarded": true
+  }
+}
+```
+
+A failure, live on 2026-10-21, with the message shortened. The all-false `side_effects` is the proof that nothing was recorded:
+
+```json
+{
+  "error": {
+    "code": "tos_text_hash_mismatch",
+    "message": "Provided accepted_tos_text hash (sha256:6044...) does not match accept_tos_hash (sha256:0543...).",
+    "retryable": false,
+    "side_effects": {
+      "acceptance_recorded": false,
+      "acceptance_created": false,
+      "ledger_email_sent_to_agent": false,
+      "ledger_email_forwarded_to_human": false,
+      "assertion_minted": false
+    },
+    "next_step": "Re-fetch `terms.text` from the relying party's discovery document, recompute `sha256:` over the text as received, and pass that exact text and hash. Never trust the advertised hash alone.",
+    "docs": "agentregistrar://docs/error-recovery"
+  }
+}
+```
+
+Never decode, re-encode or edit the JWT. Read `assertion.claims` for inspection and send `assertion.jwt` verbatim. See [Assertion claims](/agent-identity/v1/assertion-claims/#inspection-only-rule).
+
+## identity_record_signup
+
+Title: "Record signed-up service proof". Verifies the provider's signed `signup_token` and records the attribution proof for the authenticated human.
+
+**Inputs**
+
+| Field | Type | Required | Constraint and meaning |
+| :--- | :--- | :-: | :--- |
+| `signup_token` | string | yes | `minLength: 1`. The signed token from the provider's `agent_signup` response, or from the provider's server-to-server Contract F callback. |
+
+**Result**
+
+`identity_record_signup` registers an `outputSchema`.
+
+| Key | Type | Meaning |
+| :--- | :--- | :--- |
+| `signup_id` | string | Broker proof row id. |
+| `signup_token_jti` | string (`srp_...`) | Receipt id. |
+| `assertion_jti` | string (`jti_...`) | The assertion that was presented at signup. |
+| `service_audience` | string | Provider audience. |
+| `provider_name` | string | Provider display name. |
+| `provider_account_id` | string | Opaque vendor account reference. |
+| `human_email_shared` | string | The email the provider received. |
+| `agent_email_used` | string | The agent address used at signup. |
+| `accepted_tos_hash` | string | The accepted terms hash recorded with the acceptance. |
+| `context_url` | string or null | Vendor guide URL, when the receipt carried one. |
+| `context_sha256` | string or null | Hash of that guide. |
+| `handoff.broker_stores_credentials` | literal `false` | The broker never stores provider credentials. |
+| `handoff.store_credentials_now` | literal `true` | Persist any provider credential at handoff. |
+| `handoff.recovery` | literal `"provider-owned"` | Recovery is the provider's path. |
+| `handoff.context_url` | string or null | Mirrors `context_url`. |
+| `handoff.note` | string | The full credential-handling instruction. |
+
+### Behavior, side effects and retry
+
+- Verifies the token signature, `typ`, `aud`, `iss`, the claims shape and the ownership against the trusted agent row before writing.
+- Cross-checks the token's ToS URL and hash against the recorded acceptance. A token that references an acceptance the broker has not recorded fails with `signup_token_not_linked`.
+- Validates `context.url` statically: absolute HTTPS (localhost development exception), `sha256:` digest format, and a host on the provider's registrable domain. The broker never fetches the guide, so this path is not an SSRF surface.
+- Inserts or refreshes one `service_signups` proof row. Idempotent on `signup_token_jti`, on `assertion_jti`, and on `(agent, audience, provider_account_id)`.
+- Sends no email and stores no provider credential.
+- Retry: safe with the same token. A repeated token returns the existing proof; a fresh token for the same account refreshes the row.
+
+**Errors**
+
+| Code | Retryable | Meaning |
+| :--- | :-: | :--- |
+| `signup_token_invalid` | no | Signature, `typ`, audience or claim shape failed. Obtain a valid token. |
+| `signup_token_not_linked` | no | The receipt references an acceptance this broker has not recorded for the audience. Call `identity_prove` first, then retry. |
+| `signup_token_ownership_mismatch` | no | The receipt belongs to another human owner. Do not retry this token. |
+| `internal_error` | yes | Broker or database failure. Recording is idempotent. |
+
+**Example**
+
+```json
+{ "signup_token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImFnZW50LXNpZ251cC1yZWNlaXB0K2p3dCJ9.<payload>.<signature>" }
+```
+
+```json
+{
+  "signup_id": "7f651102-docs-4fa6-b700-000000000000",
+  "signup_token_jti": "srp_01jdocsverify00000000000",
+  "assertion_jti": "jti_01jdocsverify0000000000000",
+  "service_audience": "example-rp",
+  "provider_name": "Example RP",
+  "provider_account_id": "840d6148-docs-4680-8f33-000000000000",
+  "human_email_shared": "human@example.com",
+  "agent_email_used": "example-agent-0abc12@agents.agentregistrar.dev",
+  "accepted_tos_hash": "sha256:05435fa3eaee7f3534b4a771ab2328d66d33f712f3534b29e9035717c246d953",
+  "context_url": "https://example.com/docs/SKILL.md",
+  "context_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "handoff": {
+    "broker_stores_credentials": false,
+    "store_credentials_now": true,
+    "recovery": "provider-owned",
+    "context_url": "https://example.com/docs/SKILL.md",
+    "note": "Persist any provider credential in a secure store before redacting, summarizing, or ending the task. The Broker never stores provider credentials. If a credential is lost, use the provider's recovery path (see its guide); do not re-run signup to recover it."
+  }
+}
+```
+
+The `handoff` block appears on every path: fresh record, idempotent replay, and a server-to-server Contract F receipt already ingested. See [Credential handoff and recovery](/agent-identity/v1/receipt-and-context/#credential-handoff-and-recovery).
+
+## inbox_list
+
+Title: "List agent inbox messages". Lists the agent's most recent messages, newest first.
+
+**Inputs**
+
+| Field | Type | Required | Default | Constraint and meaning |
+| :--- | :--- | :-: | :--- | :--- |
+| `limit` | integer | no | `10` | `minimum: 1`, `maximum: 50`. |
+| `direction` | string enum | no | - | `inbound` or `outbound`. Omit for both. |
+
+**Result**
+
+| Key | Type | Meaning |
+| :--- | :--- | :--- |
+| `agent_id`, `agent_email` | string | The inbox owner. |
+| `count` | integer | Number of messages returned. |
+| `messages[].id` | string (UUID) | Message id for `inbox_read`. |
+| `messages[].direction` | string | `inbound` or `outbound`. |
+| `messages[].from_address`, `to_address`, `subject` | string | Envelope fields. |
+| `messages[].received_at` | ISO 8601 string | Broker receipt time. |
+| `messages[].is_legal_or_tos` | boolean | Flag for legal and ToS mail. |
+| `messages[].snippet` | string | First 200 characters of the body, whitespace collapsed. |
+
+There is no cursor. Increase `limit` or filter by direction.
+
+**Side effects and retry**
+
+- Read-only, scoped to the active agent. No message is marked read.
+- Retry: safe.
+
+**Errors**
+
+| Code | Retryable | Meaning |
+| :--- | :-: | :--- |
+| `agent_revoked` | no | Agent revoked. |
+| `scope_not_granted` | no | The agent lacks `inbox:read`. |
+| `internal_error` | yes | Broker or database failure. |
+
+**Example**
+
+```json
+{ "limit": 1 }
+```
+
+Live on 2026-10-21 for an agent with no mail:
+
+```json
+{
+  "agent_id": "agt_01jdocsverify0000000000000",
+  "agent_email": "example-agent-0abc12@agents.agentregistrar.dev",
+  "count": 0,
+  "messages": []
+}
+```
+
+## inbox_read
+
+Title: "Read an inbox message". Reads one message by id, including the body, headers and any detected 6-digit OTP.
+
+**Inputs**
+
+| Field | Type | Required | Constraint and meaning |
+| :--- | :--- | :-: | :--- |
+| `message_id` | string | yes | `format: uuid`. An id from `inbox_list` or `inbox_wait_for_email`. |
+
+**Result**
+
+| Key | Type | Meaning |
+| :--- | :--- | :--- |
+| `id`, `agent_id` | string | Message and owner. |
+| `direction` | string | `inbound` or `outbound`. |
+| `from_address`, `to_address`, `subject` | string | Envelope fields. |
+| `text_body`, `html_body` | string or null | Bodies as stored. |
+| `headers` | object | Stored headers, `{}` when none. |
+| `is_legal_or_tos` | boolean | Legal/ToS flag. |
+| `received_at` | ISO 8601 string | Receipt time. |
+| `detected_otp` | string or null | First standalone 6-digit code found in subject or body. HTML tags are stripped first, so a code split across markup is not glued together. |
+
+**Side effects and retry**
+
+- Read-only. There is no read flag and no "mark as read" behavior; repeated reads return the same message.
+- Retry: safe.
+
+**Errors**
+
+| Code | Retryable | Meaning |
+| :--- | :-: | :--- |
+| `message_not_found` | no | No message with that id for this agent. Use an id from `inbox_list`. |
+| `agent_revoked` | no | Agent revoked. |
+| `scope_not_granted` | no | The agent lacks `inbox:read`. |
+| `internal_error` | yes | Broker or database failure. |
+
+**Example**
+
+```json
+{ "message_id": "7c1e0a52-docs-4a11-8e21-000000000001" }
+```
+
+```json
+{
+  "id": "7c1e0a52-docs-4a11-8e21-000000000001",
+  "agent_id": "agt_01jdocsverify0000000000000",
+  "direction": "inbound",
+  "from_address": "no-reply@example.com",
+  "to_address": "example-agent-0abc12@agents.agentregistrar.dev",
+  "subject": "Your verification code",
+  "text_body": "Your code is 481920. It expires in 10 minutes.",
+  "html_body": null,
+  "headers": {},
+  "is_legal_or_tos": false,
+  "received_at": "2026-10-21T10:01:00.000Z",
+  "detected_otp": "481920"
+}
+```
+
+Live on 2026-10-21, a random UUID returned `message_not_found` with `retryable: false` and `side_effects: {}`.
+
+## inbox_wait_for_email
+
+Title: "Wait for a matching email". Waits for a matching inbound message and returns it with any detected OTP.
+
+**Inputs**
+
+| Field | Type | Required | Default | Constraint and meaning |
+| :--- | :--- | :-: | :--- | :--- |
+| `from_contains` | string | no | - | Case-insensitive substring of the sender address. |
+| `subject_contains` | string | no | - | Case-insensitive substring of the subject. |
+| `since_seconds_ago` | integer | no | `60` | Lookback window in seconds. Only messages received within it are considered. |
+| `timeout_seconds` | integer | no | `30` | `minimum: 1`, `maximum: 60`. Wait budget. |
+
+**Behavior**
+
+- Checks the database immediately, so a message that already arrived is returned without waiting.
+- Otherwise waits on a Realtime subscription plus a 1.5-second polling loop, and stops at the timeout.
+- Only inbound messages for the active agent match; the newest match wins. No message is consumed.
+- `detected_otp` uses the same extraction as `inbox_read`.
+- Result keys: `id`, `agent_id`, `from_address`, `to_address`, `subject`, `text_body`, `html_body`, `received_at`, `detected_otp`.
+
+**Retry**
+
+- Safe. Use a longer `timeout_seconds`, a wider `since_seconds_ago`, or narrower filters.
+- Do not poll in a tight loop. One wait with a 30-60 second budget is cheaper than repeated short calls.
+
+**Errors**
+
+| Code | Retryable | Meaning |
+| :--- | :-: | :--- |
+| `wait_timeout` | yes | Nothing matched within the wait budget. |
+| `agent_revoked` | no | Agent revoked. |
+| `scope_not_granted` | no | The agent lacks `inbox:read`. |
+| `internal_error` | yes | Broker or database failure. |
+
+**Example**
+
+```json
+{ "timeout_seconds": 1, "from_contains": "no-such-sender" }
+```
+
+Live on 2026-10-21:
+
+```json
+{
+  "error": {
+    "code": "wait_timeout",
+    "message": "Timed out after 1 seconds waiting for matching inbound email to example-agent-0abc12@agents.agentregistrar.dev.",
+    "retryable": true,
+    "side_effects": {},
+    "next_step": "No matching email arrived within the wait budget. Call inbox_list to check for a message that did not match the filters, or call inbox_wait_for_email again.",
+    "docs": "agentregistrar://docs/error-recovery"
+  }
+}
+```
+
+## inbox_send
+
+Title: "Send email from agent inbox". Sends mail from the agent's address and records it in the inbox ledger.
+
+**Inputs**
+
+| Field | Type | Required | Constraint and meaning |
+| :--- | :--- | :-: | :--- |
+| `to` | string | yes | `format: email`. One recipient. |
+| `subject` | string | yes | `minLength: 1`. |
+| `text` | string | yes | `minLength: 1`. Plain-text body. |
+| `html` | string | no | Optional HTML alternative. `text` stays the plain-text part. |
+
+No `cc`, `bcc`, attachments or reply headers in v1.
+
+**Result**
+
+| Key | Type | Meaning |
+| :--- | :--- | :--- |
+| `ok` | `true` | Send completed and was recorded. |
+| `message_id` | string | Broker inbox row id. |
+| `resend_email_id` | string | Mail provider id. |
+| `from_address`, `to_address`, `subject` | string | As sent. |
+| `received_at` | ISO 8601 string | Row timestamp. |
+
+**Side effects and retry**
+
+- Sends one email through the mail provider, then inserts one outbound `inbox_messages` row.
+- Not idempotent. A retry sends a second email.
+- If the send fails, nothing is sent and nothing is recorded: `send_failed`, retryable.
+- If the email is sent but the ledger insert fails, `internal_error` reports `side_effects.email_sent: true` and `message_recorded: false`. Check `inbox_list` before resending, because a retry re-sends.
+
+**Errors**
+
+| Code | Retryable | Meaning |
+| :--- | :-: | :--- |
+| `send_failed` | yes | The provider rejected or did not accept the message; nothing was sent or recorded. |
+| `scope_not_granted` | no | The agent lacks `inbox:send`. |
+| `agent_revoked` | no | Agent revoked. |
+| `internal_error` | yes | Broker or database failure; check `side_effects`. |
+
+**Example**
+
+```json
+{
+  "to": "human@example.com",
+  "subject": "Signed up for Example RP",
+  "text": "The account exists and the credential is stored."
+}
+```
+
+```json
+{
+  "ok": true,
+  "message_id": "7c1e0a52-docs-4a11-8e21-000000000002",
+  "resend_email_id": "re_01jdocsverify",
+  "from_address": "example-agent-0abc12@agents.agentregistrar.dev",
+  "to_address": "human@example.com",
+  "subject": "Signed up for Example RP",
+  "received_at": "2026-10-21T10:02:00.000Z"
+}
+```
+
+## Verification record
+
+Checked on 2026-10-21 against broker commit `dec84d9` and the deployed broker at `https://agentregistrar.dev`.
+
+- `initialize` returned server name `agentregistrar`, version `1.0.0`, capabilities `tools` and `resources`.
+- `tools/list` returned exactly these eight tools with the titles and the annotation hints shown in the table above.
+- Every input property was compared field by field with `packages/shared/src/schemas/mcp-tools.ts`: types, `required` lists, defaults (`limit` 10, `since_seconds_ago` 60, `timeout_seconds` 30), enums and bounds (1-50, 1-60).
+- `resources/list` returned the four `agentregistrar://docs/...` URIs in the resource table.
+- Live calls: `identity_register` (existing agent), `identity_whoami`, `inbox_list` (empty), `inbox_read` (missing id), `inbox_wait_for_email` (1-second timeout), `identity_prove` (hash mismatch, no side effects) and `identity_record_signup` (invalid token). Result shapes matched the tables.
+- Not exercised live: a successful `identity_prove` (it would record a real acceptance and send mail), `identity_record_signup` success, and `inbox_send` (it would send real mail). Their result shapes come from the code and the registered output schemas.
+
+If a tool changes, this page and the verification date change in the same change.
