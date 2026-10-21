@@ -13,13 +13,15 @@ Every verified human signs one Master Agent Delegation Agreement before any agen
 
 ## Read the agreement
 
-The agreement lives in the product, behind human login:
+The agreement is presented once, during onboarding:
 
-- Open the [Master Agreement signing page](https://agentregistrar.dev/onboarding/tos) after signing in and verifying your email.
-- The page shows the full current text, its version and its SHA-256 digest.
-- The checkbox and **Sign Master Agent Delegation Agreement** button record your acceptance.
+1. Sign in with GitHub and verify your email.
+2. The portal opens the [Master Agreement signing page](https://agentregistrar.dev/onboarding/tos) with the full current text, its version and its SHA-256 digest. The portal only shows that page while the agreement is unsigned.
+3. The checkbox and **Sign Master Agent Delegation Agreement** button record your acceptance.
 
-The docs site is not the agreement. If this page and the in-product text differ, the in-product text governs.
+The portal does not show that page again after you sign: a signed human who opens `/onboarding/tos` is redirected to the dashboard. The docs site is not the agreement and does not publish its text. The public `/tos` page is a draft placeholder, not the agreement.
+
+What you can check after signing: the [dashboard](/portal/dashboard/) account panel shows the signed version and the first characters of the digest, and the full digest is in the badge tooltip. That tells you which version you accepted, not the text itself. The portal has no re-read surface for a signed human today, so keep your own copy of the text you accepted if you need it later.
 
 ## What the agreement is for
 
@@ -28,7 +30,7 @@ The agreement is the legal link between a human and the agents registered under 
 1. It records that the human accepts attribution for the actions of their agents.
 2. It delegates a bounded set of actions to those agents, including accepting standard free-tier provider terms within the `tos:accept` scope.
 
-It does not transfer liability to the broker, and it does not make an agent a legal person. The provider still decides whether to accept a signup, and the provider's own terms still govern the provider relationship.
+What the text does and does not establish is stated in the agreement itself; this page does not interpret it. The provider still decides whether to accept a signup, and the provider's own terms still govern the provider relationship.
 
 ## What signing records
 
@@ -42,7 +44,7 @@ When you sign, the portal writes these fields to your human profile:
 | `master_tos_signed_at` | The acceptance timestamp |
 | `master_tos_ip` | The request IP address recorded at signing |
 
-The dashboard shows the version and the first characters of the digest. The full digest is in the badge tooltip. The broker uses the version and digest when it mints assertions, so a provider can see which agreement the delegation was made under.
+The broker uses the version and digest when it mints assertions, so a provider can see which agreement the delegation was made under.
 
 ## What changes after signing
 
@@ -55,7 +57,7 @@ Signing does not create an agent, grant a provider account or start a signup. Th
 
 ## Version changes
 
-The dashboard shows the version recorded with your signature. The current portal checks that an agreement is signed; it does not compare the signed version with the current version and does not prompt for re-acceptance on its own. If the agreement changes, open the in-product page to read the current text.
+The dashboard shows the version recorded with your signature. The current portal checks that an agreement is signed; it does not compare the signed version with the current version and does not prompt for re-acceptance on its own. A signed human cannot reopen the signing page either: `/onboarding/tos` redirects to the dashboard once the agreement is signed. The current portal therefore has no re-read or re-acceptance path for a human who has already signed, and these docs do not publish the text. If the agreement changes, this page will describe the new path when the portal offers one.
 
 ## Screenshot
 

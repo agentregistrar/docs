@@ -18,7 +18,7 @@ The kill switch suspends one agent sub-identity. It is the fastest broker-side c
 
 An active agent shows **Revoke agent**. A revoked agent shows **Reactivate agent**. The action is a single click. The current portal does not show a confirmation dialog.
 
-![Revoked agent: the header shows REVOKED, the reason and the timestamp - the kill switch has changed to Reactivate agent and the historical tabs remain readable.](/screenshots/portal/portal-revoked-agent.png)
+![Revoked agent: the header shows REVOKED with the reason and timestamp and the kill switch has changed to Reactivate agent - the tabs below render their empty states.](/screenshots/portal/portal-revoked-agent.png)
 
 ## What revocation does immediately
 
@@ -59,10 +59,13 @@ The honest summary: revocation is a broker identity control, not a kill switch f
 2. Rotate every provider credential the agent held. The broker never stored those credentials, so rotation happens in the provider's system.
 3. Review the ledger and inbox for unexpected signups, terms acceptances or mail.
 4. Contact affected providers and tell them what happened.
-5. Preserve the ids, JTIs and timestamps before you change or delete anything.
-6. Re-register the agent only after you have fixed the cause.
+5. Report the incident to [security@agentregistrar.dev](mailto:security@agentregistrar.dev), the address published in the footer of these docs.
+6. Preserve the ids, JTIs and timestamps before you change or delete anything.
+7. Re-register the agent only after you have fixed the cause.
 
-If the human account is compromised, sign out, secure the GitHub account and the email address, then revoke every agent under the account. The broker has not published a public security address in these docs; use the reply path in an abuse notification if you have one, and do not send reports to an address you cannot verify.
+If the human account is compromised, sign out, secure the GitHub account and the email address, then revoke every agent under the account. Then report it to [security@agentregistrar.dev](mailto:security@agentregistrar.dev). Include the account email, the agent ids you revoked, the revocation timestamps and what you have already changed. Do not send GitHub passwords, session cookies or provider API keys.
+
+The abuse reply path and the report endpoint are described in [Abuse reports](/portal/abuse-reports/); use that endpoint when the report should revoke an agent automatically.
 
 ## Audit
 

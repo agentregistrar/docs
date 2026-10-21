@@ -81,9 +81,9 @@ When a harness starts its OAuth flow, the portal opens a consent screen that sho
 
 ![OAuth consent: OpenCode V2 CLI requesting the three delegation scopes for a verified human - approval creates a delegation to the harness, not a new human account.](/screenshots/portal/portal-oauth-consent.png)
 
-**Approve and connect harness** completes the request and returns the browser to the harness callback. **Deny** returns an access-denied result to the harness. If the Master Agreement is unsigned, the consent screen includes the signing gate and does not approve until the agreement is signed.
+**Approve & Connect Harness** completes the request and returns the browser to the harness callback. **Deny** returns an access-denied result to the harness. If the Master Agreement is unsigned, the consent screen includes the signing gate and does not approve until the agreement is signed.
 
-The consent screen is not a second signup. It delegates authority to a client under the human account that already exists. For the client-specific installation step, use [Agents & harnesses](/agents/).
+The consent screen is not a second signup. It delegates authority to a client under the human account that already exists. The requested scopes and the delegation claims are defined under [Protocol](/protocol/); the MCP tool surface is listed under [Reference](/reference/). Harness installation guides are being added under [Agents & harnesses](/agents/); until they land, use the command shown on the [dashboard](/portal/dashboard/).
 
 ## Verify
 

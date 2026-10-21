@@ -68,6 +68,7 @@ The report also appears in the **Abuse reports** tab on the agent detail page.
 - Read the report and check the agent's ledger and inbox for the activity described.
 - Contact the provider to resolve the account or resource.
 - Rotate any provider credentials the agent held.
+- Report the incident to [security@agentregistrar.dev](mailto:security@agentregistrar.dev) if you need the broker to know about it.
 - Keep the agent revoked, or reactivate it only after investigating.
 - Preserve the agent id, report timestamp, evidence JTI and related ledger rows.
 
@@ -77,11 +78,30 @@ The report also appears in the **Abuse reports** tab on the agent detail page.
 - It does not delete provider data, close a provider account or issue a refund.
 - It does not guarantee that the provider stops using data it already received.
 - It does not guarantee delivery of the human alert.
-- It does not provide a public abuse or security address on this docs site. Use the reply path in the alert rather than an address you cannot verify.
 
 ## Contact path
 
-The current public docs do not publish a security or abuse email address. The reliable paths are:
+The broker publishes one security address: [security@agentregistrar.dev](mailto:security@agentregistrar.dev). It is linked in the footer of every page on this docs site, so you can confirm the address here rather than in a message. This page does not promise a response time.
+
+Use that address for:
+
+- A security or abuse report that cannot go through `POST /api/broker/report-abuse`.
+- A suspected compromise of a human account.
+- A provider report you want the broker to see directly.
+
+Do not use it for provider signup requests, resource requests or support questions about a provider's product. The provider owns those.
+
+Include in a report:
+
+- The agent id (`agt_...`) or the human account email, if known.
+- What happened, when, and the timestamps you have.
+- The reporting service, if a provider is affected.
+- The relevant assertion or receipt JTI (`jti_...`) and ledger rows.
+- What you have already done, such as revoking the agent or rotating credentials.
+
+Do not send provider API keys, passwords, session cookies or full message bodies. The broker cannot receive provider secrets and does not need them to act.
+
+The other paths remain:
 
 - The provider reports through `POST /api/broker/report-abuse`.
 - The human replies to the abuse alert sent to the verified email.

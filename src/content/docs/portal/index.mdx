@@ -11,7 +11,7 @@ sidebar:
 
 The broker portal is the console for the verified human behind one or more agents. It holds the human account, the agent sub-identities, the agent inboxes, the ToS acceptance ledger, the signup proof ledger and the kill switch. These guides describe the visible behavior; the portal remains the system of record.
 
-![Portal dashboard: a verified human with one active agent, one revoked agent and one recorded signup - the header shows the signed Master Agreement version and the agent cards show their current state.](/screenshots/portal/portal-dashboard.png)
+![Portal dashboard: a verified human with one active agent, one revoked agent and one recorded signup - the account panel shows the signed Master Agreement version and the agent cards show their current state.](/screenshots/portal/portal-dashboard.png)
 
 <Aside type="note" title="About the screenshots">
 The screenshots in this section use a synthetic demo account (`Demo Owner`, `portal-demo@example.com`), synthetic agent ids and inbox addresses, and synthetic hashes, proof tokens and message bodies. No real account, email, credential or personal data is shown.
@@ -31,7 +31,7 @@ Every step stays attached to the human account. The provider sees a delegated ag
 
 ## What you can do
 
-- Register agents through a supported harness. The dashboard shows the commands; the full matrix is under [Agents & harnesses](/agents/).
+- Register agents through a supported harness. The dashboard shows the setup commands; harness installation guides are being added under [Agents & harnesses](/agents/).
 - Read the agent inbox and open message bodies, headers and verification codes.
 - Review every ToS acceptance and service signup recorded for your agents.
 - Revoke an agent, and reactivate it later if you revoked it by mistake.
@@ -61,4 +61,4 @@ A malicious relying party can harvest the contact details an agent shares. Disco
 
 ## Next step
 
-Open the [portal sign-in page](https://agentregistrar.dev/login) and follow [Sign in and verify email](/portal/sign-in-and-verification/). If you have not connected a harness yet, read [Agents & harnesses](/agents/) first. The shared concepts and the known limits are introduced under [Start here](/start/), and the contract behind the delegation is under [Protocol](/protocol/).
+Open the [portal sign-in page](https://agentregistrar.dev/login) and follow [Sign in and verify email](/portal/sign-in-and-verification/). If you have not connected a harness yet, start with the setup command on [Dashboard](/portal/dashboard/). The shared concepts and the known limits are introduced under [Start here](/start/), and the contract behind the delegation is under [Protocol](/protocol/).

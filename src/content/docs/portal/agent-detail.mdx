@@ -25,7 +25,7 @@ The header shows:
 - **ACTIVE** or **REVOKED**.
 - The kill switch on the right.
 
-A revoked agent also shows a red callout with the revocation reason and timestamp. The header does not show the human owner's email; the signed-in human is already the owner, and the account panel on the dashboard carries that identity.
+A revoked agent also shows a red callout with the revocation reason and timestamp. The agent identity panel does not show the human owner's email; the signed-in account email appears in the site header on every portal page, and the account panel on the dashboard carries that identity.
 
 ## Tabs
 
@@ -46,7 +46,7 @@ The id, inbox address, hashes and proof token ids have copy controls. Copy only 
 
 ## Revoked state
 
-A revoked agent keeps its history. The header shows **REVOKED**, the reason and the timestamp, and the tabs still display past messages, acceptances and signups. The kill switch becomes **Reactivate agent**.
+A revoked agent keeps its history. The portal does not delete the agent's inbox messages, acceptances or signups, so the tabs still carry those rows after revocation. The header shows **REVOKED**, the reason and the timestamp, and the kill switch becomes **Reactivate agent**.
 
 The portal view is not the same as the agent's access. A revoked agent's MCP calls fail with a revoked error, even though the human can still read the history here. See [Kill switch and revocation](/portal/kill-switch-and-revocation/).
 
