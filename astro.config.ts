@@ -93,17 +93,24 @@ export default defineConfig({
       },
     }),
   ],
-  // Issue 01 section 5.3 redirect map. Permanent (301) single hops. Targets
-  // for pages scheduled in Issues 06, 07 and 10 are configured now but resolve
-  // only once those pages land; nothing deploys until Issue 04.
+  // Redirect map from the information architecture decisions. Permanent (308)
+  // single hops. Only entries whose destination route is in this build are
+  // active: a redirect may never point at a 404. The staged shortcuts are
+  // activated by the issue that lands their target page, and every entry is
+  // re-verified against the deployed host by the release verification issue.
   redirects: {
     "/docs": { status: 308, destination: "/" },
-    "/spec": { status: 308, destination: "/agent-identity/v1/specification/" },
-    "/specification": { status: 308, destination: "/agent-identity/v1/specification/" },
-    "/implement": { status: 308, destination: "/providers/quickstart/" },
-    "/quickstart": { status: 308, destination: "/start/quickstart-agent/" },
-    "/mcp": { status: 308, destination: "/reference/mcp-tools/" },
-    "/registry": { status: 308, destination: "/providers/guides/validate-and-register/" },
-    "/agent-identity/v1/agent-signup": { status: 308, destination: "/agent-identity/v1/" },
   },
+  // Staged redirects (target page not in this build yet; do not activate early):
+  //   /spec -> /agent-identity/v1/specification/
+  //   /specification -> /agent-identity/v1/specification/
+  //   /agent-identity/v1/agent-signup -> /agent-identity/v1/
+  //     activated with the protocol pages
+  //   /implement -> /providers/quickstart/
+  //   /registry -> /providers/guides/validate-and-register/
+  //     activated with the provider pages
+  //   /quickstart -> /start/quickstart-agent/
+  //     activated with the start pages
+  //   /mcp -> /reference/mcp-tools/
+  //     activated with the reference pages
 });

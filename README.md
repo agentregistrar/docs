@@ -9,8 +9,8 @@ static output.
 - Specification repository: <https://github.com/agentregistrar/spec>
 
 The site currently ships the functional shell and the home and section landing
-pages. The protocol, provider, agent, portal and reference content lands in
-Issues 06-11 of `docs/12-docs-push`.
+pages. The protocol, provider, agent, portal and reference content is being
+added section by section.
 
 ## Local development
 
@@ -69,40 +69,39 @@ Current pages:
   `/contribute/` - section landings
 - `/404.html` - not-found page
 
-Redirects from the Issue 01 URL map are declared in `astro.config.ts` and emitted
-to `dist/_redirects` at build time.
+Redirects are declared in `astro.config.ts` and emitted to `dist/_redirects` at
+build time. Only redirects whose destination page exists are active.
 
 ## Authoring
 
 - A page is a `.md` or `.mdx` file under `src/content/docs/`. Frontmatter
   requires `title`; `description`, `sidebar.order` and the provenance fields
   (`audience`, `verifiedAgainst`, `lastReviewed`, `aiGenerated`, `source`) are
-  optional today and become policy in Issue 05.
+  optional today and become policy as the provenance rules land.
 - Use the Nimbus components registered in `src/components.ts` (`Aside`, `Card`,
   `CardGrid`, `Steps`, `Tabs`, and the rest) rather than new one-off widgets.
 - Rendered text is ASCII, sentence case and free of icons. The site is dark-only
   and has no theme toggle.
-- The contribution guide (`CONTRIBUTING.md`) lands in Issue 12. Until then, use
-  the page templates and voice rules in
-  `docs/12-docs-push/01-docs-ia-audit-and-decisions.md`.
+- The contribution guide (`CONTRIBUTING.md`) is not published yet. Until then,
+  use the page templates and voice rules in the information architecture
+  decisions.
 
 ## Spec sync
 
 The normative protocol pages will be generated from a pinned tag of
 `agentregistrar/spec` by `scripts/sync-spec.mjs`, with `spec.lock.json` recording
-the tag, commit and file hashes. Issue 06 implements the sync. `pnpm sync:spec`
-is a placeholder today.
+the tag, commit and file hashes. The sync is not implemented yet; `pnpm
+sync:spec` is a placeholder today.
 
 ## Deployment
 
 The build is static and targets Cloudflare Workers static assets
-(`wrangler.jsonc`). Issue 04 creates the Worker, verifies the redirects and
-headers, and attaches `docs.agentregistrar.dev`; this repository does not deploy
-from Issue 02.
+(`wrangler.jsonc`). The Worker, the redirects, the headers and the
+`docs.agentregistrar.dev` domain are not provisioned from this repository yet.
 
 ```bash
 pnpm build
-pnpm deploy     # wrangler deploy, once Issue 04 has provisioned the Worker
+pnpm deploy     # wrangler deploy, after the Worker is provisioned
 ```
 
 ## License

@@ -9,6 +9,9 @@ import { withBase } from "@cloudflare/nimbus-docs/runtime";
 // `not_found_handling: "404-page"`); the adapter adds no on-demand route.
 export const prerender = true;
 const homeHref = withBase("/", import.meta.env.BASE_URL);
+const startHref = withBase("/start/", import.meta.env.BASE_URL);
+const agentsHref = withBase("/agents/", import.meta.env.BASE_URL);
+const referenceHref = withBase("/reference/", import.meta.env.BASE_URL);
 ---
 
 <BaseLayout title="Page not found" description="The page you are looking for does not exist." noindex>
@@ -27,9 +30,9 @@ const homeHref = withBase("/", import.meta.env.BASE_URL);
       </p>
       <nav aria-label="Recovery" class="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm">
         <a href={homeHref} class="text-foreground underline underline-offset-2">Docs home</a>
-        <a href="/start/quickstart-agent/" class="text-foreground underline underline-offset-2">Use an agent</a>
-        <a href="/providers/quickstart/" class="text-foreground underline underline-offset-2">Accept agent signups</a>
-        <a href="/reference/" class="text-foreground underline underline-offset-2">Reference</a>
+        <a href={startHref} class="text-foreground underline underline-offset-2">Start here</a>
+        <a href={agentsHref} class="text-foreground underline underline-offset-2">Agents &amp; harnesses</a>
+        <a href={referenceHref} class="text-foreground underline underline-offset-2">Reference</a>
       </nav>
     </main>
     <Footer />

@@ -5,20 +5,20 @@ description: Implement agent-identity-v1 and accept brokered agent signups.
 
 A relying party accepts agent signups by publishing an identity-only discovery document, verifying a short-lived signed assertion and returning a signed receipt. The provider keeps control of account creation and vendor capabilities; the protocol proves who the agent is and which human is accountable.
 
-## In this section
+## What this section covers
 
-- [Provider quickstart](/providers/quickstart/): the conformant path, ending with the validator.
-- [Identity-only discovery](/providers/concepts/identity-only-discovery/): what belongs in discovery and what does not.
-- [Brokered signup handshake](/providers/concepts/brokered-signup/): assertion, verification, account and receipt.
-- [Liability and ToS](/providers/concepts/liability-and-tos/): delegation, hash pinning and what the provider must check.
-- [Publish discovery](/providers/guides/publish-discovery/): file, route, content type, caching and HTTPS.
-- [Compute the ToS hash](/providers/guides/compute-tos-hash/): exact bytes and UTF-8 encoding.
-- [Verify assertions](/providers/guides/verify-assertions/): JWKS, algorithm, audience, expiry, scopes, human status and ToS hash.
-- [Stable error codes](/providers/guides/error-codes/): envelopes, HTTP status and retry guidance.
-- [Validate and register](/providers/guides/validate-and-register/): validator commands, exit codes and registry criteria.
-- [Production checklist](/providers/guides/production-checklist/): HTTPS, key rotation, replay, clock and contacts.
-- [Reference implementation: VaporCloud](/providers/reference-vaporcloud/): the deployed demo.
+- Provider quickstart: the conformant path, ending with the validator.
+- Identity-only discovery: what belongs in discovery and what does not.
+- Brokered signup handshake: assertion, verification, account and receipt.
+- Liability and ToS: delegation, hash pinning and what the provider must check.
+- Publish discovery: file, route, content type, caching and HTTPS.
+- Compute the ToS hash: exact bytes and UTF-8 encoding.
+- Verify assertions: JWKS, algorithm, audience, expiry, scopes, human status and ToS hash.
+- Stable error codes: envelopes, HTTP status and retry guidance.
+- Validate and register: validator commands, exit codes and registry criteria.
+- Production checklist: HTTPS, key rotation, replay, clock and contacts.
+- Reference implementation: VaporCloud, the deployed demo.
 
 ## Primary next step
 
-Follow the [Provider quickstart](/providers/quickstart/), then read [Verify assertions](/providers/guides/verify-assertions/) before accepting a real signup.
+Read the contract in [Protocol](/protocol/) and the lookup material in [Reference](/reference/). Agents connecting to a provider start from [Agents & harnesses](/agents/).
