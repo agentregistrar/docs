@@ -19,9 +19,13 @@ import { Badge } from "@/components/ui/badge";
 import type { DocsPageProps } from "@cloudflare/nimbus-docs/types";
 import { getVersionStatus, getVersionAlternates, withBase } from "@cloudflare/nimbus-docs/runtime";
 
-type Props = DocsPageProps & { audience?: "human" | "agent" | "both" };
+type Props = DocsPageProps & {
+  audience?: "human" | "agent" | "both";
+  /** Provenance: agent-drafted and not yet reviewed by a human. */
+  aiGenerated?: boolean;
+};
 
-const { title, description, sidebar, headings, breadcrumbs, prevNext, mode = "doc", banner, head = [], searchable, noindex, markdownUrl, socialImage, lastUpdated, editUrl, draft, audience, collection, entryId } = Astro.props;
+const { title, description, sidebar, headings, breadcrumbs, prevNext, mode = "doc", banner, head = [], searchable, noindex, markdownUrl, socialImage, lastUpdated, editUrl, draft, audience, aiGenerated, collection, entryId } = Astro.props;
 
 // `searchable` derives from `noindex` when omitted: a non-crawlable page is
 // by default not in the site search either. Explicit `searchable: true`
@@ -210,9 +214,7 @@ const hasPagination = Astro.slots.has("pagination");
                     {description && (
                       <p class="text-md text-muted leading-relaxed mt-2 mb-2 [text-wrap:pretty]">{description}</p>
                     )}
-                    <PageActions markdownUrl={markdownUrl} lastUpdated={lastUpdated} class={description ? undefined : "mt-3"} />
-                    {/* Issue 05 fills this surface with provenance. Structure only. */}
-                    <p data-nb-review-status data-pagefind-ignore hidden class="mt-2 text-xs text-faint">awaiting review</p>
+                    <PageActions markdownUrl={markdownUrl} lastUpdated={lastUpdated} aiGenerated={aiGenerated} class={description ? undefined : "mt-3"} />
                     {headings !== false && headings.length > 0 && (
                       <div class="border-line bg-background sticky top-12 z-20 -mx-4 mt-3 border-y px-4 py-2 md:-mx-6 md:px-6 lg:hidden">
                         <MobileTOC headings={headings} />

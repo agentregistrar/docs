@@ -29,11 +29,16 @@ pnpm preview    # serve the built output
 Authoring checks:
 
 ```bash
+pnpm build      # must run before lint: the link rules read .nimbus/routes.json
 pnpm check      # nimbus-docs check: environment, structure, authoring, types
 pnpm lint       # nimbus-docs lint: content rules
 pnpm typecheck  # astro check (TypeScript and .astro files)
 pnpm check:theme # Terminal theme QA gate (radius/shadow/gradient/icons/non-ASCII)
 ```
+
+The site rules for coding agents - provenance, lint, spec sync, verification,
+what not to change - are in [`AGENT.md`](./AGENT.md). Read it before editing a
+page. There are no tests; the gates above are the verification.
 
 The visual system, token map, component recipes, deviations and the review
 record are in [`THEME.md`](./THEME.md). Read it before adding a component or a
@@ -80,16 +85,46 @@ build time. Only redirects whose destination page exists are active.
 ## Authoring
 
 - A page is a `.md` or `.mdx` file under `src/content/docs/`. Frontmatter
-  requires `title`; `description`, `sidebar.order` and the provenance fields
-  (`audience`, `verifiedAgainst`, `lastReviewed`, `aiGenerated`, `source`) are
-  optional today and become policy as the provenance rules land.
+  requires `title` and `description`. The provenance fields follow the policy in
+  [`AGENT.md`](./AGENT.md) section 5: `audience` defaults to `both`;
+  `aiGenerated: true` marks an agent draft and stays visible as "awaiting
+  review" until a human clears it; `verifiedAgainst`, `lastReviewed` and
+  `source` are set only when that evidence exists for the page.
 - Use the Nimbus components registered in `src/components.ts` (`Aside`, `Card`,
   `CardGrid`, `Steps`, `Tabs`, and the rest) rather than new one-off widgets.
 - Rendered text is ASCII, sentence case and free of icons. The site is dark-only
   and has no theme toggle.
 - The contribution guide (`CONTRIBUTING.md`) is not published yet. Until then,
-  use the page templates and voice rules in the information architecture
-  decisions.
+  use the page templates and voice rules in [`AGENT.md`](./AGENT.md) sections 6
+  and 7.
+
+## Docs for agents
+
+Every discoverable page is emitted twice at build time: HTML for readers and
+Markdown for agents. The surface is:
+
+- `/llms.txt` and `/llms-full.txt` - the index and the whole site in one
+  document.
+- `/<section>/llms.txt` - per-section indexes.
+- `/<slug>/index.md` - the page as clean Markdown; `/<slug>/index.mdx` - the
+  authored source.
+- `/.well-known/ard.json` and `/.well-known/ai-catalog.json` - discovery
+  manifests.
+- `/.well-known/agent-skills/index.json` plus one artifact per skill under
+  `skills/<name>/SKILL.md`.
+- JSON-LD in each page head, `sitemap.xml`, and `robots.txt` with
+  `Content-Signal: ai-train=yes, search=yes, ai-input=yes`.
+
+Published skills:
+
+- `install-agent-identity` - connect a harness, register an agent, complete a
+  first brokered signup.
+- `implement-agent-identity` - publish identity-only discovery, verify
+  assertions, return stable errors, issue a receipt.
+- `verify-agent-signup` - audit a discovery document and report pass or fail
+  with evidence.
+
+Content types and cache policy for these paths are in `public/_headers`.
 
 ## Spec sync
 
