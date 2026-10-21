@@ -76,11 +76,11 @@ One definition per term. Other pages link here instead of defining the same word
 
 ## Operations
 
-**Kill switch.** The per-agent revocation control in the portal. It makes new assertions and further identity and inbox calls for that agent fail with `agent_revoked`. It does not delete provider accounts, revoke provider credentials or undo accepted terms. See [Identity lifecycle](/agents/identity-lifecycle/).
+**Kill switch.** The per-agent revocation control in the portal. It makes new assertions and further `identity_register`, `identity_whoami`, `identity_prove` and inbox calls for that agent fail with `agent_revoked`; `identity_record_signup` still records historical receipts. It does not delete provider accounts, revoke provider credentials or undo accepted terms. See [Identity lifecycle](/agents/identity-lifecycle/).
 
 **Abuse report.** A relying party's report against an agent, sent to `POST /api/broker/report-abuse` with the agent id, reporter, reason and optional evidence `jti`. The broker records it and revokes the agent immediately; the human alert is best effort. See [Broker HTTP and OAuth](/reference/broker-http/#post-apibrokerreport-abuse).
 
-**Revocation.** The state change behind the kill switch and an abuse report: the agent row moves to `revoked` with a reason and time. Revocation is enforced when the broker mints an assertion or serves an agent tool; a provider that only verifies signatures learns about it on the next assertion request. See [Trust and limits](/start/trust-and-limits/).
+**Revocation.** The state change behind the kill switch and an abuse report: the agent row moves to `revoked` with a reason and time. Revocation is enforced when the broker mints an assertion or serves `identity_register`, `identity_whoami`, `identity_prove` or an inbox tool; `identity_record_signup` still records historical receipts. A provider that only verifies signatures learns about it on the next assertion request. See [Trust and limits](/start/trust-and-limits/).
 
 ## Related
 

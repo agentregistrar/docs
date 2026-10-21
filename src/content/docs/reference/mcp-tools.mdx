@@ -145,7 +145,7 @@ Lookup order: the agent bound to this OAuth token first, then an agent with the 
 | `agent_revoked` | no | The resolved agent is revoked. Ask the human to review it, or register from a new session. |
 | `internal_error` | yes | Unexpected broker or database failure. |
 
-The human-account gates (`human_suspended`, `human_email_unverified`, `master_tos_unsigned`) are enforced by `identity_prove`; at the transport they appear as `403` code `-32003`.
+The human-account gates (`human_suspended`, `human_email_unverified`, `master_tos_unsigned`) are enforced by `identity_prove`. The transport enforces only the first and third: a suspended human or an unsigned Master agreement returns `403` code `-32003` before any tool runs, while `human_email_unverified` is tool-layer only.
 
 **Example**
 
@@ -220,7 +220,7 @@ Title: "Accept ToS & mint identity assertion". Records the human owner's delegat
 
 The advertised JSON Schema for `accept_tos_hash` carries `pattern: "^sha256:"` only. The effective rule is stricter: the value must equal the recomputed digest, so a malformed hash can never match.
 
-Gate order, all before any write: text-hash match, human active, human email verified, Master ToS signed, agent not revoked, `tos:accept` held, requested scopes held.
+Gate order, all before the acceptance, assertion or ledger mail: text-hash match, human active, human email verified, Master ToS signed, agent not revoked, `tos:accept` held, requested scopes held. The one write before those gates is the default-agent auto-provision described above: it runs after the human gates and before the revoked and scope checks, and it records no acceptance and sends no mail.
 
 **Result**
 
@@ -315,7 +315,7 @@ A successful call, illustrative:
     "jwt_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
     "issued_at": "2026-10-21T10:00:00.000Z",
     "expires_at": "2026-10-21T10:05:00.000Z",
-    "expires_at_unix": 1792576800,
+    "expires_at_unix": 1792577100,
     "claims": {
       "iss": "https://agentregistrar.dev",
       "sub": "agt_01jdocsverify0000000000000",
@@ -731,7 +731,7 @@ No `cc`, `bcc`, attachments or reply headers in v1.
 Checked on 2026-10-21 against broker commit `dec84d9` and the deployed broker at `https://agentregistrar.dev`.
 
 - `initialize` returned server name `agentregistrar`, version `1.0.0`, capabilities `tools` and `resources`.
-- `tools/list` returned exactly these eight tools with the titles and annotations in the table above.
+- `tools/list` returned exactly these eight tools with the titles and the annotation hints shown in the table above.
 - Every input property was compared field by field with `packages/shared/src/schemas/mcp-tools.ts`: types, `required` lists, defaults (`limit` 10, `since_seconds_ago` 60, `timeout_seconds` 30), enums and bounds (1-50, 1-60).
 - `resources/list` returned the four `agentregistrar://docs/...` URIs in the resource table.
 - Live calls: `identity_register` (existing agent), `identity_whoami`, `inbox_list` (empty), `inbox_read` (missing id), `inbox_wait_for_email` (1-second timeout), `identity_prove` (hash mismatch, no side effects) and `identity_record_signup` (invalid token). Result shapes matched the tables.

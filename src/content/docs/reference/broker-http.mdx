@@ -242,7 +242,7 @@ www-authenticate: Bearer resource_metadata="https://agentregistrar.dev/.well-kno
 
 `403` bodies use code `-32003` with either "Human owner account is suspended." or "Master Agent Delegation ToS has not been signed." and an `id` of `null`.
 
-`POST` accepts `Accept: application/json` alone; the handler normalizes the header to `application/json, text/event-stream` and defaults a missing content type, so `curl` works. A `GET` without `Accept: text/event-stream` returns `406` with code `-32000`.
+`POST` accepts `Accept: application/json` alone; the handler normalizes the header to `application/json, text/event-stream` and defaults a missing content type, so `curl` works. A `GET` with a valid bearer token and without `Accept: text/event-stream` returns `406` with code `-32000`; without a valid token the auth gate returns `401` code `-32001` first.
 
 CORS headers on every `/mcp` response, including errors:
 
@@ -255,7 +255,7 @@ CORS headers on every `/mcp` response, including errors:
 
 ### GET and DELETE /mcp
 
-The route exports `GET` and `DELETE`, but the transport is stateless, so there is no stream to resume and no session to terminate. `DELETE` returns `200` with an empty body. `GET` without `Accept: text/event-stream` returns `406`; with that header the deployed broker returned a Cloudflare `500` error page on 2026-10-21. Use `POST` for every request. The `500` is recorded as a defect against the broker's D10 transport; this page will be corrected when it is fixed.
+The route exports `GET` and `DELETE`, but the transport is stateless, so there is no stream to resume and no session to terminate. `DELETE` returns `200` with an empty body. Both statuses below require a valid bearer token; an unauthenticated request fails at the auth gate with `401` code `-32001` before the transport runs. `GET` without `Accept: text/event-stream` returns `406`; with that header the deployed broker returned a Cloudflare `500` error page on 2026-10-21. Use `POST` for every request. The `500` is recorded as a defect against the broker's D10 transport; this page will be corrected when it is fixed.
 
 ## Broker APIs
 

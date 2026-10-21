@@ -76,7 +76,7 @@ A tool failure is a successful JSON-RPC call: HTTP `200`, a result object with `
 | `human_suspended` | `identity_prove` | no | Human owner account is suspended. | The human reactivates the account in the portal. |
 | `human_email_unverified` | `identity_prove` | no | Human owner email is not verified. | The human verifies the email, then retry. |
 | `master_tos_unsigned` | `identity_prove` | no | The Master Agent Delegation agreement is unsigned. | The human completes onboarding and signs it. |
-| `agent_revoked` | identity and inbox tools | no | The agent is revoked by the kill switch or an abuse report. | The human reviews it in the portal, or the session registers another agent. Do not retry. |
+| `agent_revoked` | `identity_register`, `identity_whoami`, `identity_prove` and the inbox tools | no | The agent is revoked by the kill switch or an abuse report. `identity_record_signup` is the exception: it still records historical receipts for a revoked agent. | The human reviews it in the portal, or the session registers another agent. Do not retry. |
 | `scope_not_granted` | identity and inbox tools | no | The agent lacks the required scope: `tos:accept`, `inbox:read` or `inbox:send`, or one entry of `requested_scopes`. | Check `identity_whoami`; request only delegated scopes. |
 | `tos_text_hash_mismatch` | `identity_prove` | no | `accepted_tos_text` does not hash to `accept_tos_hash`. No side effect occurred. | Re-fetch `terms.text`, recompute the hash, send the exact text. |
 | `ledger_email_failed` | `identity_prove` | yes | The acceptance is recorded; the ledger email dispatch did not finish. | Retry the same call. Only the mail is retried; no new acceptance is created. |
