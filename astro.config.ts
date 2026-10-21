@@ -93,10 +93,42 @@ export default defineConfig({
     nimbus(nimbusConfig, {
       icons: false,
       validateMdx: true,
+      // Authoring lint rules. The policy and the pass/fail workflow live in
+      // AGENT.md ("Lint and the review gates"); this block is the single
+      // configuration. Errors block merge, warnings are reviewed in the PR.
+      // `astro build` (or `astro sync`) materializes these into
+      // `.nimbus/lint.json`, which `nimbus-docs lint` reads.
       rules: {
-        // Issue 05 owns the final rule set; enable the basics now.
+        // Structural: a page that fails these is broken for a reader.
+        "nimbus/frontmatter-shape": "error",
+        "nimbus/description-required": "error",
         "nimbus/single-h1": "error",
+        "nimbus/heading-hierarchy": "error",
+        "nimbus/duplicate-heading-text": "error",
+        "nimbus/code-block-lang": "error",
+        // Links: these read `.nimbus/routes.json`, so run the build first.
+        "nimbus/internal-link": "error",
+        "nimbus/redirected-link": "error",
+        "nimbus/image-ref": "error",
+        // Advisory: readable prose, not correctness. Review the count, do not
+        // gate on it. `bare-url` is the release's replacement for the
+        // "descriptive link text" rule in the plan (recorded in AGENT.md).
         "nimbus/bare-url": "warn",
+        "nimbus/no-self-host-url": "warn",
+        "nimbus/code-block-prompt-prefix": "warn",
+        "nimbus/heading-punctuation": "warn",
+        "nimbus/emphasis-style": "warn",
+        "nimbus/list-marker-style": "warn",
+      },
+      collections: {
+        // Partials are fragments: no H1, no description of their own.
+        partials: {
+          rules: {
+            "nimbus/single-h1": "off",
+            "nimbus/description-required": "off",
+            "nimbus/heading-hierarchy": "off",
+          },
+        },
       },
       markdown: {
         hastPlugins: [tableScroll()],

@@ -1,4 +1,91 @@
-# Baseline headers for docs.agentregistrar.dev.
-# Nimbus appends its agent-discovery rules to this file at build time.
-# Issue 04 finalizes the Cloudflare static-asset policy; Issue 03 adds the
-# brand-asset cache rules.
+# Headers for docs.agentregistrar.dev.
+#
+# Nimbus writes a generated block at build time, in two shapes:
+#
+#   # Nimbus agent discovery (generated) ... # End Nimbus agent discovery
+#     A complete rule Nimbus owns: the discovery Link headers on "/", and the
+#     skills index and archive content types.
+#
+#   # Nimbus agent discovery headers (generated) ... # End ...
+#     The headers Nimbus adds under a path this file already declares. The
+#     indented header lines inside the marker belong to the preceding path rule;
+#     Cloudflare ignores the comment lines. Keep a rule's pattern line next to
+#     its headers, and never edit inside a generated marker.
+#
+# Ownership: this file declares content types and cache policy. A hand-written
+# rule for a path suppresses only the generated headers that rule sets itself,
+# so a rule that sets Cache-Control alone keeps the generated Content-Type and
+# CORS. Do not restate a generated header by hand.
+#
+# Policy: the site is a static build, so there is no Accept negotiation and no
+# Vary: Accept to emit. Content types are declared per path. CORS is applied
+# where a browser or a browser-based agent fetches an artifact cross-origin
+# (discovery JSON, Agent Skills, JSON Schema). Markdown and llms.txt do not need
+# it for non-browser clients.
+#
+# Issue 04 finalizes the Cloudflare static-asset and security-header policy; it
+# edits this file, it does not replace the generated blocks.
+
+# Authored MDX source of each page. Not linked from reader UI; served so an
+# agent can see components and imports when the clean Markdown is not enough.
+/index.mdx
+  Content-Type: text/markdown; charset=utf-8
+  Cache-Control: public, max-age=300
+/*/index.mdx
+  Content-Type: text/markdown; charset=utf-8
+  Cache-Control: public, max-age=300
+
+# Cache policy for the agent endpoints. Content types, CORS and Link headers for
+# these paths stay with the generated rules: these rules set only Cache-Control,
+# so the build adds the headers it owns under the same path. Five minutes is
+# short enough that a deploy is picked up by a re-fetch and long enough to
+# absorb an agent's repeated reads in one task.
+/llms.txt
+  Cache-Control: public, max-age=300
+/llms-full.txt
+  Cache-Control: public, max-age=300
+/index.md
+  Cache-Control: public, max-age=300
+/*/index.md
+  Cache-Control: public, max-age=300
+/.well-known/ard.json
+  Cache-Control: public, max-age=300
+/.well-known/ai-catalog.json
+  Cache-Control: public, max-age=300
+/.well-known/agent-skills/*
+  Cache-Control: public, max-age=300
+/robots.txt
+  Cache-Control: public, max-age=300
+
+# JSON Schema assets: agent-identity-v1 discovery schema and future versions.
+/*.schema.json
+  Content-Type: application/schema+json; charset=utf-8
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=3600
+
+# Published API citation manifest.
+/nimbus-api/coordinates.json
+  Content-Type: application/json; charset=utf-8
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=3600
+
+# Sitemaps.
+/*.xml
+  Content-Type: application/xml; charset=utf-8
+  Cache-Control: public, max-age=3600
+
+# Content-hashed build assets and self-hosted fonts: immutable.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Brand assets and social cards: stable names, rare changes.
+/brand/*
+  Cache-Control: public, max-age=86400
+/og/*
+  Cache-Control: public, max-age=86400
+
+# Search index: rebuilt on deploy, content-addressed chunk names.
+/pagefind/*
+  Cache-Control: public, max-age=86400

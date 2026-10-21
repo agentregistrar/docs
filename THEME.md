@@ -190,7 +190,7 @@ Recipes are implemented in `src/components/**`; Nimbus behavior is kept.
 | Code groups | `ui/code-group/**`: text tabs + accent underline, per-panel text `copy`; copy behavior preserved |
 | Tables | `prose.css`: 1px container, uppercase 11px faint headers, 13px cells, row `border-b line`, `bg-hover` hover, `.nb-table-scroll` horizontal scroll, no zebra |
 | Badges | `ui/badge/Badge.astro`: outline only, uppercase 11px, signal border/text |
-| Page actions | `ui/page-actions/PageActions.astro`: `updated`, `copy markdown`, `view markdown ->` at 12px muted; the `awaiting review` surface lives in `src/layouts/DocsLayout.astro` (`data-nb-review-status`), hidden until Issue 05 wires provenance |
+| Page actions | `ui/page-actions/PageActions.astro`: `updated`, `copy markdown`, `view markdown ->` at 12px muted; the `awaiting review` label renders in the same row (`data-nb-review-status`) while `aiGenerated: true` |
 | Edit/report | `DocsLayout`: `edit page -> github`, `report issue` |
 | 404 | `src/pages/404.astro`: shell, `not found.`, one line, home/quickstarts/reference links |
 | Diagram frame | `prose.css` figure: 1px line, `bg-surface`, faint caption; SVGs are hand-authored, no shadows/gradients |
@@ -223,9 +223,10 @@ Each is intentional. None changes a D8 value.
    default). Reason: every docs page needs a title card. Nimbus's OG page type
    does not expose the sidebar section, so cards use the page title plus
    `docs.agentregistrar.dev`; recorded as a known limitation, not a new design.
-6. **`awaiting review` provenance label.** The surface lives in `DocsLayout`
-   (`data-nb-review-status`) and uses the page-action tokens; it is hidden
-   until Issue 05 supplies the data and the visible state.
+6. **`awaiting review` provenance label.** The surface is the `PageActions`
+   row (`data-nb-review-status`), text only, using the page-action tokens. It is
+   visible while `aiGenerated: true` and clears only when a human reviewer sets
+   `aiGenerated: false` and records `lastReviewed`.
 7. **Docs `h1` is 26/32** rather than the public landing's 34/40 bold hero.
    Reason: D8 reserves `text-3xl` for landing only; docs pages are working
    surfaces, not marketing pages.
