@@ -26,6 +26,16 @@
 # Issue 04 finalizes the Cloudflare static-asset and security-header policy; it
 # edits this file, it does not replace the generated blocks.
 
+# Baseline security headers for every response. These are the Workers static
+# assets equivalent of the headers the Pages project emitted. No CSP is set:
+# the site ships inline JSON-LD and framework inline scripts, and a CSP has not
+# been tested against them. HSTS stays off: it is off at the zone
+# (`security_header`), and enabling zone-wide HSTS is out of scope for the docs
+# origin. Cache policy is not set here, so each path keeps its own rule.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
 # Authored MDX source of each page. Not linked from reader UI; served so an
 # agent can see components and imports when the clean Markdown is not enough.
 /index.mdx

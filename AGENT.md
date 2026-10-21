@@ -12,9 +12,8 @@ this file is corrected in the same change.
 
 The public documentation site for Agent Registrar and `agent-identity-v1`.
 Static Astro build via Cloudflare Nimbus, live at
-<https://docs.agentregistrar.dev> on the Cloudflare Pages project
-`agentregistrar-docs`; Cloudflare Workers static assets is the pending cutover
-target (section 15). Apache-2.0.
+<https://docs.agentregistrar.dev> on the Cloudflare Worker
+`agentregistrar-docs` (static assets; section 15). Apache-2.0.
 
 Canonical sources live outside this repo. Do not restate normative text here.
 
@@ -439,20 +438,24 @@ pnpm build
 pnpm deploy     # wrangler deploy; predeploy runs the build again
 ```
 
-The site is live at `https://docs.agentregistrar.dev`, served today by the
-existing Cloudflare Pages project `agentregistrar-docs`. That project is
-Git-connected to `agentregistrar/docs` and builds the production branch `main`
-on push, so the live site tracks `main` and not an unmerged branch.
+The site is live at `https://docs.agentregistrar.dev`, served by the
+static-assets Cloudflare Worker `agentregistrar-docs` (custom domain attached;
+no Worker script). Workers Builds is connected to `agentregistrar/docs` and
+builds the production branch `main` on push, so the live site tracks `main` and
+not an unmerged branch. The build connection's first production build ran from
+`main` (commit `57974ba`) and succeeded; the Issue 04 cutover was a manual
+`pnpm deploy` from the unmerged branch, and the next `main` push rebuilds the
+merged config. `wrangler.jsonc` sets the assets directory (`./dist`), `404-page`
+handling, `auto-trailing-slash`, the custom-domain route, `preview_urls` and
+observability. `public/_headers` supplies the agent-endpoint content types,
+cache policy, CORS and baseline security headers.
 
-Only the Workers cutover is pending (Issue 04). `wrangler.jsonc` targets
-Cloudflare Workers static assets (directory `./dist`, `404-page` handling), and
-`pnpm deploy` runs `wrangler deploy`, but there is no deploy workflow in GitHub
-Actions: the Worker, its headers/redirects, the host-header policy, the DNS
-change and the final topology are unprovisioned until that cutover. Until then
-the Pages project stays the serving path, and `wrangler dev` locally (section
-12) is the host contract to test against. Cloudflare's own `_headers` support
-consumes `public/_headers` plus the generated Nimbus block. Do not change DNS
-from a content change.
+There is no deploy workflow in GitHub Actions. The former Pages project
+`agentregistrar-docs` is parked without a custom domain for the rollback window
+(monorepo `docs/deployment.md` section 8); `wrangler dev` locally (section 12)
+is the host contract to test against. Cloudflare's `_headers` support consumes
+`public/_headers` plus the generated Nimbus block. Do not change DNS from a
+content change.
 
 ## 16. Upgrading Nimbus
 
