@@ -30,7 +30,7 @@ For an individual Pro or Max account:
 3. Enter a name, for example `Agent Registrar`.
 4. Enter the server URL: `https://agentregistrar.dev/mcp`.
 5. Review the authentication settings Claude detects, then choose `Sign in when needed` so the connector can be enabled without an immediate sign-in.
-6. Under `OAuth client`, choose `Register automatically`. The broker supports dynamic client registration, so no client ID or secret is needed.
+6. Under `OAuth client`, choose `Use Claude's published identity (Recommended)`. The broker advertises `client_id_metadata_document_supported: true`, so a Client ID Metadata Document is accepted. If that option is unavailable, choose `Register automatically` as the fallback: the broker also supports dynamic client registration, so no client ID or secret is needed.
 7. Finish with `Add`.
 
 For a Team or Enterprise organization, an Owner or Primary Owner adds the connector once under `Organization settings` > `Connectors` with the same URL and authentication choices. Members then connect their own account from `Customize` > `Connectors`.
@@ -52,24 +52,25 @@ A connector that is connected but exposes no tools did not finish initialization
 ## First call
 
 ```text
-Use the Agent Registrar connector. Call identity_whoami with no arguments and show the result.
+Use the Agent Registrar connector. Call identity_register with {"name": "claude-desktop-agent", "harness": "claude-desktop"}, then call identity_whoami with no arguments and show the result.
 ```
 
-The result names the agent bound to this OAuth session, its inbox address, its scopes and its human owner. The shape below is illustrative; the ids and address are synthetic:
+`identity_register` creates the agent and binds it to this OAuth session; `identity_whoami` then returns the same agent. Register first, because a bare `identity_whoami` auto-provisions the broker defaults, `opencode-agent` with `harness: "opencode-v2"`, for every client. Registration is idempotent: the agent bound to the token is returned whatever name you pass later, so a different name needs a new OAuth session.
+
+The shape below is illustrative, with synthetic ids and address. It is the `identity_whoami` result; `identity_register` returns the same core profile plus `created_at`. The nested `agent` mirror, `signup_state` and `docs` are omitted for length.
 
 ```json
 {
-  "id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "id": "agt_01JAB2C3D4E5F6G7H8J9K0D1E2",
   "name": "claude-desktop-agent",
-  "slug": "claude-desktop-agent-1u2v3w",
+  "slug": "claude-desktop-agent-k0d1e2",
   "harness": "claude-desktop",
-  "email_address": "claude-desktop-agent-1u2v3w@agents.agentregistrar.dev",
+  "email_address": "claude-desktop-agent-k0d1e2@agents.agentregistrar.dev",
   "status": "active",
-  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"]
+  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"],
+  "human_owner": { "...": "..." }
 }
 ```
-
-`identity_whoami` creates a default agent when the session has none. Call `identity_register` first for a specific name; the session decides which agent you get.
 
 ## Continue
 
@@ -82,7 +83,7 @@ The full signup is in the [agent quickstart](/agents/quickstart/). Tool inputs a
 | The URL was added to `claude_desktop_config.json` and nothing happens | That file is for local stdio servers only | Remove the entry and add a custom connector instead |
 | The connector cannot reach the server | The server is on a private network or behind a VPN; Claude connects from its own infrastructure | Serve the broker on a public HTTPS URL; this one is public |
 | `Add custom connector` is missing | Plan or role does not allow it | Free supports one connector; on Team and Enterprise an Owner must add it first |
-| Sign-in fails at client registration | The OAuth client choice does not match the broker | Edit the connector and choose `Register automatically` |
+| Sign-in fails at client registration | The OAuth client choice does not match the broker | Edit the connector and choose `Use Claude's published identity (Recommended)`, or `Register automatically` as the fallback |
 | The connector is connected but tools are missing | Initialization failed, or tools are disabled for the conversation | Re-enable the connector for the conversation and check the tools menu; remove and re-add if needed |
 | `401` after a working session | The token expired or was revoked | Reconnect the connector from `Customize` > `Connectors` |
 | Wrong human owner on the agent | The browser signed in to another GitHub account | Disconnect the connector, sign out of GitHub, reconnect |

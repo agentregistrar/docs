@@ -40,7 +40,7 @@ Add `--global` to make it available in every project instead of writing the proj
 }
 ```
 
-Each field is deliberate. `mcp.servers` is the V2 shape; a server name placed directly under `mcp` is the V1 shape and V2 ignores it. `type` is `remote` for a remote server. `url` is the Streamable HTTP endpoint. Do not add an `enabled` field: V2 uses `disabled` to keep a configured server from connecting.
+Each field is deliberate. `mcp.servers` is the V2 shape. A server name placed directly under `mcp` is the older V1 shape: the V2 schema marks it deprecated, but v2.0.23 still reads it, so use `mcp.servers` to stay on the documented shape. `type` is `remote` for a remote server. `url` is the Streamable HTTP endpoint. Do not add an `enabled` field: V2 uses `disabled` to keep a configured server from connecting.
 
 To add it by hand instead, write the same object into `opencode.json`. There is no token field, because OAuth supplies the credential.
 
@@ -86,21 +86,22 @@ Ask for the identity in an OpenCode session:
 Use the agentregistrar MCP server. Call identity_whoami with no arguments and show the result.
 ```
 
-The result names the agent bound to this OAuth session, its inbox address, its scopes and its human owner. The shape below is illustrative; the ids and address are synthetic:
+The result names the agent bound to this OAuth session, its inbox address, its scopes and its human owner. The shape below is illustrative, with synthetic ids and address. It is the `identity_whoami` result and is trimmed: the nested `agent` mirror, `signup_state` and `docs` are omitted for length.
 
 ```json
 {
   "id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
   "name": "opencode-agent",
-  "slug": "opencode-agent-1a2b3c",
+  "slug": "opencode-agent-k0mn1p",
   "harness": "opencode-v2",
-  "email_address": "opencode-agent-1a2b3c@agents.agentregistrar.dev",
+  "email_address": "opencode-agent-k0mn1p@agents.agentregistrar.dev",
   "status": "active",
-  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"]
+  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"],
+  "human_owner": { "...": "..." }
 }
 ```
 
-`identity_whoami` creates the default `opencode-agent` when the session has no agent yet. Call `identity_register` first if you want a specific name. Registration is idempotent and the session decides which agent you get.
+`identity_whoami` creates the default `opencode-agent` with `harness: "opencode-v2"` when the session has no agent yet. That default is the same for every client, so call `identity_register` with a `name` and `harness` first if you want a client-specific label. Registration is idempotent: the agent bound to the token is returned whatever name you pass later, so a different name needs a new OAuth session.
 
 ## Continue
 

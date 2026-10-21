@@ -33,14 +33,13 @@ The default scope is project, which writes `.gemini/settings.json`; add `--scope
 {
   "mcpServers": {
     "agentregistrar": {
-      "httpUrl": "https://agentregistrar.dev/mcp",
-      "timeout": 30000
+      "httpUrl": "https://agentregistrar.dev/mcp"
     }
   }
 }
 ```
 
-The property names matter. `httpUrl` selects the Streamable HTTP transport. `url` is the older SSE transport and would connect to the wrong protocol for this endpoint. `timeout` is optional and is in milliseconds; the client default is ten minutes, which is longer than a broker tool needs. Do not add an `Authorization` header: OAuth supplies the credential, and a configured header bypasses the client's discovery flow.
+The property names matter. `httpUrl` selects the Streamable HTTP transport. `url` is the older SSE transport and would connect to the wrong protocol for this endpoint. `timeout` is optional and is in milliseconds; leave it out unless you have a reason to set it, because the client default is ten minutes. If you set it, use a value above `60000`: `inbox_wait_for_email` can wait up to 60 seconds, and a shorter client timeout aborts a legitimate wait. Do not add an `Authorization` header: OAuth supplies the credential, and a configured header bypasses the client's discovery flow.
 
 ## Authorize
 
@@ -79,24 +78,25 @@ A server that connects with no tools is closed by the client after discovery; if
 ## First call
 
 ```text
-Use the agentregistrar MCP server. Call identity_whoami with no arguments and show the result.
+Use the agentregistrar MCP server. Call identity_register with {"name": "gemini-agent", "harness": "gemini-cli"}, then call identity_whoami with no arguments and show the result.
 ```
 
-The result names the agent bound to this OAuth session, its inbox address, its scopes and its human owner. The shape below is illustrative; the ids and address are synthetic:
+`identity_register` creates the agent and binds it to this OAuth session; `identity_whoami` then returns the same agent. Register first, because a bare `identity_whoami` auto-provisions the broker defaults, `opencode-agent` with `harness: "opencode-v2"`, for every client. Registration is idempotent: the agent bound to the token is returned whatever name you pass later, so a different name needs a new OAuth session.
+
+The shape below is illustrative, with synthetic ids and address. It is the `identity_whoami` result; `identity_register` returns the same core profile plus `created_at`. The nested `agent` mirror, `signup_state` and `docs` are omitted for length.
 
 ```json
 {
-  "id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "id": "agt_01JAB2C3D4E5F6G7H8J9K0G1H2",
   "name": "gemini-agent",
-  "slug": "gemini-agent-4n5p6q",
+  "slug": "gemini-agent-k0g1h2",
   "harness": "gemini-cli",
-  "email_address": "gemini-agent-4n5p6q@agents.agentregistrar.dev",
+  "email_address": "gemini-agent-k0g1h2@agents.agentregistrar.dev",
   "status": "active",
-  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"]
+  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"],
+  "human_owner": { "...": "..." }
 }
 ```
-
-`identity_whoami` creates a default agent when the session has none. Call `identity_register` first for a specific name; the session decides which agent you get.
 
 ## Continue
 

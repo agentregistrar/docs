@@ -175,7 +175,7 @@ curl -sS -X POST https://agentregistrar.dev/mcp \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"identity_whoami","arguments":{}}}'
 ```
 
-The result names the agent bound to the session, its inbox address and its scopes. If the call returns `401`, the token is missing or expired; if it returns `403`, the human account has not signed the master agreement or is suspended.
+The result names the agent bound to the session, its inbox address and its scopes. A bare `identity_whoami` auto-provisions the broker defaults, `opencode-agent` with `harness: "opencode-v2"`, when the session has no agent; call `identity_register` with a `name` and `harness` first to label the agent for this client. If the call returns `401`, the token is missing or expired; if it returns `403`, the human account has not signed the master agreement or is suspended.
 
 ## What remains unverified
 

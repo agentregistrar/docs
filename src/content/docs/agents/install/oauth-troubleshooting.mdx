@@ -8,6 +8,8 @@ sidebar:
   order: 9
 ---
 
+**Tier 3: cross-client guidance checked live against the broker on 2026-10-21.** This page makes no client-specific claim; the callback defaults it quotes come from the individual client pages, which carry their own tier and date.
+
 Most failures happen before any broker tool runs: the client never gets a usable bearer token, or it gets one for the wrong human. This page is about that half of the flow. Tool-level errors such as `tos_text_hash_mismatch` or `agent_revoked` are in [Troubleshooting](/agents/troubleshooting/).
 
 ## Read the 401 first
@@ -108,7 +110,7 @@ Options that do not work: disabling TLS verification, pasting a bearer token int
 - Whether `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server` load in a browser on the same machine.
 - The client's own log line for the failure, for example Cursor's `MCP Logs` or Claude Code's `Issue:` line.
 
-If a broker response contradicts this page, report it with the details above through the contact address in the site footer. Client defects go to that client's own tracker. A defect on this page is a documentation issue.
+If a broker response contradicts this page, report it with the details above by opening an issue on [the specification repository](https://github.com/agentregistrar/spec/issues). Client defects go to that client's own tracker. A defect on this page is a documentation issue.
 
 ## Related
 

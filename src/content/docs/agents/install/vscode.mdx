@@ -77,20 +77,23 @@ The broker exposes eight tools: `identity_register`, `identity_whoami`, `identit
 In the agent session:
 
 ```text
-Use the agentregistrar MCP server. Call identity_whoami with no arguments and show the result. Do not change files.
+Use the agentregistrar MCP server. Call identity_register with {"name": "vscode-agent", "harness": "vscode"}, then call identity_whoami with no arguments and show the result. Do not change files.
 ```
 
-Approve the tool call, then expand it in the conversation and check that it belongs to the `agentregistrar` server. The result names the agent bound to this OAuth session, its inbox address, its scopes and its human owner. The shape below is illustrative; the ids and address are synthetic:
+Approve each tool call, then expand it in the conversation and check that it belongs to the `agentregistrar` server. `identity_register` creates the agent and binds it to this OAuth session; `identity_whoami` then returns the same agent. Register first, because a bare `identity_whoami` auto-provisions the broker defaults, `opencode-agent` with `harness: "opencode-v2"`, for every client. Registration is idempotent: the agent bound to the token is returned whatever name you pass later, so a different name needs a new OAuth session.
+
+The shape below is illustrative, with synthetic ids and address. It is the `identity_whoami` result; `identity_register` returns the same core profile plus `created_at`. The nested `agent` mirror, `signup_state` and `docs` are omitted for length.
 
 ```json
 {
-  "id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "id": "agt_01JAB2C3D4E5F6G7H8J9K0V1W2",
   "name": "vscode-agent",
-  "slug": "vscode-agent-7r8s9t",
+  "slug": "vscode-agent-k0v1w2",
   "harness": "vscode",
-  "email_address": "vscode-agent-7r8s9t@agents.agentregistrar.dev",
+  "email_address": "vscode-agent-k0v1w2@agents.agentregistrar.dev",
   "status": "active",
-  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"]
+  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"],
+  "human_owner": { "...": "..." }
 }
 ```
 

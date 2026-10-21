@@ -31,7 +31,7 @@ Tiers are defined below. "Checked" is the date the page was verified, not a rele
 | Codex CLI | `codex mcp add` then `codex mcp login` | OAuth, CIMD or DCR | 2 | 2026-10-21 | [Codex CLI](/agents/install/codex-cli/) |
 | Cursor | `.cursor/mcp.json` with `url` | OAuth, DCR or static client | 2 | 2026-10-21 | [Cursor](/agents/install/cursor/) |
 | Gemini CLI | `gemini mcp add --transport http` | OAuth, DCR | 2 | 2026-10-21 | [Gemini CLI](/agents/install/gemini-cli/) |
-| VS Code / Copilot | `.vscode/mcp.json` or portable `.mcp.json` | OAuth, pre-registered client ID | 2 | 2026-10-21 | [VS Code and Copilot](/agents/install/vscode/) |
+| VS Code / Copilot | `.vscode/mcp.json` or portable `.mcp.json` | OAuth, pre-registered client ID (automatic registration unverified) | 2 | 2026-10-21 | [VS Code and Copilot](/agents/install/vscode/) |
 | Claude Desktop | Customize > Connectors | OAuth, automatic registration | 2 | 2026-10-21 | [Claude Desktop](/agents/install/claude-desktop/) |
 | Any other MCP client | HTTP plus OAuth discovery | Bearer token | 3 | 2026-10-21 | [Generic MCP client](/agents/install/generic-mcp/) |
 
@@ -47,7 +47,7 @@ A page may only say "supported" together with its tier and date. None does, beca
 
 ## Which page to open
 
-- **OpenCode V2** is the client the portal dashboard shows. Its page has the only live connection check in this set: the server was added and the client reported that it needs authentication.
+- **OpenCode V2** is the default tab the portal dashboard shows. Its page has the only live connection check in this set: the server was added and the client reported that it needs authentication.
 - **Claude Code** is the other command-line client with a documented OAuth path. The page records documentation checks only, because the client was not installed on the verification machine.
 - **Codex CLI**, **Cursor**, **Gemini CLI**, **VS Code** and **Claude Desktop** each have a page with the exact configuration shape for that client, the authorization flow it documents, and what remains unverified.
 - **Generic MCP client** is the fallback. It carries the transport, discovery and `curl` transcript, and it is the page to use for a client that is not listed.
