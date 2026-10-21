@@ -8,9 +8,17 @@ static output.
 - Product site: <https://agentregistrar.dev>
 - Specification repository: <https://github.com/agentregistrar/spec>
 
-The site ships the functional shell, the home and section landing pages, and the
-`agent-identity-v1` protocol section. The provider, agent, portal and reference
-content is being added section by section.
+The site ships the protocol section, the provider and agent guides, the portal
+and reference content, and the contribution pages. The content source is
+`src/content/docs/`; the protocol pages are generated from a pinned spec
+release.
+
+## Contributing
+
+Read [`CONTRIBUTING.md`](./CONTRIBUTING.md) for page templates, provenance,
+the review checklist and pull request rules. Read [`MAINTENANCE.md`](./MAINTENANCE.md)
+for the spec-sync, redirect, release, freshness and incident runbooks. There are
+no tests; the build and the authoring gates below are the verification.
 
 ## Local development
 
@@ -81,6 +89,8 @@ Current pages:
 - `/` - docs home
 - `/start/`, `/agents/`, `/providers/`, `/protocol/`, `/portal/`, `/reference/`,
   `/contribute/` - section landings
+- `/contribute/docs/`, `/contribute/spec/`, `/contribute/local-development/` -
+  page templates and review, the spec change process, and the local runbook
 - `/agent-identity/v1/` - protocol landing, with hand-authored reference pages
   for discovery fields, assertion claims, receipt and context, security,
   conformance and versioning
@@ -109,9 +119,10 @@ protocol pages.
 - Rendered text is ASCII, sentence case and free of icons. The site is dark-only
   and has no theme toggle. Generated protocol pages are the documented exception:
   they preserve canonical spec punctuation (see `AGENT.md` section 12).
-- The contribution guide (`CONTRIBUTING.md`) is not published yet. Until then,
-  use the page templates and voice rules in [`AGENT.md`](./AGENT.md) sections 6
-  and 7.
+- The contribution rules are in [`CONTRIBUTING.md`](./CONTRIBUTING.md)
+  (templates, provenance and the review checklist) and the maintainer runbooks
+  are in [`MAINTENANCE.md`](./MAINTENANCE.md). The agent-specific detail remains
+  in [`AGENT.md`](./AGENT.md) sections 5 to 13.
 
 ## Docs for agents
 
@@ -179,7 +190,8 @@ generated banner. Nothing else. To bump the spec version, edit `tag` in
 hand-authored pages and cross-links, and commit the lock with the generated
 pages. For a commit pin, run
 `node scripts/sync-spec.mjs --write --commit <sha> --ref main --tag <tag>`.
-The full runbook is in [`AGENT.md`](./AGENT.md) section 11.
+The full runbook is in [`MAINTENANCE.md`](./MAINTENANCE.md) section 2 and
+[`AGENT.md`](./AGENT.md) section 11.
 
 ## Deployment
 
@@ -205,7 +217,7 @@ Manual deploy (the fallback, and what the cutover used):
 ```bash
 pnpm install --frozen-lockfile
 pnpm build
-pnpm deploy     # wrangler deploy; needs CLOUDFLARE_API_TOKEN or cf OAuth
+pnpm run deploy  # wrangler deploy; needs CLOUDFLARE_API_TOKEN or cf OAuth
 ```
 
 The Worker hostname `https://agentregistrar-docs.sdairs.workers.dev` is enabled

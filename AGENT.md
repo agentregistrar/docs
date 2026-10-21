@@ -8,6 +8,13 @@ Read it before you edit, audit, or verify a page. If a rule here conflicts with
 `docs/12-docs-push/` in the monorepo, the monorepo record wins for scope, and
 this file is corrected in the same change.
 
+The human contribution contract is in [`CONTRIBUTING.md`](./CONTRIBUTING.md):
+page templates, provenance, the review checklist and pull request rules. The
+release, sync, redirect, freshness and incident runbooks are in
+[`MAINTENANCE.md`](./MAINTENANCE.md). This file adds the agent-specific
+operating detail; where the two overlap, the stricter rule wins. Do not copy
+`THEME.md` rules into a content page or this file.
+
 ## 1. What this repo is
 
 The public documentation site for Agent Registrar and `agent-identity-v1`.
@@ -83,10 +90,11 @@ scripts/check-theme.mjs    Terminal QA gate (not a test)
   without listing it.
 - Adding a page: create the file, give it a `title` and `description`, set the
   provenance fields, link it from its section landing page, then run the gates
-  in section 10. There is no second navigation config to update.
+  in section 10. The only manual navigation is the top-level sidebar order in
+  `astro.config.ts`; there is no second page tree to update.
 - Moving a page changes a public URL. Add a permanent redirect in
-  `astro.config.ts` in the same change, and only to a route that exists in the
-  same build.
+  `astro.config.ts` in the same change for both the slashless and the
+  trailing-slash form, and only to a route that exists in the same build.
 
 ## 5. Frontmatter and provenance
 
@@ -134,7 +142,8 @@ verifiedAgainst: "spec v1.1.0, validator 1.0.0, 2026-10-21"
 
 ## 6. Page templates
 
-Pick one shape; do not invent a seventh.
+Pick one shape; do not invent a seventh. `CONTRIBUTING.md` section 3 is the
+human-facing copy of this table; keep the two in step.
 
 1. **Concept** - what and why, mental model, diagram, non-goals, next links.
 2. **Quickstart** - outcome, prerequisites, numbered steps, verify, next step.
@@ -237,7 +246,9 @@ skills/<name>/SKILL.md
 ## 10. Gates: build, check, lint, theme
 
 Run in this order before you hand work back. Lint needs a prior build because
-the link rules read `.nimbus/routes.json`.
+the link rules read `.nimbus/routes.json`. The same commands, with pass/fail
+rules, are in `CONTRIBUTING.md` section 10; the release gate set is in
+`MAINTENANCE.md` section 11.
 
 ```bash
 pnpm install --frozen-lockfile   # cold checkout only
@@ -417,6 +428,9 @@ Cross-checks for a page you added or changed:
 - The HTML head has one `application/ld+json` block and a
   `rel="alternate" type="text/markdown"` link.
 - Nothing in the agent surface exposes a `draft` or `noindex` page.
+- Both URL shapes of a registered redirect return one `308` hop:
+  `curl -sI http://127.0.0.1:8787/old-path` and `.../old-path/`. A `200` on
+  either shape means the trailing-slash key is missing from `astro.config.ts`.
 
 JSON-LD check (structure, no network):
 
@@ -471,6 +485,10 @@ Run, in order:
 Do not fix a finding by silencing a rule. Fix the page, or record why the rule
 is wrong for this site and change the config in a reviewed diff.
 
+The recurring version of this sweep is the freshness audit in
+[`MAINTENANCE.md`](./MAINTENANCE.md) section 6: run it quarterly and before a
+launch, and record the date and findings.
+
 ## 14. Known warnings and deviations
 
 - `WARN [glob-loader] The base directory "src/content/partials/" does not
@@ -479,13 +497,14 @@ is wrong for this site and change the config in a reviewed diff.
 - `WARN [vite] MODULE_LEVEL_DIRECTIVE "use astro:head-inject"` - emitted by
   Astro for MDX pages that render Nimbus head injection. Harmless upstream
   noise.
-- `nimbus-docs` reports `1 page found without an <html> element: "/docs/"` -
-  the `/docs` redirect stub is not a page. Harmless.
-- `/docs` is a 308 to `/`; `/spec`, `/specification` and
-  `/agent-identity/v1/agent-signup` are 308s to the protocol pages. The
-  remaining staged redirects stay commented in `astro.config.ts` until their
-  destination page exists. Do not activate a redirect before its destination
-  exists.
+- The redirect stubs are not pages, so the build reports "4 pages found without
+  an <html> element" (`/docs/`, `/spec/`, `/specification/`,
+  `/agent-identity/v1/agent-signup/`). Harmless. `/docs` is a 308 to `/`;
+  `/spec`, `/specification` and `/agent-identity/v1/agent-signup` are 308s to
+  the protocol pages. The redirect map registers both the slashless and the
+  trailing-slash key, so both URL shapes are one permanent hop. The remaining
+  staged redirects stay commented in `astro.config.ts` until their destination
+  page exists. Do not activate a redirect before its destination exists.
 - `pnpm check:theme` exempts generated pages (`generated: true` in
   frontmatter) from the non-ASCII rule. The spec text is canonical and contains
   typographic punctuation; it is not hand-authored prose and must not be
@@ -501,7 +520,8 @@ is wrong for this site and change the config in a reviewed diff.
 
 ```bash
 pnpm build
-pnpm deploy     # wrangler deploy; predeploy runs the build again
+pnpm run deploy # wrangler deploy; predeploy runs the build again
+                # `pnpm run` is required: bare `pnpm deploy` is a pnpm built-in
 ```
 
 The site is live at `https://docs.agentregistrar.dev`, served by the
@@ -510,7 +530,7 @@ no Worker script). Workers Builds is connected to `agentregistrar/docs` and
 builds the production branch `main` on push, so the live site tracks `main` and
 not an unmerged branch. The build connection's first production build ran from
 `main` (commit `57974ba`) and succeeded; the Issue 04 cutover was a manual
-`pnpm deploy` from the unmerged branch, and the next `main` push rebuilds the
+`pnpm run deploy` from the unmerged branch, and the next `main` push rebuilds the
 merged config. `wrangler.jsonc` sets the assets directory (`./dist`), `404-page`
 handling, `auto-trailing-slash`, the custom-domain route, `preview_urls` and
 observability. `public/_headers` supplies the agent-endpoint content types,

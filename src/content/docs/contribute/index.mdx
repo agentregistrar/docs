@@ -1,18 +1,44 @@
 ---
 title: Contribute
 description: Help maintain the docs, the specification and the registry.
-audience: both
+audience: human
 aiGenerated: true
+sidebar:
+  order: 0
 ---
 
-The docs and the specification are public and Apache-2.0. Contributions follow the same evidence rules as the published pages: cite the specification or a dated verification record, keep rendered text ASCII, and do not paraphrase normative text into product pages.
+The documentation site and the specification are public and Apache-2.0. Anyone can open a pull request. The rule is the same for every contribution: cite the canonical source or a dated verification record, keep rendered text ASCII, and do not restate normative text on a product page.
 
-## What this section covers
+## What you can contribute
 
-- Docs contribution: page templates, voice, provenance and review.
-- Spec and registry: the specification change process and registry entries.
-- Local development: run the docs site, sync the spec and run the checks.
+- **A docs page or fix.** Add a page from a template, correct a broken step, or update a claim after a behavior change. Start with [Contribute to the docs](/contribute/docs/).
+- **A specification change.** Propose a protocol change with compatibility and conformance evidence. Start with [Contribute to the spec](/contribute/spec/).
+- **A registry entry.** Publish a conformant discovery document and add the evidence to the implementation registry.
+- **A harness check.** Re-run an install or signup flow and report the exact client version, tier and date.
+- **A reproducible example.** A runnable sample or fixture that other readers can repeat.
 
-## Primary next step
+## How review works
 
-For the rules the pages must satisfy, see [Protocol](/protocol/) and the shared limits in [Start here](/start/).
+A page drafted by an agent stays marked `aiGenerated: true` and shows "awaiting review". Only a human reviewer clears the flag, after checking the page against its source and running the steps it contains. The reviewer records the result in the pull request and sets `lastReviewed` to the date of the review.
+
+No review means no reviewed date. Do not clear the flag for someone else, and do not invent a verification date.
+
+## Read the rules
+
+- [Docs contribution rules](https://github.com/agentregistrar/docs/blob/main/CONTRIBUTING.md): page templates, frontmatter, the review checklist and pull request rules.
+- [Maintenance runbook](https://github.com/agentregistrar/docs/blob/main/MAINTENANCE.md): spec sync, redirects, releases, freshness audits and incidents.
+- [Visual system](https://github.com/agentregistrar/docs/blob/main/THEME.md): tokens, typography and component recipes. Content pages link it; they do not restate it.
+- [Scope boundaries](https://github.com/agentregistrar/spec/blob/main/scope-boundaries.md): what belongs in the protocol and what belongs to a vendor.
+- [Implementation registry](https://github.com/agentregistrar/spec/blob/main/registry/README.md): conformance criteria and entry evidence.
+
+## Paths through this section
+
+| Page | Use it for |
+| :--- | :--- |
+| [Contribute to the docs](/contribute/docs/) | Page types, provenance, voice, review and the checks a docs change must pass. |
+| [Contribute to the spec](/contribute/spec/) | The spec change process, conformance evidence, and how the docs pick up a release. |
+| [Local development](/contribute/local-development/) | Clone, run, build, sync and check the site. |
+
+## Next
+
+Start with [Contribute to the docs](/contribute/docs/) for the templates and the review checklist, then run the site locally with [Local development](/contribute/local-development/). For the contract itself, read [Protocol](/protocol/).

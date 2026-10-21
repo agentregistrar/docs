@@ -1,0 +1,108 @@
+---
+title: Contribute to the docs
+description: Page templates, provenance, review and the checks a docs change must pass.
+audience: human
+aiGenerated: true
+sidebar:
+  order: 1
+---
+
+This is the short public version of the docs contribution guide. The full rules, including the exact review checklist and pull request rules, are in [CONTRIBUTING.md](https://github.com/agentregistrar/docs/blob/main/CONTRIBUTING.md). Visual rules are in [THEME.md](https://github.com/agentregistrar/docs/blob/main/THEME.md); they are not repeated here.
+
+## Before you write
+
+1. Find the canonical source for the claim: the [specification](https://github.com/agentregistrar/spec) at the pinned tag, the deployed service, or a dated verification record.
+2. Decide whether the change is docs or a contract. The docs explain and point; they do not own the protocol.
+3. Choose one page shape and check that no existing page already covers it. Link the canonical page instead of restating it.
+
+## Page templates
+
+| Type | Required shape |
+| :--- | :--- |
+| Concept | What and why, mental model or diagram, non-goals, next links. |
+| Quickstart | Outcome, prerequisites, numbered steps, verify, next step. |
+| How-to | Goal, before you start, steps, verify, troubleshooting. |
+| Tutorial | End-to-end narrative with expected output. |
+| Reference | Fields and tables, types, defaults, examples, related pages. |
+| Troubleshooting | Symptom, cause, fix, prevention. |
+| Changelog | Version, date, changes, compatibility. |
+
+Every page ends with a verify or next-step section. Do not invent a new page shape.
+
+## Frontmatter and provenance
+
+Every page needs a one-sentence `description`. The provenance fields are:
+
+```yaml
+---
+title: Publish discovery
+description: Serve an identity-only discovery document that the validator accepts.
+audience: both
+aiGenerated: true
+verifiedAgainst: "spec v1.1.0, validator 1.0.0, 2026-10-21"
+---
+```
+
+- `aiGenerated: true` marks an agent draft. The page actions row shows "awaiting review" until a human clears it.
+- `verifiedAgainst` names the exact artifact a behavior page was checked against. If you cannot name it, leave it unset and say what is unverified in the pull request.
+- `lastReviewed` is the date a human reviewed the page against its source. Only the reviewer sets it; never guess or backfill.
+- `source` is for generated protocol pages only. Never hand-edit a generated page.
+
+## Voice and claims
+
+- Rendered text is ASCII. Use `-`, `->` and `...`, not smart quotes, arrows, icons or emoji.
+- Sentence case, short sentences, no marketing and no exclamation marks.
+- Every behavior claim links to the specification, a deployed endpoint, a fixture or a dated verification record.
+- State known gaps and non-goals. Do not claim an SDK, SLA, uptime, customer count or certification that does not exist.
+- Do not paraphrase legal text. Link the terms pages.
+
+## Code samples
+
+Every sample is runnable against the deployed demo, `localhost` or a public URL, with expected output shown. Pin a version where it matters, keep values synthetic, and declare a language on every code fence. Shell blocks contain the command only, with no `$ ` prompt, so a reader can copy them.
+
+## Add a page
+
+1. Create `src/content/docs/<section>/<page>.mdx` with a title, description and provenance.
+2. Set `sidebar.order` to sort it in its group, and `sidebar.label` to shorten the rail title.
+3. Link it from the section landing page.
+4. Build and confirm the URL is `/<section>/<page>/` and the page appears in its section `/llms.txt`.
+5. Add a redirect only when the page replaces an existing URL. Add it in
+   `astro.config.ts` for both the slashless and the trailing-slash form; a
+   versioned collection may use `previousSlug` instead.
+
+## Review checklist
+
+- [ ] The claim matches the canonical source at the named tag, commit or date.
+- [ ] `verifiedAgainst` is real; `aiGenerated` is cleared and `lastReviewed` is set by the reviewer.
+- [ ] The page uses one template shape and its required sections.
+- [ ] Rendered text is ASCII and free of hype, emoji and exclamation marks.
+- [ ] Samples are runnable, synthetic and show expected output.
+- [ ] Internal links point at the destination, not a redirect.
+- [ ] The checks below pass, and warnings are explained.
+- [ ] No private path, issue number, secret or personal data appears.
+
+## Local checks
+
+```bash
+pnpm install --frozen-lockfile
+pnpm build
+pnpm check
+pnpm lint
+pnpm typecheck
+pnpm check:theme
+pnpm check:links
+pnpm sync:spec:check
+git diff --check
+```
+
+There are no tests. The build, the lint and link gates, the theme gate and a human review are the verification. The exact pass/fail rules are in [AGENT.md](https://github.com/agentregistrar/docs/blob/main/AGENT.md) section 10.
+
+## Pull requests
+
+Branch from `main`, keep one logical page group per pull request, and record what you ran and what it returned. Do not include product code, protocol edits, legal text, analytics, tests or a new deploy workflow. A rename includes the move, the redirect and the updated links together.
+
+## Next
+
+- [Local development](/contribute/local-development/): run the site and the gates.
+- [Maintenance runbook](https://github.com/agentregistrar/docs/blob/main/MAINTENANCE.md): the maintainer's sync, redirect and release procedures.
+- [Contribute to the spec](/contribute/spec/): the protocol side of a change.

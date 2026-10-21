@@ -1,0 +1,74 @@
+---
+title: Contribute to the spec
+description: Propose a specification change, publish conformance evidence and add a registry entry.
+audience: human
+aiGenerated: true
+sidebar:
+  order: 2
+---
+
+The specification lives in [agentregistrar/spec](https://github.com/agentregistrar/spec) and is canonical for every normative rule. The docs site renders it from a pinned release; it does not accept protocol edits. A protocol change starts in the spec repository and reaches this site through a sync.
+
+## What belongs where
+
+| Change | Where it goes |
+| :--- | :--- |
+| A field, error, claim or protocol rule | The spec repository, with compatibility and conformance evidence. |
+| A discovery document that implements the protocol | A provider page or a registry entry, not the spec. |
+| An explanation, quickstart or troubleshooting page | This docs site. |
+| A product capability or vendor API detail | The provider's own post-signup guide, reached through the context pointer. |
+
+The scope rule is in [scope boundaries](https://github.com/agentregistrar/spec/blob/main/scope-boundaries.md). Discovery is a parameter document, not a capability catalog.
+
+## Propose a change
+
+1. Open a pull request in the spec repository that states the problem, the proposed rule and the compatibility impact. Say whether existing implementors stay conformant.
+2. Update the normative text, the JSON Schema and any affected fixture together. A change that adds no fixture or validator coverage is incomplete.
+3. Run the conformance validator against the updated fixtures and record the exact command and result in the pull request.
+4. Update the release notes with the version, date, changes and compatibility.
+5. Merge to `main`, then tag the release. The docs site pins a tag, so an untagged `main` is not a docs input.
+
+A change that affects the wire protocol id needs a new version collection and a migration note. Text-only clarifications that keep `agent-identity-v1` unchanged are additive releases.
+
+## Conformance evidence
+
+The validator is the objective check. A discovery document is conformant when it passes with zero errors:
+
+```bash
+pnpm validate:discovery https://example.com/.well-known/agent-signup.json --json
+```
+
+Record the command, the validator version, the protocol and audience observed, and the result. Warnings are allowed and must be reported. A passing document is a statement about the document, not about the implementation's security, uptime or product.
+
+The command and flag reference is in the [conformance validator](/agent-identity/v1/validator/). The field-level rules are in [Discovery fields](/agent-identity/v1/discovery-fields/).
+
+## Add a registry entry
+
+The registry is adoption infrastructure, not an enforcement mechanism. The canonical criteria and the machine-readable file are in the [implementation registry](https://github.com/agentregistrar/spec/blob/main/registry/README.md). In short, an entry needs:
+
+- a public, stable HTTPS discovery document on the canonical origin;
+- a validator pass with zero errors, with the evidence recorded;
+- a reachable security, abuse or legal contact;
+- a published post-signup guide when the vendor has capabilities to document.
+
+Do not list vendor features as protocol capabilities. The registry table and `implementations.json` stay in lockstep; update both in the same change.
+
+## How the docs pick up a release
+
+1. The release is tagged in the spec repository and the release notes are
+   published.
+2. A docs pull request bumps the pin with `node scripts/sync-spec.mjs --write
+   --tag <new-tag>` (never by editing `tag` alone, which re-syncs the old
+   commit under the new label), confirms the lock moved, runs
+   `pnpm sync:spec:check`, and reviews the generated diff.
+3. Hand-authored pages and cross-links are updated where fields, errors or claims changed.
+4. The changelog and current-version strings are updated, then the full gate set runs.
+
+That runbook is in [MAINTENANCE.md](https://github.com/agentregistrar/docs/blob/main/MAINTENANCE.md) section 2. Do not edit a generated protocol page; the sync overwrites it, and the build fails on a hash mismatch.
+
+## Next
+
+- [Contribute to the docs](/contribute/docs/): the docs side of a change.
+- [Local development](/contribute/local-development/): run the validator, the sync and the docs gates.
+- [Specification](/agent-identity/v1/specification/): the rendered normative text.
+- [Protocol section](/protocol/): the page map for implementors.
