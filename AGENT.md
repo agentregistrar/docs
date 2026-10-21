@@ -11,8 +11,10 @@ this file is corrected in the same change.
 ## 1. What this repo is
 
 The public documentation site for Agent Registrar and `agent-identity-v1`.
-Static Astro build via Cloudflare Nimbus, deployed to Cloudflare Workers static
-assets at <https://docs.agentregistrar.dev>. Apache-2.0.
+Static Astro build via Cloudflare Nimbus, live at
+<https://docs.agentregistrar.dev> on the Cloudflare Pages project
+`agentregistrar-docs`; Cloudflare Workers static assets is the pending cutover
+target (section 15). Apache-2.0.
 
 Canonical sources live outside this repo. Do not restate normative text here.
 
@@ -437,15 +439,20 @@ pnpm build
 pnpm deploy     # wrangler deploy; predeploy runs the build again
 ```
 
-The target is Cloudflare Workers static assets (`wrangler.jsonc`, directory
-`./dist`, `404-page` handling). The production branch is `main`. There is no
-deploy workflow in GitHub Actions, and the Worker, its headers/redirects and the
-`docs.agentregistrar.dev` domain are not provisioned from this repository yet:
-deployment is a pending decision owned by the deployment issue, so do not
-describe the platform as building on push. Run `wrangler dev` locally (section
-12) for the host contract until the Worker exists. Cloudflare's own `_headers`
-support consumes `public/_headers` plus the generated Nimbus block. Do not
-change DNS from a content change.
+The site is live at `https://docs.agentregistrar.dev`, served today by the
+existing Cloudflare Pages project `agentregistrar-docs`. That project is
+Git-connected to `agentregistrar/docs` and builds the production branch `main`
+on push, so the live site tracks `main` and not an unmerged branch.
+
+Only the Workers cutover is pending (Issue 04). `wrangler.jsonc` targets
+Cloudflare Workers static assets (directory `./dist`, `404-page` handling), and
+`pnpm deploy` runs `wrangler deploy`, but there is no deploy workflow in GitHub
+Actions: the Worker, its headers/redirects, the host-header policy, the DNS
+change and the final topology are unprovisioned until that cutover. Until then
+the Pages project stays the serving path, and `wrangler dev` locally (section
+12) is the host contract to test against. Cloudflare's own `_headers` support
+consumes `public/_headers` plus the generated Nimbus block. Do not change DNS
+from a content change.
 
 ## 16. Upgrading Nimbus
 

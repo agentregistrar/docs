@@ -137,13 +137,18 @@ sync:spec` is a placeholder today.
 
 ## Deployment
 
-The build is static and targets Cloudflare Workers static assets
-(`wrangler.jsonc`). The Worker, the redirects, the headers and the
-`docs.agentregistrar.dev` domain are not provisioned from this repository yet.
+The site is live at `https://docs.agentregistrar.dev`, served by the existing
+Cloudflare Pages project `agentregistrar-docs`, which is Git-connected to this
+repository and builds the production branch `main` on push.
+
+The Workers cutover is still pending (Issue 04). The build is static and
+`wrangler.jsonc` targets Cloudflare Workers static assets; the Worker, the
+redirects and headers policy, the host-header policy, the DNS change and the
+final topology are unprovisioned from this repository today.
 
 ```bash
 pnpm build
-pnpm deploy     # wrangler deploy, after the Worker is provisioned
+pnpm deploy     # wrangler deploy, once the Workers cutover lands
 ```
 
 ## License
