@@ -75,20 +75,35 @@ The validator recomputes the same digest and fails on a mismatch. It prints the 
 
 ## Do not hash the rendered page
 
-The live VaporCloud discovery document advertises `sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5` over its `terms.text`. Hashing the HTML page at the same URL gives a different digest:
+The live VaporCloud discovery document advertises `sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5` over its `terms.text`. Hashing the HTML page at the same URL never reproduces that value:
 
 ```bash
 curl -sS https://skdl.dev/terms -o terms.html
 sha256sum terms.html
 ```
 
-Recorded output on 2026-10-21:
+The HTML digest is not reproducible, and that is the point. The page embeds a per-request Cloudflare challenge token (`__CF$cv$params` carries a fresh ray id), so three consecutive fetches on 2026-10-21 returned `db012b90...`, `6ca3d454...` and `9b127a18...`; an earlier recorded fetch gave `52f691a4...`. Four digests for the same URL, none of them the advertised `sha256:e854d9c2...`. A digest you cannot reproduce is not a terms binding.
 
-```text
-52f691a440318acd6a1a504ae9a34d3ec15bc0ffe8453e1599d43bc69c77f8a3  terms.html
+For a deterministic comparison, hash a local copy of the terms text and then hash a JSON-encoded wrapper of the same text:
+
+```bash
+node --input-type=module -e '
+import { createHash } from "node:crypto";
+const text = "Example RP Terms of Service v2026.1";
+const hash = (value) => "sha256:" + createHash("sha256").update(value, "utf8").digest("hex");
+console.log(hash(text));
+console.log(hash(JSON.stringify({ text })));
+'
 ```
 
-Both are real digests of real artifacts. Only the first is the terms binding, because it is the digest of the text the agent receives in `terms.text`.
+Recorded output:
+
+```text
+sha256:fbbb44ec069bfb7d5eb1da2a1c384505a5c7ee5676362c836a0bff438ed0bb21
+sha256:48cf7cb63bd049cfe2f92f9160e0b47f90ba2ff2fec6af94548ee888602efea5
+```
+
+Both runs are deterministic, and they still differ: the second hashes a wrapper, not the text the agent receives. Only the first form is the terms binding, because it covers exactly the bytes carried in `terms.text`.
 
 ## Common mistakes
 

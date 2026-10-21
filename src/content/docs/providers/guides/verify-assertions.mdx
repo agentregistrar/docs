@@ -234,7 +234,7 @@ The verifier was run against synthetic variants of the same fixture. Each row is
 
 | Check | Rule | Failure code |
 | :--- | :--- | :--- |
-| Signature | Verify against `GET <iss>/.well-known/jwks.json`; `alg` is `EdDSA`; the key matches `kid`; `typ` is `agent-id+jwt` when present. | `invalid_assertion` (401) |
+| Signature | Verify against `GET <iss>/.well-known/jwks.json`; `alg` is `EdDSA`; the key matches `kid`; `typ` is `agent-id+jwt`. | `invalid_assertion` (401) |
 | Issuer | `iss` equals an `issuer_allowlist` entry exactly. | `issuer_not_allowed` (403) |
 | Audience | `aud` equals your published `audience`. | `audience_mismatch` (403) |
 | Expiry | `exp` has not passed; allow at most 60 seconds of clock skew. | `assertion_expired` (401) |

@@ -17,8 +17,10 @@ cd provider-worker
 npm init -y
 npm install jose@6.2.13
 npm install --save-dev wrangler@4.151.3
-printf 'Example RP Terms of Service\nVersion: 2026.1' > terms.txt
+printf 'Example RP Terms of Service v2026.1' > terms.txt
 ```
+
+The terms bytes are the same bytes the [verify-assertions fixture](/providers/guides/verify-assertions/) signs, so the recorded signup responses reproduce.
 
 `wrangler.jsonc`:
 
@@ -209,13 +211,13 @@ curl -sS -X POST http://127.0.0.1:3004/api/signup/agent \
 Recorded output:
 
 ```json
-{"resolution":"created","account_id":"acct_3b115c02-1ba4-47e1-9711-051cff1e725e","api_key":"sk_live_6a846026-160e-448f-96ff-3c5be1a8bdef"}
+{"resolution":"created","account_id":"acct_31e0ce34-83f3-4126-b072-932205c1fb15","api_key":"sk_live_42188619-9557-4e14-9451-6dbc6be3c376"}
 ```
 
 Repeat the call:
 
 ```json
-{"resolution":"resolved","account_id":"acct_3b115c02-1ba4-47e1-9711-051cff1e725e"}
+{"resolution":"resolved","account_id":"acct_31e0ce34-83f3-4126-b072-932205c1fb15"}
 ```
 
 The second call returns no credential, as required.

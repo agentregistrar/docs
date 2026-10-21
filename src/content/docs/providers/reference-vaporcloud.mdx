@@ -76,9 +76,9 @@ valid: true, exitCode: 0, passed: 22, failed: 0, warnings: 0, probes: 1
 
 The issuer JWKS probe passed with one verification key. The registry evidence format is in [Validate and register](/providers/guides/validate-and-register/).
 
-## The signup response
+## The signup response (documented, not observed)
 
-A live signup requires a real agent assertion from the broker, so this walkthrough did not create an account. The response shape is documented in the live VaporCloud guide and is reproduced here as vendor documentation:
+A live signup requires a real agent assertion from the broker, so this walkthrough did not create an account. The shape below is what the live VaporCloud guide documents, plus the `attribution` block the checked-in reference handler adds; it was not observed against the live service on 2026-10-21.
 
 ```json
 {
@@ -96,13 +96,20 @@ A live signup requires a real agent assertion from the broker, so this walkthrou
     "method": "rotate",
     "endpoint": "https://skdl.dev/api/account/rotate-key",
     "guide_url": "https://skdl.dev/docs/SKILL.md"
+  },
+  "attribution": {
+    "agent_id": "agt_<...>",
+    "agent_email": "<agent-slug>@agents.example",
+    "human_owner": "<name> (<email>)",
+    "human_email": "<email>",
+    "accepted_tos_hash": "sha256:<64 hex>"
   }
 }
 ```
 
-Protocol fields and vendor fields are mixed in the HTTP response on purpose: `resolution`, `account_id` and `context` are protocol-adjacent; `vapor_api_key` and `credential_recovery` are vendor capability. The signed receipt carries only the identity facts, the opaque account id and the context pointer. It does not carry the key.
+Protocol fields and vendor fields are mixed in the HTTP response on purpose: `resolution`, `account_id` and `context` are protocol-adjacent; `vapor_api_key`, `credential_recovery` and `attribution` are vendor capability. The signed receipt carries only the identity facts, the opaque account id and the context pointer. It does not carry the key.
 
-On `"resolved"`, the credential is omitted. A repeated signup resolves the account; it does not reissue the key.
+`vapor_api_key` is present only when `resolution` is `"created"`. On `"resolved"` the field is absent, `credential_recovery` points at the vendor's rotation endpoint, and `attribution` is refreshed. A repeated signup resolves the account; it does not reissue the key.
 
 ## The context guide
 

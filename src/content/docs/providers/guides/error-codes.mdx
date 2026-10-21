@@ -31,16 +31,16 @@ The normative table is [spec section 7.2](/agent-identity/v1/specification/#72-e
 
 | Code | HTTP | Retryable | Agent action |
 | :--- | :--- | :--- | :--- |
-| `invalid_request` | 400 | no | Fix the request; do not retry blindly. |
-| `invalid_assertion` | 401 | no | Obtain a new assertion. |
-| `issuer_not_allowed` | 403 | no | Do not proceed; the broker is not accepted here. |
-| `audience_mismatch` | 403 | no | Re-discover and mint a correct-audience assertion. |
-| `assertion_expired` | 401 | no | Obtain a new assertion. |
-| `assertion_replayed` | 409 | no | Obtain a new assertion; do not reuse. |
-| `tos_hash_mismatch` | 409 | no | Hard stop: re-discover, re-read, re-accept, re-assert. |
-| `insufficient_scope` | 403 | no | Ask the human to re-delegate; do not proceed. |
-| `human_unverified` | 403 | no | Complete human verification; do not proceed. |
-| `rate_limited` | 429 | yes | Back off and retry after the advertised delay. |
+| `invalid_request` | 400 | no | Correct the request; a blind retry fails again. |
+| `invalid_assertion` | 401 | no | Request a fresh assertion. |
+| `issuer_not_allowed` | 403 | no | Stop here: this broker is not on your list. |
+| `audience_mismatch` | 403 | no | Re-read discovery and ask for an assertion aimed at your audience. |
+| `assertion_expired` | 401 | no | Request a fresh assertion. |
+| `assertion_replayed` | 409 | no | Request a fresh assertion; the old id is spent. |
+| `tos_hash_mismatch` | 409 | no | Stop and redo consent: discover, accept and assert again. |
+| `insufficient_scope` | 403 | no | Send the human back through delegation; do not proceed. |
+| `human_unverified` | 403 | no | Finish human verification before retrying. |
+| `rate_limited` | 429 | yes | Wait for the advertised delay, then retry. |
 
 The codes and statuses are fixed for v1. Do not rename them, remap them or replace them with your own vocabulary in the core flow. If you add an implementation-specific code outside the core flow, document it, keep it distinguishable from these values, and still return the fixed code for the corresponding core failure.
 
@@ -48,7 +48,14 @@ The codes and statuses are fixed for v1. Do not rename them, remap them or repla
 
 These were produced by the [generic HTTP sample](/providers/hosting/generic-http/) on 2026-10-21 with synthetic assertions.
 
-Expired or incorrectly signed token:
+Expired token, past the 60-second skew:
+
+```text
+HTTP 401
+{"error":"assertion_expired","error_description":"Signature or JOSE header verification failed","retryable":false}
+```
+
+Incorrectly signed or malformed token:
 
 ```text
 HTTP 401

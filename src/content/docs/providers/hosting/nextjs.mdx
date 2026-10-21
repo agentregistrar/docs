@@ -15,13 +15,17 @@ verifiedAgainst: "Next.js 16.4.2, React 19.3.1, jose 6.2.13, Node 24.21.0, 2026-
 mkdir provider-nextjs
 cd provider-nextjs
 npm init -y
+npm pkg delete main
+npm pkg set type=module
 npm install next@16.4.2 react@19.3.1 react-dom@19.3.1 jose@6.2.13
 ```
 
-Set the terms file and a guide. The guide is optional; omit `CONTEXT_SHA256` if you do not publish one.
+The two `npm pkg` lines are required. `npm init -y` writes `"type": "commonjs"` and `"main": "index.js"`, so the bundler loads a `.js` route as CommonJS; the ESM `export` in the route then fails and the discovery URL returns `500` with `Specified module format (CommonJs) is not matching the module format of the source code (EcmaScript Modules)`. Deleting `main` and setting `"type": "module"` makes `route.js` load as an ES module.
+
+Set the terms file and a guide. The terms bytes below are the same bytes the [verify-assertions fixture](/providers/guides/verify-assertions/) signs, so the recorded signup responses reproduce. The guide is optional; omit `CONTEXT_SHA256` if you do not publish one.
 
 ```bash
-printf 'Example RP Terms of Service\nVersion: 2026.1' > terms.txt
+printf 'Example RP Terms of Service v2026.1' > terms.txt
 mkdir -p app/.well-known/agent-signup.json app/api/signup/agent public/docs
 printf '# Example RP agent guide\n\nCall POST /api/provision with your API key.\n' > public/docs/SKILL.md
 ```
@@ -240,8 +244,8 @@ curl -sS -X POST http://127.0.0.1:3003/api/signup/agent \
 Recorded output:
 
 ```json
-{"resolution":"created","account_id":"acct_fc349225-4e3b-49c9-92b7-f463c90d6f5a","api_key":"sk_live_436060bf-7625-4eba-81a2-dfa4a5ffbab1","context":{"url":"http://127.0.0.1:3003/docs/SKILL.md","sha256":"sha256:1fd6b456d9eba9fdf91ddee7691b70c9772ee52464d8ff36d2e0350c89c8d44e"}}
-{"resolution":"resolved","account_id":"acct_fc349225-4e3b-49c9-92b7-f463c90d6f5a","context":{"url":"http://127.0.0.1:3003/docs/SKILL.md","sha256":"sha256:1fd6b456d9eba9fdf91ddee7691b70c9772ee52464d8ff36d2e0350c89c8d44e"}}
+{"resolution":"created","account_id":"acct_1ce347cd-3b3b-4953-96f6-026de8494222","api_key":"sk_live_541450bd-5f13-4fc8-934c-0b80defe97d7","context":{"url":"http://127.0.0.1:3003/docs/SKILL.md","sha256":"sha256:28aca7f5116b57e227477c1f9f7cdc04aaadf36c9ce12d84041172a28ac5afd1"}}
+{"resolution":"resolved","account_id":"acct_1ce347cd-3b3b-4953-96f6-026de8494222","context":{"url":"http://127.0.0.1:3003/docs/SKILL.md","sha256":"sha256:28aca7f5116b57e227477c1f9f7cdc04aaadf36c9ce12d84041172a28ac5afd1"}}
 ```
 
 The second call is a success and returns no credential. That is the resolve rule, not an error.

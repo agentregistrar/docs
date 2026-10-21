@@ -9,7 +9,7 @@ verifiedAgainst: "spec v1.1.0 (d3fddc9), validator 1.0.0, @agentregistrar/discov
 
 This is the shortest conformant path. You write one terms file, hash its exact bytes, generate one JSON document, serve it over HTTP and validate it. The last step returns a stable error from a stub signup route. `example.com` and `example-rp` are synthetic values; replace them with your own origin and audience.
 
-**Measured run:** with the package cache warm, the commands below completed in 2 seconds in a clean directory on 2026-10-21 (Node 24.21.0, validator 1.0.0). That measures the mechanics, not comprehension. A first pass by a new implementer, including reading the linked rules and replacing the example values, is a 30-minute task.
+**Measured run:** with the package cache warm, the commands below completed in 2 seconds in a clean directory on 2026-10-21 (Node 24.21.0, validator 1.0.0). That measures the mechanics, not comprehension. A first pass by a new implementer, including reading the linked rules and replacing the example values, is estimated at about 30 minutes; that figure is an estimate, not a measurement.
 
 ## Before you start
 
@@ -124,6 +124,10 @@ import { readFileSync } from "node:fs";
 const document = readFileSync("agent-signup.json", "utf8");
 
 const server = createServer((req, res) => {
+  if (req.url === "/.well-known/agent-signup.json" && req.method !== "GET") {
+    res.writeHead(405, { allow: "GET" });
+    return res.end();
+  }
   if (req.url === "/.well-known/agent-signup.json") {
     res.writeHead(200, {
       "content-type": "application/json",
@@ -195,10 +199,10 @@ Path B, with the published package in any project. The package has no `bin` entr
 ```bash
 npm install @agentregistrar/discovery@1.1.0 tsx@4.23.15
 npx tsx node_modules/@agentregistrar/discovery/src/validate-discovery.ts \
-  http://127.0.0.1:3001/.well-known/agent-signup.json --json
+  http://127.0.0.1:3001/.well-known/agent-signup.json --json --probe-jwks
 ```
 
-Expected from either path, shortened here:
+Both paths use `--probe-jwks`, so both report one probe. Expected from either path, shortened here:
 
 ```json
 {

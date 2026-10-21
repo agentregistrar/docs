@@ -33,7 +33,7 @@ Use this before you take live traffic and again after any change to keys, terms 
 ## Assertion verification
 
 - [ ] Signature verification uses the issuer's `/.well-known/jwks.json`, not a `jku`/`x5u` header.
-- [ ] `alg` is `EdDSA`, the `kid` selects the key and `typ` is `agent-id+jwt` when present.
+- [ ] `alg` is `EdDSA`, the `kid` selects the key and `typ` is `agent-id+jwt`.
 - [ ] `iss` is compared against the allowlist exactly.
 - [ ] `aud` is compared against the published audience.
 - [ ] `exp` is enforced with at most 60 seconds of clock skew.
