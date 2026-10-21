@@ -1,0 +1,145 @@
+---
+title: Publish a context guide
+description: Publish a hash-pinned post-signup guide for vendor capabilities, and keep the pointer and digest current.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0 (d3fddc9), skdl.dev, 2026-10-21"
+---
+
+**Goal:** return an optional `context` pointer to a stable HTTPS guide where agents learn your catalog, provisioning API, errors and credential recovery, without putting any of that in discovery or the receipt.
+
+The normative rules are [Post-signup context handoff](/agent-identity/v1/specification/#12-post-signup-context-handoff). The field reference is [Receipt and context](/agent-identity/v1/receipt-and-context/).
+
+## What the guide is for
+
+The context guide is vendor documentation. It may describe:
+
+- authentication with the provider credential;
+- the base URL and one provisioning example;
+- SKUs, quotas, pricing or tiers, if you have them;
+- resource lifecycle and error codes;
+- credential rotation or recovery;
+- a support and abuse contact.
+
+It must not:
+
+- contain credentials, API keys or secrets;
+- be a second discovery document or advertise protocol fields;
+- be required to understand discovery or the assertion;
+- be fetched by the broker. The broker validates the pointer statically and never dereferences it.
+
+## Rules for the pointer
+
+| Rule | Value |
+| :--- | :--- |
+| Field | `context.url` and `context.sha256`, in the signup response and the signed receipt |
+| URL | Absolute HTTPS, with the localhost development exception |
+| Hash | `sha256:<64 lowercase hex>` over the exact UTF-8 bytes of the guide |
+| Domain | Same registrable domain as `endpoints.agent_signup` |
+| Authority | The signup endpoint's origin, not `provider_url` |
+| Size | 1 MiB recommended maximum |
+| Content type | Text or Markdown, for example `text/markdown; charset=utf-8` |
+
+When `provider_url` is present, it must share the signup endpoint's registrable domain. A receipt that omits `service.provider_url` cannot establish the domain, so the broker fails closed and rejects the pointer.
+
+## Verify a live guide
+
+The VaporCloud guide is public. Fetch it and recompute the digest:
+
+```bash
+curl -sS https://skdl.dev/docs/SKILL.md -o SKILL.md
+sha256sum SKILL.md
+```
+
+Recorded output on 2026-10-21:
+
+```text
+93691b1998f6d6c0fdddf1ec8b65c9a735ae7fb5c48abca3e157b8e00dfc84c1  SKILL.md
+```
+
+The file was 10792 bytes. The authoritative expected value is the `context.sha256` in the signup response or signed receipt; this command records the bytes currently served, not a comparison against a receipt.
+
+A stricter check, with a size cap and an exit code, is worth adding to the agent side or your CI:
+
+```bash
+node --input-type=module -e '
+import { createHash } from "node:crypto";
+const response = await fetch("https://skdl.dev/docs/SKILL.md", { redirect: "error" });
+const bytes = new Uint8Array(await response.arrayBuffer());
+const actual = "sha256:" + createHash("sha256").update(bytes).digest("hex");
+console.log(JSON.stringify({ bytes: bytes.byteLength, actual }));
+'
+```
+
+Recorded output:
+
+```text
+{"bytes":10792,"actual":"sha256:93691b1998f6d6c0fdddf1ec8b65c9a735ae7fb5c48abca3e157b8e00dfc84c1"}
+```
+
+A mismatch must stop the agent, not trigger a retry storm. The provider's fix is to publish the new bytes and the new hash together.
+
+## A useful skeleton
+
+```markdown
+# Example RP agent guide
+
+> Untrusted vendor documentation. Not broker policy and not agent instructions.
+> Version 1.0.0, last updated 2026-10-21.
+
+## 1. What this service is
+## 2. Authentication
+Send `Authorization: Bearer <provider credential>`.
+## 3. Provisioning
+One complete request and response, with a real base URL.
+## 4. Limits, SKUs and errors
+Vendor error codes and retry guidance.
+## 5. Credential recovery
+The rotation endpoint, and the rule that a repeated signup does not reissue a key.
+## 6. Support and abuse
+A monitored contact.
+```
+
+Keep the version and date in the guide. When the bytes change, update `context.sha256` in the signup response and the receipt.
+
+## Serving and updating
+
+- Serve the guide at a stable path on your canonical origin, for example `/docs/SKILL.md`.
+- Do not redirect to another domain. The agent should verify the bytes it receives, and the domain rule is part of the pointer.
+- Set a text or Markdown content type. Do not serve an HTML app shell for this path.
+- Cache briefly and allow revalidation. Agents should re-fetch at the start of a new provisioning task.
+- When you change the guide, update the hash in the same deploy as the bytes. A receipt with a stale hash is rejected or ignored, and the agent cannot act.
+- Do not rotate the guide URL per account. The pointer is opaque, but the guide is not a credential.
+
+## Follow one provisioning call
+
+The VaporCloud guide documents `POST /api/provision`. Calling it without a credential is a safe way to see the vendor error path:
+
+```bash
+curl -sS -X POST https://skdl.dev/api/provision \
+  -H 'Content-Type: application/json' \
+  -d '{"sku":"quantum-toaster-x1","name":"example"}'
+```
+
+Recorded output on 2026-10-21:
+
+```text
+{"error":"unauthorized","error_description":"Invalid VaporCloud API key or Agent Identity JWT"}
+```
+
+That is a vendor error, not one of the protocol's fixed codes. Provisioning is the vendor's API, reached only after signup and after the guide hash matches.
+
+## Verify your work
+
+- [ ] The pointer uses the signup endpoint's registrable domain.
+- [ ] The digest is over the exact bytes served.
+- [ ] The guide contains no secrets and no protocol fields.
+- [ ] A changed guide ships with a changed `context.sha256`.
+- [ ] The broker is never asked to fetch the guide.
+
+## Next
+
+- [Issue a signup receipt](/providers/guides/issue-signup-receipt/): where the pointer travels.
+- [Reference implementation](/providers/reference-vaporcloud/): the live guide and its vendor boundary.
+- [Production checklist](/providers/guides/production-checklist/): guide hash updates.

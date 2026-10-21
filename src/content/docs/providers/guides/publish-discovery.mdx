@@ -1,0 +1,168 @@
+---
+title: Publish discovery
+description: Serve the identity-only agent-signup.json document with the right route, content type, caching and terms lifecycle.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0 (d3fddc9), validator 1.0.0, 2026-10-21"
+---
+
+**Goal:** a live `GET /.well-known/agent-signup.json` that returns your identity fields and the current terms, and passes the validator.
+
+## Before you start
+
+- Your canonical HTTPS origin. `http://localhost` and `http://127.0.0.1` are allowed for development only.
+- The complete terms text as one immutable string, and a human-readable page at `terms.url`.
+- Your broker origin. In live examples this site uses `https://agentregistrar.dev`; substitute your broker if it differs.
+
+## The document
+
+This example is identity-only and passes the `v1.1.0` validator in file mode with zero errors and zero warnings. Its hash is the real SHA-256 of the one-line terms text shown. `example.com` and `example-rp` are synthetic values.
+
+```json
+{
+  "protocol": "agent-identity-v1",
+  "audience": "example-rp",
+  "provider_name": "Example RP",
+  "provider_url": "https://example.com",
+  "contact": "security@example.com",
+  "updated_at": "2026-10-21T00:00:00Z",
+  "issuer_allowlist": ["https://agentregistrar.dev"],
+  "required_scopes": ["tos:accept"],
+  "terms": {
+    "version": "2026.1",
+    "url": "https://example.com/terms",
+    "sha256": "sha256:554dcf89156b51f458de3d390f8fbabff9c5bcc5af792a192e6f916012ebe926",
+    "text": "Example RP Terms of Service v2026.1. Accounts are provided as-is."
+  },
+  "endpoints": {
+    "agent_signup": "https://example.com/api/signup/agent"
+  },
+  "extensions": {
+    "dev.example": {
+      "status_page": "https://status.example.com"
+    }
+  }
+}
+```
+
+The optional `extensions` value is non-capability metadata under a reverse-DNS key. Do not put catalogs, SKUs, provisioning endpoints or credentials anywhere in this document, including under `extensions`. Every field and its rule is in [Discovery fields](/agent-identity/v1/discovery-fields/).
+
+## Serve the route
+
+### Next.js App Router
+
+Place the file at `app/.well-known/agent-signup.json/route.js`. The route segment keeps the dot in the URL.
+
+```js
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const termsText = readFileSync(join(process.cwd(), "terms.txt"), "utf8");
+const sha256 = "sha256:" + createHash("sha256").update(termsText, "utf8").digest("hex");
+
+export function GET() {
+  return Response.json(
+    {
+      protocol: "agent-identity-v1",
+      audience: process.env.PROVIDER_AUDIENCE ?? "example-rp",
+      provider_name: "Example RP",
+      provider_url: process.env.PROVIDER_URL ?? "https://example.com",
+      contact: process.env.PROVIDER_CONTACT ?? "security@example.com",
+      issuer_allowlist: [process.env.BROKER_ORIGIN ?? "https://agentregistrar.dev"],
+      required_scopes: ["tos:accept"],
+      terms: {
+        version: process.env.TERMS_VERSION ?? "2026.1",
+        url: process.env.TERMS_URL ?? "https://example.com/terms",
+        sha256,
+        text: termsText,
+      },
+      endpoints: {
+        agent_signup: `${process.env.PROVIDER_URL ?? "https://example.com"}/api/signup/agent`,
+      },
+    },
+    {
+      headers: {
+        "cache-control": "public, max-age=60",
+        "access-control-allow-origin": "*",
+      },
+    },
+  );
+}
+```
+
+`Response.json` sets `application/json`. The full route and signup handler are in [Hosting: Next.js](/providers/hosting/nextjs/).
+
+### Cloudflare Worker
+
+```js
+if (url.pathname === "/.well-known/agent-signup.json" && request.method === "GET") {
+  return new Response(JSON.stringify(document), {
+    headers: {
+      "content-type": "application/json",
+      "cache-control": "public, max-age=60",
+      "access-control-allow-origin": "*",
+    },
+  });
+}
+```
+
+The complete Worker is in [Hosting: Cloudflare Worker](/providers/hosting/cloudflare-worker/).
+
+### Static file or generic HTTP
+
+A static host can serve `public/.well-known/agent-signup.json` if it sets `application/json` and does not redirect. If you generate the document at build time, hash the same bytes you write. The framework-neutral handler is in [Hosting: generic HTTP](/providers/hosting/generic-http/).
+
+## Transport rules
+
+| Rule | Value |
+| :--- | :--- |
+| Method and path | `GET /.well-known/agent-signup.json` |
+| Status when supported | `200` |
+| Status when unsupported | `404` or `410` |
+| Content type | `application/json` |
+| Authentication | none |
+| Redirects | none |
+| Cache | `public, max-age=60` (maximum 300) |
+| CORS | `Access-Control-Allow-Origin: *` where appropriate |
+| Body size | at most 1 MiB |
+
+Do not return HTML for this path, and do not gate it behind a CDN rule that adds a challenge. An agent that cannot fetch the document treats the service as unsupported.
+
+## Change the terms
+
+1. Write the new complete text and pick a new `terms.version`.
+2. Compute the new `terms.sha256` from the exact bytes. See [Compute the ToS hash](/providers/guides/compute-tos-hash/).
+3. Publish `text`, `version`, `hash` and `url` together. Never edit the text under the old version.
+4. Agents that accepted the old hash now get `409 tos_hash_mismatch` and must re-discover and re-accept.
+5. If you allow a grace period for in-flight assertions, document it outside discovery and keep it bounded.
+
+## Validate
+
+```bash
+pnpm --silent validate:discovery https://example.com/.well-known/agent-signup.json --json
+```
+
+Expected for the document above, file mode:
+
+```text
+valid: true, exitCode: 0, passed: 17, failed: 0, warnings: 0
+```
+
+URL mode adds transport checks and, with `--probe-jwks`, checks that each issuer publishes a usable JWKS. The command reference is in the [conformance validator](/agent-identity/v1/validator/).
+
+## Verify your work
+
+- [ ] The document is identity-only and has no forbidden field at any depth.
+- [ ] `terms.sha256` matches the exact `terms.text` bytes.
+- [ ] `issuer_allowlist` contains the exact broker origin, with no path or wildcard.
+- [ ] The route returns `200`, `application/json`, no redirect and no auth.
+- [ ] The validator exits `0`.
+- [ ] A terms change produces a new version and hash.
+
+## Next
+
+- [Compute the ToS hash](/providers/guides/compute-tos-hash/): exact bytes and test vectors.
+- [Verify assertions](/providers/guides/verify-assertions/): the signup side.
+- [Validate and register](/providers/guides/validate-and-register/): registry evidence.

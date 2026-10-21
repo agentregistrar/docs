@@ -1,26 +1,65 @@
 ---
 title: Providers
-description: Implement agent-identity-v1 and accept brokered agent signups.
-audience: both
+description: Implement agent-identity-v1 and accept brokered agent signups with a verified human owner.
+audience: human
 aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0 (d3fddc9), validator 1.0.0, skdl.dev, 2026-10-21"
 ---
 
-A relying party accepts agent signups by publishing an identity-only discovery document, verifying a short-lived signed assertion and returning a signed receipt. The provider keeps control of account creation and vendor capabilities; the protocol proves who the agent is and which human is accountable.
+A self-serve signup flow usually assumes a human at a browser: a form, an email inbox and a click. Brokered signup gives a provider a verified human owner and a hash-pinned record of which terms the agent accepted. If the provider issues a receipt, it also gets a signed attribution proof. The provider keeps its own account model, credentials and product API.
 
-## What this section covers
+`agent-identity-v1` is an identity and brokerage protocol. It does not sell, provision or describe your product. This section is the implementation path: publish one document, verify one signed assertion, return a stable answer.
 
-- Provider quickstart: the conformant path, ending with the validator.
-- Identity-only discovery: what belongs in discovery and what does not.
-- Brokered signup handshake: assertion, verification, account and receipt.
-- Liability and ToS: delegation, hash pinning and what the provider must check.
-- Publish discovery: file, route, content type, caching and HTTPS.
-- Compute the ToS hash: exact bytes and UTF-8 encoding.
-- Verify assertions: JWKS, algorithm, audience, expiry, scopes, human status and ToS hash.
-- Stable error codes: envelopes, HTTP status and retry guidance.
-- Validate and register: validator commands, exit codes and registry criteria.
-- Production checklist: HTTPS, key rotation, replay, clock and contacts.
-- Reference implementation: VaporCloud, the deployed demo.
+## The three-step path
 
-## Primary next step
+1. **Publish discovery.** Serve `GET /.well-known/agent-signup.json` with the identity fields, your complete terms text and its SHA-256. Start with [Publish discovery](/providers/guides/publish-discovery/).
+2. **Verify assertions.** Accept `POST` at `endpoints.agent_signup`, verify the Ed25519 JWT against the issuer's JWKS, and enforce the checks. Start with [Verify assertions](/providers/guides/verify-assertions/).
+3. **Validate and register.** Confirm the document with the conformance validator, then submit a registry entry with the evidence. Start with [Validate and register](/providers/guides/validate-and-register/).
 
-Read the contract in [Protocol](/protocol/) and the lookup material in [Reference](/reference/). Agents connecting to a provider start from [Agents & harnesses](/agents/).
+The [provider quickstart](/providers/quickstart/) walks the whole path in one pass.
+
+## What you publish, check and return
+
+| Artifact | Where | What it proves |
+| :--- | :--- | :--- |
+| Discovery document | `GET /.well-known/agent-signup.json` | Which issuers you accept, what scopes you need, the exact terms text and hash, and the one signup endpoint. |
+| Assertion | `Authorization: Bearer <jwt>` at signup | The agent, its verified human owner, the delegated scopes and the accepted terms hash. |
+| Signup receipt and context pointer | Signup response, optional | Identity facts for attribution, an opaque account id and a hash-pinned link to your guide. |
+
+The field-level rules are in [Discovery fields](/agent-identity/v1/discovery-fields/), [Assertion claims](/agent-identity/v1/assertion-claims/) and [Receipt and context](/agent-identity/v1/receipt-and-context/). The normative contract is the [specification](/agent-identity/v1/specification/).
+
+## What you do not need
+
+- **No SDK.** The protocol is one JSON document and one HTTP endpoint. Examples use `jose` or Web Crypto; any stack works.
+- **No broker account to publish or verify.** The broker mints assertions and does not call your signup endpoint. The JWKS is public. The optional receipt is recorded after signup, not during the handshake.
+- **No catalog in discovery.** Product capabilities stay in your own post-signup guide.
+
+## What you own
+
+- The terms text, its version and its hash, and re-acceptance when the text changes.
+- The account model, idempotent resolution and show-once credentials.
+- The stable error envelope and your rate limits.
+- The optional receipt and the context guide, including hash updates.
+- Your abuse and security contact, and reports to the broker.
+
+## Proof, not promises
+
+- [Live VaporCloud discovery document](https://skdl.dev/.well-known/agent-signup.json), the reference implementation at `skdl.dev`.
+- [Reference walkthrough](/providers/reference-vaporcloud/): discovery, signup response, guide and vendor boundary.
+- [Conformance validator](/agent-identity/v1/validator/): the objective check.
+- [Implementation registry](https://github.com/agentregistrar/spec/blob/main/registry/README.md): entry criteria and evidence.
+- [Specification](/agent-identity/v1/specification/): the normative text.
+
+<Aside type="note" title="What conformance means">
+A valid discovery document is a statement about the document, not about your security, uptime or product. Discovery conformance is cheap to publish. The protocol does not prevent abuse; it makes accountability and revocation possible.
+</Aside>
+
+## Read next
+
+- [Identity-only discovery](/providers/concepts/identity-only-discovery/): why a parameter document is not a catalog.
+- [Brokered signup handshake](/providers/concepts/brokered-signup/): the sequence and the trust boundary.
+- [Liability and ToS](/providers/concepts/liability-and-tos/): delegation, hash pinning and what to retain.
+- [Quickstart](/providers/quickstart/): terms text to a validator-passing document.
+- [Hosting recipes](/providers/hosting/generic-http/): Next.js, Cloudflare Workers and generic HTTP.
+- [Troubleshooting](/providers/troubleshooting/): symptom, cause and fix.

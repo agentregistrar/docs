@@ -1,0 +1,250 @@
+---
+title: "Hosting: generic HTTP"
+description: A framework-neutral Node HTTP handler for discovery and brokered signup, with no platform runtime.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "Node 24.21.0, jose 6.2.13, 2026-10-21"
+---
+
+**Tested:** this server ran on Node 24.21.0 with `jose` 6.2.13 on 2026-10-21. There is no framework and no platform runtime; any HTTP stack that can set a header and read a body can implement the same steps.
+
+## The minimum
+
+A conformant signup endpoint does six things:
+
+1. Read `Authorization: Bearer <jwt>`.
+2. Verify the JWT against the issuer's JWKS.
+3. Check issuer, audience, expiry, scopes, human status and ToS hash.
+4. Record the `jti` against the account, treating the same context as a resolve.
+5. Create or resolve the account and return credentials only on create.
+6. Return a fixed error envelope for every failure.
+
+Everything else is your product.
+
+## The server
+
+```bash
+mkdir provider-http
+cd provider-http
+npm init -y
+npm install jose@6.2.13
+```
+
+Save as `signup-server.mjs`:
+
+```js
+// Minimal provider implementation for agent-identity-v1. Node 22+.
+// Run: node signup-server.mjs
+// Environment: ISSUER_ALLOWLIST, AUDIENCE, REQUIRED_SCOPES, TERMS_TEXT,
+//              TERMS_SHA256, JWKS_URL, PROVIDER_URL, and optional CONTEXT_URL
+//              and CONTEXT_SHA256.
+import { createServer } from "node:http";
+import { randomUUID } from "node:crypto";
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
+const ISSUER_ALLOWLIST = (process.env.ISSUER_ALLOWLIST ?? "https://agentregistrar.dev").split(",");
+const AUDIENCE = process.env.AUDIENCE ?? "example-rp";
+const REQUIRED_SCOPES = (process.env.REQUIRED_SCOPES ?? "tos:accept").split(",");
+const TERMS_SHA256 = process.env.TERMS_SHA256 ?? "";
+const JWKS_URL = process.env.JWKS_URL ?? `${ISSUER_ALLOWLIST[0]}/.well-known/jwks.json`;
+const PROVIDER_URL = process.env.PROVIDER_URL ?? "http://127.0.0.1:3002";
+const CONTEXT = process.env.CONTEXT_URL
+  ? { url: process.env.CONTEXT_URL, sha256: process.env.CONTEXT_SHA256 }
+  : undefined;
+
+const jwks = createRemoteJWKSet(new URL(JWKS_URL), { timeoutDuration: 5000 });
+const accounts = new Map(); // (iss, human.id) -> { accountId, apiKey }
+const seenJti = new Map(); // jti -> account key
+
+function send(res, status, body) {
+  res.writeHead(status, { "content-type": "application/json" });
+  res.end(JSON.stringify(body));
+}
+
+function fail(res, status, error, description) {
+  send(res, status, { error, error_description: description, retryable: false });
+}
+
+async function verify(jwt) {
+  let payload;
+  try {
+    ({ payload } = await jwtVerify(jwt, jwks, {
+      algorithms: ["EdDSA"],
+      clockTolerance: 60,
+      typ: "agent-id+jwt",
+    }));
+  } catch (error) {
+    throw Object.assign(new Error("Signature or JOSE header verification failed"), {
+      code: error.code === "ERR_JWT_EXPIRED" ? "assertion_expired" : "invalid_assertion",
+      status: 401,
+    });
+  }
+  const deny = (code, status, description) => Object.assign(new Error(description), { code, status });
+  if (!ISSUER_ALLOWLIST.includes(payload.iss)) throw deny("issuer_not_allowed", 403, "Issuer is not in issuer_allowlist");
+  if (payload.aud !== AUDIENCE) throw deny("audience_mismatch", 403, "Assertion audience does not match");
+  if (payload.exp - payload.iat > 300) throw deny("invalid_assertion", 401, "Assertion lifetime exceeds five minutes");
+  if (!REQUIRED_SCOPES.every((scope) => payload.delegation.scopes.includes(scope))) {
+    throw deny("insufficient_scope", 403, "Delegated scopes do not cover required_scopes");
+  }
+  if (payload.human?.verified !== true) throw deny("human_unverified", 403, "The human owner is not verified");
+  if (payload.delegation?.accepted_rp_tos_hash !== TERMS_SHA256) {
+    throw deny("tos_hash_mismatch", 409, "Accepted ToS hash does not match the published terms");
+  }
+  return payload;
+}
+
+const server = createServer(async (req, res) => {
+  if (req.method === "GET" && req.url === "/.well-known/agent-signup.json") {
+    res.writeHead(200, {
+      "content-type": "application/json",
+      "cache-control": "public, max-age=60",
+      "access-control-allow-origin": "*",
+    });
+    return res.end(JSON.stringify({
+      protocol: "agent-identity-v1",
+      audience: AUDIENCE,
+      provider_name: "Example RP",
+      issuer_allowlist: ISSUER_ALLOWLIST,
+      required_scopes: REQUIRED_SCOPES,
+      terms: { version: "2026.1", url: "https://example.com/terms", sha256: TERMS_SHA256, text: process.env.TERMS_TEXT ?? "" },
+      endpoints: { agent_signup: `${PROVIDER_URL}/api/signup/agent` },
+    }));
+  }
+  if (req.url === "/api/signup/agent" && req.method !== "POST") {
+    res.writeHead(405, { allow: "POST" });
+    return res.end();
+  }
+  if (req.method !== "POST" || req.url !== "/api/signup/agent") {
+    return fail(res, 404, "not_found", "No such endpoint");
+  }
+
+  const header = req.headers.authorization ?? "";
+  if (!header.startsWith("Bearer ")) return fail(res, 400, "invalid_request", "Missing bearer assertion");
+
+  let claims;
+  try {
+    claims = await verify(header.slice("Bearer ".length));
+  } catch (error) {
+    return fail(res, error.status ?? 401, error.code ?? "invalid_assertion", error.message || "Assertion rejected");
+  }
+
+  const accountKey = `${claims.iss}:${claims.human.id}`;
+  const previous = seenJti.get(claims.jti);
+  if (previous !== undefined && previous !== accountKey) {
+    return fail(res, 409, "assertion_replayed", "Assertion id used in a conflicting context");
+  }
+  seenJti.set(claims.jti, accountKey);
+
+  const existing = accounts.get(accountKey);
+  if (existing) {
+    return send(res, 200, {
+      resolution: "resolved",
+      account_id: existing.accountId,
+      ...(CONTEXT ? { context: CONTEXT } : {}),
+    });
+  }
+
+  const account = { accountId: `acct_${randomUUID()}`, apiKey: `sk_live_${randomUUID()}` };
+  accounts.set(accountKey, account);
+  return send(res, 201, {
+    resolution: "created",
+    account_id: account.accountId,
+    api_key: account.apiKey,
+    ...(CONTEXT ? { context: CONTEXT } : {}),
+  });
+});
+
+server.listen(3002, "127.0.0.1", () => console.log(`provider on ${PROVIDER_URL}`));
+```
+
+The maps are process-local. In production, persist the account key and `jti` and enforce uniqueness in the database. A restart must not allow a second account for the same `(iss, human.id)`.
+
+## Run it with a local fixture
+
+The fixture in [Verify assertions](/providers/guides/verify-assertions/) writes `jwks.json` and `assertion.jwt`. Copy those files next to the server, serve the JWKS and start the provider:
+
+```bash
+node --input-type=module -e '
+import { createServer } from "node:http";
+import { readFileSync } from "node:fs";
+createServer((req, res) => {
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(readFileSync("jwks.json"));
+}).listen(3015, "127.0.0.1");
+'
+```
+
+```bash
+export TERMS_TEXT='Example RP Terms of Service v2026.1'
+export TERMS_SHA256=$(node -e 'const {createHash}=require("crypto");console.log("sha256:"+createHash("sha256").update(process.env.TERMS_TEXT,"utf8").digest("hex"))')
+export JWKS_URL=http://127.0.0.1:3015/.well-known/jwks.json
+node signup-server.mjs
+```
+
+Expected:
+
+```text
+provider on http://127.0.0.1:3002
+```
+
+Create, then resolve:
+
+```bash
+curl -sS -X POST http://127.0.0.1:3002/api/signup/agent \
+  -H "Authorization: Bearer $(cat assertion.jwt)"
+curl -sS -X POST http://127.0.0.1:3002/api/signup/agent \
+  -H "Authorization: Bearer $(cat assertion.jwt)"
+```
+
+Recorded output:
+
+```json
+{"resolution":"created","account_id":"acct_8e1df322-b559-419c-9cf4-86819778f620","api_key":"sk_live_8cce3583-584f-4daf-883e-f64f2803cff8"}
+{"resolution":"resolved","account_id":"acct_8e1df322-b559-419c-9cf4-86819778f620"}
+```
+
+## Validate
+
+```bash
+pnpm --silent validate:discovery http://127.0.0.1:3002/.well-known/agent-signup.json \
+  --json --probe-jwks --probe-endpoints
+```
+
+Recorded result on 2026-10-21:
+
+```text
+valid: true, exitCode: 0, passed: 21, failed: 0, warnings: 0, probes: 2
+```
+
+## Framework-neutral pseudocode
+
+```text
+on GET /.well-known/agent-signup.json:
+  return 200, application/json, current document; no auth, no redirect
+
+on POST <signup endpoint>:
+  token = bearer(Authorization)
+  if token is missing: 400 invalid_request
+  claims = verify_ed25519(token, jwks(issuer), alg=EdDSA, typ=agent-id+jwt)
+    on signature/header failure: 401 invalid_assertion
+    on expiry:                 401 assertion_expired
+  if claims.iss not in allowlist: 403 issuer_not_allowed
+  if claims.aud != audience:      403 audience_mismatch
+  if lifetime > 5 minutes:        401 invalid_assertion
+  if scopes miss required:        403 insufficient_scope
+  if human.verified != true:      403 human_unverified
+  if tos hash != current:         409 tos_hash_mismatch
+  account = resolve_or_create(iss, human.id)
+  if jti used by another account: 409 assertion_replayed
+  return 200/201:
+    resolution, account_id, credential (create only), optional context, optional signup_token
+```
+
+The order is a recommendation, not a second specification. The checks and the fixed codes are in [spec section 7](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake).
+
+## Next
+
+- [Stable error codes](/providers/guides/error-codes/): the envelope.
+- [Issue a signup receipt](/providers/guides/issue-signup-receipt/): add Contract E.
+- [Hosting: Next.js](/providers/hosting/nextjs/) and [Cloudflare Worker](/providers/hosting/cloudflare-worker/): platform routes.

@@ -1,0 +1,270 @@
+---
+title: Provider quickstart
+description: Go from a terms text file to a validator-passing agent-signup.json document and a stable signup error.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0 (d3fddc9), validator 1.0.0, @agentregistrar/discovery 1.1.0, Node 24.21.0, 2026-10-21"
+---
+
+This is the shortest conformant path. You write one terms file, hash its exact bytes, generate one JSON document, serve it over HTTP and validate it. The last step returns a stable error from a stub signup route. `example.com` and `example-rp` are synthetic values; replace them with your own origin and audience.
+
+**Measured run:** with the package cache warm, the commands below completed in 2 seconds in a clean directory on 2026-10-21 (Node 24.21.0, validator 1.0.0). That measures the mechanics, not comprehension. A first pass by a new implementer, including reading the linked rules and replacing the example values, is estimated at about 30 minutes; that figure is an estimate, not a measurement.
+
+## Before you start
+
+- Node 22 or newer, with `npm` or `pnpm`.
+- An HTTPS origin for production. `http://localhost` and `http://127.0.0.1` are the documented development exception.
+- A public page where a human can read the same terms you will hash.
+- No broker account, no SDK and no network call to the broker are required.
+
+## 1. Write the terms as one text file
+
+The complete agreement the agent accepts lives in `terms.txt`. This example is synthetic. The trailing newline is part of the file and therefore part of the hash.
+
+```bash
+mkdir provider-quickstart
+cd provider-quickstart
+cat > terms.txt <<'EOF'
+Example RP Terms of Service
+Version: 2026.1
+
+These terms govern accounts created through a brokered agent signup. The agent
+acts for a verified human owner, and that human owner is bound by these terms.
+
+1. The service is provided as-is, with no uptime guarantee.
+2. The human owner is responsible for the agent's actions.
+3. Either party may terminate the account at any time.
+EOF
+```
+
+The content rules are in [ToS binding](/agent-identity/v1/specification/#6-tos-binding). Do not trim, re-wrap or extract the text from HTML when you hash it.
+
+## 2. Generate the document and its hash
+
+Save this as `build-discovery.mjs`. It reads the exact bytes of `terms.txt`, computes the digest and writes the document, so the text and hash cannot drift.
+
+```js
+import { createHash } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
+
+const text = readFileSync("terms.txt", "utf8");
+const sha256 = "sha256:" + createHash("sha256").update(text, "utf8").digest("hex");
+
+const document = {
+  protocol: "agent-identity-v1",
+  audience: "example-rp",
+  provider_name: "Example RP",
+  provider_url: "https://example.com",
+  contact: "security@example.com",
+  issuer_allowlist: ["https://agentregistrar.dev"],
+  required_scopes: ["tos:accept"],
+  terms: {
+    version: "2026.1",
+    url: "https://example.com/terms",
+    sha256,
+    text,
+  },
+  endpoints: {
+    agent_signup: "https://example.com/api/signup/agent",
+  },
+};
+
+writeFileSync("agent-signup.json", JSON.stringify(document, null, 2) + "\n");
+console.log(sha256);
+```
+
+```bash
+node build-discovery.mjs
+```
+
+Expected output:
+
+```text
+sha256:6c18126f93de8d1972589ca94633ca82e76bd9ba1f0592618b0105753f3501d6
+```
+
+The generated document:
+
+```json
+{
+  "protocol": "agent-identity-v1",
+  "audience": "example-rp",
+  "provider_name": "Example RP",
+  "provider_url": "https://example.com",
+  "contact": "security@example.com",
+  "issuer_allowlist": [
+    "https://agentregistrar.dev"
+  ],
+  "required_scopes": [
+    "tos:accept"
+  ],
+  "terms": {
+    "version": "2026.1",
+    "url": "https://example.com/terms",
+    "sha256": "sha256:6c18126f93de8d1972589ca94633ca82e76bd9ba1f0592618b0105753f3501d6",
+    "text": "Example RP Terms of Service\nVersion: 2026.1\n\nThese terms govern accounts created through a brokered agent signup. The agent\nacts for a verified human owner, and that human owner is bound by these terms.\n\n1. The service is provided as-is, with no uptime guarantee.\n2. The human owner is responsible for the agent's actions.\n3. Either party may terminate the account at any time.\n"
+  },
+  "endpoints": {
+    "agent_signup": "https://example.com/api/signup/agent"
+  }
+}
+```
+
+Every field above is identity-only. The allowed and forbidden fields are in [Discovery fields](/agent-identity/v1/discovery-fields/). Do not add product catalogs, SKUs, provisioning endpoints or OTP endpoints.
+
+## 3. Serve it
+
+Save this as `serve.mjs`. The discovery route returns JSON with no authentication and no redirect; the signup route is a stub that returns one stable error.
+
+```js
+import { createServer } from "node:http";
+import { readFileSync } from "node:fs";
+
+const document = readFileSync("agent-signup.json", "utf8");
+
+const server = createServer((req, res) => {
+  if (req.url === "/.well-known/agent-signup.json" && req.method !== "GET") {
+    res.writeHead(405, { allow: "GET" });
+    return res.end();
+  }
+  if (req.url === "/.well-known/agent-signup.json") {
+    res.writeHead(200, {
+      "content-type": "application/json",
+      "cache-control": "public, max-age=60",
+      "access-control-allow-origin": "*",
+    });
+    return res.end(document);
+  }
+  if (req.url === "/api/signup/agent" && req.method !== "POST") {
+    res.writeHead(405, { allow: "POST" });
+    return res.end();
+  }
+  if (req.url === "/api/signup/agent") {
+    // Stub: real verification is in the generic HTTP guide.
+    res.writeHead(401, { "content-type": "application/json" });
+    return res.end(JSON.stringify({
+      error: "invalid_assertion",
+      error_description: "Signature or JOSE header verification failed",
+      retryable: false,
+    }));
+  }
+  res.writeHead(404, { "content-type": "application/json" });
+  res.end(JSON.stringify({ error: "not_found" }));
+});
+
+server.listen(3001, "127.0.0.1", () => console.log("listening on http://127.0.0.1:3001"));
+```
+
+```bash
+node serve.mjs
+```
+
+Expected output:
+
+```text
+listening on http://127.0.0.1:3001
+```
+
+In another terminal, check the transport:
+
+```bash
+curl -sS -D - -o /dev/null http://127.0.0.1:3001/.well-known/agent-signup.json
+```
+
+Expected, in part:
+
+```text
+HTTP/1.1 200 OK
+content-type: application/json
+cache-control: public, max-age=60
+access-control-allow-origin: *
+```
+
+## 4. Validate the document
+
+Two paths are supported. Use the one that fits your project.
+
+Path A, from a clone of the spec repository:
+
+```bash
+git clone https://github.com/agentregistrar/spec
+cd spec
+pnpm install
+pnpm --silent validate:discovery http://127.0.0.1:3001/.well-known/agent-signup.json --json --probe-jwks
+```
+
+Path B, with the published package in any project. The package has no `bin` entry, so run its TypeScript source with `tsx`:
+
+```bash
+npm install @agentregistrar/discovery@1.1.0 tsx@4.23.15
+npx tsx node_modules/@agentregistrar/discovery/src/validate-discovery.ts \
+  http://127.0.0.1:3001/.well-known/agent-signup.json --json --probe-jwks
+```
+
+Both paths use `--probe-jwks`, so both report one probe. Expected from either path, shortened here:
+
+```json
+{
+  "validator": "agent-identity-v1",
+  "validatorVersion": "1.0.0",
+  "mode": "url",
+  "valid": true,
+  "exitCode": 0,
+  "protocol": "agent-identity-v1",
+  "audience": "example-rp",
+  "providerName": "Example RP",
+  "counts": { "passed": 21, "failed": 0, "warnings": 0, "probes": 1 },
+  "errors": [],
+  "warnings": []
+}
+```
+
+Exit code `0` means valid. `1` means the document was read and rejected; `2` means it could not be fetched. `--probe-jwks` additionally checks that every issuer publishes a usable JWKS and does not touch your signup endpoint. The full flag and output reference is in the [conformance validator](/agent-identity/v1/validator/).
+
+If the validator fails on `terms.sha256`, hash the exact file bytes again; see [Compute the ToS hash](/providers/guides/compute-tos-hash/).
+
+## 5. Return one stable error
+
+Send a request with a malformed assertion:
+
+```bash
+curl -sS -X POST http://127.0.0.1:3001/api/signup/agent \
+  -H 'Authorization: Bearer test' \
+  -w '\nHTTP %{http_code}\n'
+```
+
+Expected output:
+
+```text
+{"error":"invalid_assertion","error_description":"Signature or JOSE header verification failed","retryable":false}
+HTTP 401
+```
+
+The envelope and the fixed code table are in [Stable error codes](/providers/guides/error-codes/). `error_description` is non-normative; agents branch on `error`.
+
+## 6. Verify a real assertion
+
+Replace the stub with a verifier. Start with [Verify assertions](/providers/guides/verify-assertions/), which includes a runnable local fixture and the mapping from each failed check to a stable code.
+
+## 7. Register
+
+Once the document passes live HTTPS validation, submit it with the evidence. The criteria and pull-request shape are in [Validate and register](/providers/guides/validate-and-register/).
+
+## Optional: receipt and context
+
+A signup response may include a signed `signup_token` and a hash-pinned `context` pointer to your guide. Both are optional. See [Issue a signup receipt](/providers/guides/issue-signup-receipt/) and [Publish a context guide](/providers/guides/publish-context-guide/).
+
+## Verify your work
+
+- [ ] `terms.sha256` equals the SHA-256 of the exact `terms.text` bytes.
+- [ ] The discovery route returns `200`, `application/json`, no redirect and no authentication.
+- [ ] The validator exits `0` with zero errors.
+- [ ] One failing signup request returns a fixed v1 error code.
+- [ ] No forbidden vendor field appears at any depth, including under `extensions`.
+
+## Next
+
+- [Publish discovery](/providers/guides/publish-discovery/): framework routes, caching and terms changes.
+- [Hosting: generic HTTP](/providers/hosting/generic-http/): replace the stub with a working handler.
+- [Production checklist](/providers/guides/production-checklist/): keys, replay, logs and incidents.

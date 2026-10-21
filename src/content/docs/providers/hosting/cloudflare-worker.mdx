@@ -1,0 +1,266 @@
+---
+title: "Hosting: Cloudflare Worker"
+description: A complete fetch-handler recipe for discovery and brokered signup on Cloudflare Workers, run locally with Wrangler.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "wrangler 4.151.3 (workerd local), jose 6.2.13, Node 24.21.0, 2026-10-21"
+---
+
+**Tested locally:** this Worker ran under `wrangler dev` (the local workerd runtime) with Wrangler 4.151.3 on 2026-10-21. It was not deployed to a Cloudflare account for this page. The wire behavior is identical to any other host.
+
+## Create the project
+
+```bash
+mkdir provider-worker
+cd provider-worker
+npm init -y
+npm install jose@6.2.13
+npm install --save-dev wrangler@4.151.3
+printf 'Example RP Terms of Service v2026.1' > terms.txt
+```
+
+The terms bytes are the same bytes the [verify-assertions fixture](/providers/guides/verify-assertions/) signs, so the recorded signup responses reproduce.
+
+`wrangler.jsonc`:
+
+```jsonc
+{
+  "name": "provider-worker-example",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-21",
+  "rules": [{ "type": "Text", "globs": ["**/*.txt"], "fallthrough": true }]
+}
+```
+
+The Text rule lets the Worker import `terms.txt` as a string at build time. The hash is computed over that same string with Web Crypto, so the served text and the digest cannot drift.
+
+## The Worker
+
+Save as `worker.js`:
+
+```js
+// Cloudflare Worker example for agent-identity-v1. The wire behavior is the
+// same as any other host: two routes, stable errors, one assertion check.
+import { createRemoteJWKSet, jwtVerify } from "jose";
+import termsText from "./terms.txt";
+
+const DEFAULTS = {
+  brokerOrigin: "https://agentregistrar.dev",
+  audience: "example-rp",
+  providerUrl: "https://example.com",
+  requiredScopes: "tos:accept",
+  termsVersion: "2026.1",
+};
+
+const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(termsText));
+const TERMS_SHA256 =
+  "sha256:" + [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+
+// Demo-only in-memory state. A real Worker uses Durable Objects, KV or D1.
+const accounts = new Map();
+const seenJti = new Map();
+const keySets = new Map();
+
+function config(env) {
+  return {
+    brokerOrigin: env.BROKER_ORIGIN ?? DEFAULTS.brokerOrigin,
+    brokerJwksUrl: env.BROKER_JWKS_URL,
+    audience: env.AUDIENCE ?? DEFAULTS.audience,
+    providerUrl: env.PROVIDER_URL ?? DEFAULTS.providerUrl,
+    requiredScopes: (env.REQUIRED_SCOPES ?? DEFAULTS.requiredScopes).split(","),
+    termsVersion: env.TERMS_VERSION ?? DEFAULTS.termsVersion,
+  };
+}
+
+function json(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function fail(status, code, description) {
+  return json({ error: code, error_description: description, retryable: false }, status);
+}
+
+async function verify(request, cfg) {
+  const header = request.headers.get("authorization") ?? "";
+  if (!header.startsWith("Bearer ")) return { error: fail(400, "invalid_request", "Missing bearer assertion") };
+
+  const jwksUrl = cfg.brokerJwksUrl ?? `${cfg.brokerOrigin}/.well-known/jwks.json`;
+  const jwks = keySets.get(jwksUrl) ??
+    createRemoteJWKSet(new URL(jwksUrl), { timeoutDuration: 5000, cooldownDuration: 30000 });
+  keySets.set(jwksUrl, jwks);
+
+  let claims;
+  try {
+    ({ payload: claims } = await jwtVerify(header.slice(7), jwks, {
+      algorithms: ["EdDSA"],
+      clockTolerance: 60,
+      typ: "agent-id+jwt",
+    }));
+  } catch (cause) {
+    const code = cause?.code === "ERR_JWT_EXPIRED" ? "assertion_expired" : "invalid_assertion";
+    return { error: fail(401, code, "Assertion rejected") };
+  }
+  if (claims.iss !== cfg.brokerOrigin) return { error: fail(403, "issuer_not_allowed", "Issuer not allowed") };
+  if (claims.aud !== cfg.audience) return { error: fail(403, "audience_mismatch", "Wrong audience") };
+  if (claims.exp - claims.iat > 300) return { error: fail(401, "invalid_assertion", "Lifetime too long") };
+  if (!cfg.requiredScopes.every((scope) => claims.delegation?.scopes?.includes(scope))) {
+    return { error: fail(403, "insufficient_scope", "Scopes do not cover required_scopes") };
+  }
+  if (claims.human?.verified !== true) return { error: fail(403, "human_unverified", "Human not verified") };
+  if (claims.delegation?.accepted_rp_tos_hash !== TERMS_SHA256) {
+    return { error: fail(409, "tos_hash_mismatch", "Accepted ToS hash is stale") };
+  }
+  return { claims };
+}
+
+export default {
+  async fetch(request, env) {
+    const cfg = config(env);
+    const url = new URL(request.url);
+
+    if (url.pathname === "/.well-known/agent-signup.json" && request.method === "GET") {
+      return new Response(
+        JSON.stringify({
+          protocol: "agent-identity-v1",
+          audience: cfg.audience,
+          provider_name: "Example RP",
+          provider_url: cfg.providerUrl,
+          contact: "security@example.com",
+          issuer_allowlist: [cfg.brokerOrigin],
+          required_scopes: cfg.requiredScopes,
+          terms: {
+            version: cfg.termsVersion,
+            url: `${cfg.providerUrl}/terms`,
+            sha256: TERMS_SHA256,
+            text: termsText,
+          },
+          endpoints: { agent_signup: `${cfg.providerUrl}/api/signup/agent` },
+        }),
+        {
+          headers: {
+            "content-type": "application/json",
+            "cache-control": "public, max-age=60",
+            "access-control-allow-origin": "*",
+          },
+        },
+      );
+    }
+
+    if (url.pathname === "/api/signup/agent" && request.method !== "POST") {
+      return new Response(null, { status: 405, headers: { allow: "POST" } });
+    }
+    if (url.pathname !== "/api/signup/agent") return fail(404, "not_found", "No such endpoint");
+
+    const verified = await verify(request, cfg);
+    if (verified.error) return verified.error;
+
+    const { claims } = verified;
+    const accountKey = `${claims.iss}:${claims.human.id}`;
+    const previous = seenJti.get(claims.jti);
+    if (previous !== undefined && previous !== accountKey) {
+      return fail(409, "assertion_replayed", "Assertion id used in a conflicting context");
+    }
+    seenJti.set(claims.jti, accountKey);
+
+    const existing = accounts.get(accountKey);
+    if (existing) return json({ resolution: "resolved", account_id: existing.accountId });
+
+    const account = { accountId: `acct_${crypto.randomUUID()}`, apiKey: `sk_live_${crypto.randomUUID()}` };
+    accounts.set(accountKey, account);
+    return json(
+      { resolution: "created", account_id: account.accountId, api_key: account.apiKey },
+      201,
+    );
+  },
+};
+```
+
+`crypto.subtle` and `crypto.randomUUID` are Worker globals. The `jose` import is bundled by Wrangler; no Node compatibility flag is needed.
+
+## Run locally
+
+```bash
+npx wrangler dev --port 3004 --local
+```
+
+Expected, in part:
+
+```text
+Ready on http://localhost:3004
+```
+
+For a local assertion fixture, override the JWKS URL and provider URL without editing the code:
+
+```bash
+npx wrangler dev --port 3004 --local \
+  --var PROVIDER_URL:http://127.0.0.1:3004 \
+  --var BROKER_JWKS_URL:http://127.0.0.1:3015/.well-known/jwks.json
+```
+
+Start the JWKS fixture from [Verify assertions](/providers/guides/verify-assertions/) on port 3015, then send the request:
+
+```bash
+curl -sS -X POST http://127.0.0.1:3004/api/signup/agent \
+  -H "Authorization: Bearer $(cat assertion.jwt)"
+```
+
+Recorded output:
+
+```json
+{"resolution":"created","account_id":"acct_31e0ce34-83f3-4126-b072-932205c1fb15","api_key":"sk_live_42188619-9557-4e14-9451-6dbc6be3c376"}
+```
+
+Repeat the call:
+
+```json
+{"resolution":"resolved","account_id":"acct_31e0ce34-83f3-4126-b072-932205c1fb15"}
+```
+
+The second call returns no credential, as required.
+
+## Validate
+
+```bash
+pnpm --silent validate:discovery http://127.0.0.1:3004/.well-known/agent-signup.json \
+  --json --probe-jwks --probe-endpoints
+```
+
+Recorded result on 2026-10-21:
+
+```text
+valid: true, exitCode: 0, passed: 21, failed: 0, warnings: 0, probes: 2
+```
+
+The endpoint probe records `HEAD 405`, which is an accepted reachable response.
+
+## Deploy
+
+Deployment was not run for this page. When you deploy:
+
+```bash
+npx wrangler deploy
+```
+
+Before deploying:
+
+- Set the provider URL and the broker origin in `wrangler.jsonc` or the dashboard, not in code.
+- Replace the in-memory maps with Durable Objects, KV or D1 and make the account key and `jti` unique.
+- Add your receipt signing key as a secret binding; never put it in `wrangler.jsonc`.
+- Serve the terms page and the optional context guide from the same registrable domain.
+
+## Notes
+
+- The Worker has no filesystem at request time, so the terms text is bundled. A content change requires a deploy, which is also when the hash changes.
+- `BROKER_JWKS_URL` exists for local fixtures. In production, leave it unset and use the issuer origin.
+- The context pointer is omitted in this minimal Worker. Add it only with a real digest; see [Publish a context guide](/providers/guides/publish-context-guide/).
+- Do not cache the signup response; it contains a show-once credential.
+
+## Next
+
+- [Hosting: Next.js](/providers/hosting/nextjs/): the tested App Router recipe.
+- [Hosting: generic HTTP](/providers/hosting/generic-http/): no platform runtime.
+- [Production checklist](/providers/guides/production-checklist/): before you deploy.
