@@ -1,0 +1,114 @@
+---
+title: Abuse reports
+description: How a provider reports abuse, what the human receives and what the broker does and does not do.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "apps/broker-portal c7ddfa7, 2026-10-21"
+sidebar:
+  order: 8
+---
+
+A relying party can report an agent through the broker's abuse endpoint. The report is a notification and revocation path, not a dispute process. This page describes what the broker actually does with a report and what the human should do next.
+
+## How a provider reports abuse
+
+The provider sends a JSON request to `POST /api/broker/report-abuse` on the broker origin:
+
+```json
+{
+  "agent_id": "agt_...",
+  "reporter_service": "provider.example",
+  "reason": "what the agent did",
+  "evidence_jti": "jti_..."
+}
+```
+
+`agent_id`, `reporter_service` and `reason` are required. `evidence_jti` is optional and should carry the assertion or receipt identifier the provider is relying on.
+
+A successful response returns:
+
+```json
+{
+  "ok": true,
+  "agent_id": "agt_...",
+  "agent_status": "revoked",
+  "human_notified": true
+}
+```
+
+`human_notified` is best effort. A `false` value means the alert was not delivered; it does not mean the revocation failed.
+
+## What the broker does
+
+1. Validates the request and resolves the agent.
+2. Stores the report as an abuse report row.
+3. Revokes the agent immediately, with the reporter's reason as the revocation reason.
+4. Looks up the human owner and attempts to send an alert to the verified email.
+5. Returns the response above.
+
+The revocation happens before the alert. A mail failure does not roll it back.
+
+## What the human receives
+
+When delivery succeeds, the verified human owner receives an alert with:
+
+- The agent id and name.
+- The reporting service.
+- The reason.
+- The evidence JTI, if one was supplied.
+- A reply path for contacting the broker if the report is wrong.
+
+The report also appears in the **Abuse reports** tab on the agent detail page.
+
+![Abuse reports: one report on a revoked agent showing the reporter, reason and evidence JTI - the report is a record, not an adjudication.](/screenshots/portal/portal-abuse-reports.png)
+
+## What the human can do
+
+- Read the report and check the agent's ledger and inbox for the activity described.
+- Contact the provider to resolve the account or resource.
+- Rotate any provider credentials the agent held.
+- Report the incident to [security@agentregistrar.dev](mailto:security@agentregistrar.dev) if you need the broker to know about it.
+- Keep the agent revoked, or reactivate it only after investigating.
+- Preserve the agent id, report timestamp, evidence JTI and related ledger rows.
+
+## What the broker does not do
+
+- It does not adjudicate the dispute or decide who is right.
+- It does not delete provider data, close a provider account or issue a refund.
+- It does not guarantee that the provider stops using data it already received.
+- It does not guarantee delivery of the human alert.
+
+## Contact path
+
+The broker publishes one security address: [security@agentregistrar.dev](mailto:security@agentregistrar.dev). It is linked in the footer of every page on this docs site, so you can confirm the address here rather than in a message. This page does not promise a response time.
+
+Use that address for:
+
+- A security or abuse report that cannot go through `POST /api/broker/report-abuse`.
+- A suspected compromise of a human account.
+- A provider report you want the broker to see directly.
+
+Do not use it for provider signup requests, resource requests or support questions about a provider's product. The provider owns those.
+
+Include in a report:
+
+- The agent id (`agt_...`) or the human account email, if known.
+- What happened, when, and the timestamps you have.
+- The reporting service, if a provider is affected.
+- The relevant assertion or receipt JTI (`jti_...`) and ledger rows.
+- What you have already done, such as revoking the agent or rotating credentials.
+
+Do not send provider API keys, passwords, session cookies or full message bodies. The broker cannot receive provider secrets and does not need them to act.
+
+The other paths remain:
+
+- The provider reports through `POST /api/broker/report-abuse`.
+- The human replies to the abuse alert sent to the verified email.
+- A human who suspects account compromise follows [Kill switch and revocation](/portal/kill-switch-and-revocation/).
+
+If you operate a provider and need the request and response contract, the endpoint behavior above is the current implementation. The assertion and receipt fields are defined under [Protocol](/protocol/); the broker's HTTP surface is summarized under [Reference](/reference/).
+
+## Next step
+
+Read [Kill switch and revocation](/portal/kill-switch-and-revocation/) for the human-side controls and the compromise playbook.
