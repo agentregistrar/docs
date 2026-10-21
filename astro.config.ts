@@ -143,12 +143,19 @@ export default defineConfig({
   // re-verified against the deployed host by the release verification issue.
   redirects: {
     "/docs": { status: 308, destination: "/" },
+    "/spec": { status: 308, destination: "/agent-identity/v1/specification/" },
+    "/specification": {
+      status: 308,
+      destination: "/agent-identity/v1/specification/",
+    },
+    // The optional `spec` field's placeholder path. It now resolves to the v1
+    // landing instead of a 404.
+    "/agent-identity/v1/agent-signup": {
+      status: 308,
+      destination: "/agent-identity/v1/",
+    },
   },
   // Staged redirects (target page not in this build yet; do not activate early):
-  //   /spec -> /agent-identity/v1/specification/
-  //   /specification -> /agent-identity/v1/specification/
-  //   /agent-identity/v1/agent-signup -> /agent-identity/v1/
-  //     activated with the protocol pages
   //   /implement -> /providers/quickstart/
   //   /registry -> /providers/guides/validate-and-register/
   //     activated with the provider pages

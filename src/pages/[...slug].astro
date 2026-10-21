@@ -45,6 +45,19 @@ const lastUpdated = entry.data.lastUpdated ??
 const tocConfig = entry.data.tableOfContents;
 const toc = tocOn && tocConfig !== false ? getTOC(headings, tocConfig) : false;
 const socialImage = entry.data.socialImage ?? ogImageUrl;
+// Generated normative pages keep the source's body H1. When the body opens
+// with an H1 (after the generated banner blockquote), the layout must not render
+// the frontmatter title as a second visible H1. Hand-authored pages have no body
+// H1 (the lint rule enforces one title), so this only changes generated pages.
+// Do not scan the whole body: code blocks contain `#` comment lines.
+const bodyHasH1 = (() => {
+  for (const line of (entry.body ?? "").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith(">")) continue;
+    return /^#[ \t]+\S/.test(trimmed);
+  }
+  return false;
+})();
 ---
 
 <DocsLayout
@@ -68,6 +81,7 @@ const socialImage = entry.data.socialImage ?? ogImageUrl;
   aiGenerated={entry.data.aiGenerated}
   collection={entry.collection}
   entryId={entry.id}
+  bodyHasH1={bodyHasH1}
 >
   <Content components={components} />
 </DocsLayout>

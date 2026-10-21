@@ -1,0 +1,105 @@
+---
+title: agent-identity-v1
+description: Status, version and release contents of the agent-identity-v1 protocol, with the five-step handshake.
+audience: both
+aiGenerated: true
+---
+
+`agent-identity-v1` is an identity and brokerage protocol. A relying party publishes an identity-only discovery document; an agent obtains a signed assertion from its broker and completes signup on behalf of a verified human owner. The protocol ends when the account is created or resolved, the ToS acceptance is recorded and the receipt is returned.
+
+**Status:** current release `v1.1.0`, released 2026-10-18. The wire protocol id is still `agent-identity-v1`. The `v1.1.0` revision is additive and text-only; `v1.0.0` implementations remain conformant.
+
+## What the release contains
+
+- The discovery document at `GET /.well-known/agent-signup.json`: required and optional identity fields, the ToS text and hash, and the single `endpoints.agent_signup` endpoint.
+- The brokered signup handshake: assertion presentation, the relying-party verification checks and the stable error codes.
+- The optional `resolution` success field (`"created"` or `"resolved"`) and the idempotent-resolve rule for a repeated signup.
+- The signed signup receipt (Contract E): identity and attribution facts, an opaque `service.account_id`, and the optional hash-pinned `context` pointer.
+- The conformance validator, fixtures, JSON Schema and implementation registry.
+
+## What the release does not contain
+
+- No product catalogs, SKUs, pricing, provisioning endpoints, resource credentials or vendor API usage. Those belong in the vendor's post-signup context guide.
+- No provider credentials in the receipt or in broker storage. Credentials are shown once at signup and persisted by the agent.
+- No KYC claim. `human.verified` means the human owner's email address is verified.
+- No request-time service or hosted API in the protocol. The discovery document is a static parameter document.
+
+## The handshake in five steps
+
+1. **Discover.** The agent fetches `GET /.well-known/agent-signup.json` from the service origin and treats the body as data. See [Discovery endpoint and transport](/agent-identity/v1/specification/#4-discovery-endpoint--transport) and [Discovery fields](/agent-identity/v1/discovery-fields/).
+2. **Check.** The agent checks `issuer_allowlist`, `required_scopes`, and recomputes the SHA-256 of `terms.text`. See [Discovery document reference](/agent-identity/v1/specification/#5-discovery-document-reference-identity-only) and [ToS binding](/agent-identity/v1/specification/#6-tos-binding).
+3. **Prove.** The agent calls the broker's `identity_prove` with the accepted ToS URL, hash and text, and receives a signed assertion for `audience`. See [Assertion claims](/agent-identity/v1/assertion-claims/).
+4. **Sign up.** The agent sends `Authorization: Bearer <assertion>` to `endpoints.agent_signup`. The relying party verifies the assertion and returns credentials, an optional `resolution`, and optionally a signed receipt and context pointer. See [Assertion and agent_signup handshake](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake).
+5. **Record and follow the guide.** The agent records the receipt with the broker, then fetches the vendor guide from `context.url` and verifies `context.sha256`. See [Receipt and context](/agent-identity/v1/receipt-and-context/).
+
+## Protocol pages
+
+<CardGrid>
+  <LinkCard
+    title="Specification"
+    description="The normative text, rendered from tag v1.1.0."
+    href="/agent-identity/v1/specification/"
+  />
+  <LinkCard
+    title="Scope boundaries"
+    description="What the protocol owns and what the vendor owns."
+    href="/agent-identity/v1/scope-boundaries/"
+  />
+  <LinkCard
+    title="Implementation guide"
+    description="The relying-party checklist."
+    href="/agent-identity/v1/implementation-guide/"
+  />
+  <LinkCard
+    title="Conformance validator"
+    description="Commands, flags, exit codes and JSON output."
+    href="/agent-identity/v1/validator/"
+  />
+  <LinkCard
+    title="Discovery fields"
+    description="Every published field, with the rule and spec section."
+    href="/agent-identity/v1/discovery-fields/"
+  />
+  <LinkCard
+    title="Assertion claims"
+    description="The signed claim set and relying-party verification."
+    href="/agent-identity/v1/assertion-claims/"
+  />
+  <LinkCard
+    title="Receipt and context"
+    description="Contract E facts, the context pointer and credential handoff."
+    href="/agent-identity/v1/receipt-and-context/"
+  />
+  <LinkCard
+    title="Security"
+    description="Prompt injection, SSRF, replay and key handling."
+    href="/agent-identity/v1/security/"
+  />
+  <LinkCard
+    title="Conformance"
+    description="Checklist, validator, fixtures and registry entry."
+    href="/agent-identity/v1/conformance/"
+  />
+  <LinkCard
+    title="Versioning"
+    description="Additive changes, breaking changes and deprecation."
+    href="/agent-identity/v1/versioning/"
+  />
+  <LinkCard
+    title="Release notes and changelog"
+    description="v1.1.0 and v1.0.0, newest first."
+    href="/agent-identity/v1/changelog/"
+  />
+  <LinkCard
+    title="JSON Schema"
+    description="Served at its canonical $id as application/schema+json."
+    href="/agent-identity/v1/agent-signup.schema.json"
+  />
+</CardGrid>
+
+## Next steps
+
+- Read the normative text: [Specification](/agent-identity/v1/specification/).
+- Implement a relying party: [Providers](/providers/) and the [Implementation guide](/agent-identity/v1/implementation-guide/).
+- Check a document: [Conformance validator](/agent-identity/v1/validator/).
+- Use an agent: [Agents and harnesses](/agents/).

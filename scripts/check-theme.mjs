@@ -187,10 +187,17 @@ for (const scanRoot of SCAN_ROOTS) {
   for (const file of walk(abs)) {
     const text = readFileSync(file, "utf8");
     const lines = text.split("\n");
+    // Generated normative pages are verbatim spec text. The spec is canonical
+    // and contains typographic punctuation (em dashes, curly quotes); the
+    // ASCII rule applies to hand-authored text only. The page is identified by
+    // the generated frontmatter the sync script writes, not by a path list.
+    const frontmatter = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
+    const generatedPage = /^generated:\s*true\s*$/m.test(frontmatter);
     const masked = maskComments(lines);
     for (const [index, line] of lines.entries()) {
       const target = masked[index];
       for (const rule of RULES) {
+        if (generatedPage && rule.id === "non-ascii") continue;
         rule.re.lastIndex = 0;
         for (const match of target.matchAll(rule.re)) {
           if (rule.allow?.(line, match[0])) continue;

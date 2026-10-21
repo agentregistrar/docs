@@ -29,12 +29,23 @@ export const collections = {
          * - `source` - the canonical source of a generated page, e.g.
          *   "spec:v1.1.0#agent-identity-v1.md". Hand-edited pages have no
          *   `source`.
+         * - `specTag` - the pinned spec tag a generated page came from.
+         * - `sourceRef` - the ref named in `spec.lock.json` when the pin is a
+         *   commit (for example `main`), so the page names its exact origin.
+         * - `sourceNote` - why a commit pin differs from the protocol tag
+         *   (for example a docs-only refresh after the tag).
+         * - `generated` - true only on pages written by `pnpm sync:spec`.
+         *   Never set it by hand.
          */
         audience: z.enum(["human", "agent", "both"]).default("both"),
         aiGenerated: z.boolean().optional(),
         verifiedAgainst: z.string().min(1).optional(),
         lastReviewed: z.coerce.date().optional(),
         source: z.string().min(1).optional(),
+        specTag: z.string().min(1).optional(),
+        sourceRef: z.string().min(1).optional(),
+        sourceNote: z.string().min(1).optional(),
+        generated: z.boolean().optional(),
       },
     }),
   ),

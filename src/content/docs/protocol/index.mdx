@@ -1,27 +1,34 @@
 ---
 title: Protocol
-description: The agent-identity-v1 contract, versioned reference and conformance material.
+description: The agent-identity-v1 contract, its versioned reference and the conformance material.
 audience: both
 aiGenerated: true
 ---
 
-`agent-identity-v1` is the relying-party discovery contract, the brokered signup handshake and the optional signed receipt. The normative text lives at the versioned path `/agent-identity/v1/`. This landing page is a short entry point, not a second copy of the specification.
+`agent-identity-v1` is the relying-party discovery contract, the brokered signup handshake and the optional signed receipt. The normative text lives at the versioned path `/agent-identity/v1/`. This page is a short entry point, not a second copy of the specification.
 
-## Protocol pages
+Current release: `v1.1.0`, released 2026-10-18. The wire protocol id stays `agent-identity-v1`.
 
-- agent-identity-v1: status, version and the contents of the release.
-- Normative specification: the specification rendered from the pinned spec tag.
-- Scope boundaries: the identity-versus-vendor rulebook.
-- Implementation guide: the relying-party mental model.
-- Validator guide: commands, flags, exit codes and fixtures.
-- Discovery fields: the published document field by field.
-- Assertion claims: the signed claims and an example.
-- Receipt and context: the optional receipt and the context pointer.
-- Security: prompt injection, SSRF, replay and key handling.
-- Conformance: checklist, validator and fixtures.
-- Versioning: additive changes, breaking changes and deprecation.
-- Changelog: release notes.
+## Start with the versioned reference
 
-## Primary next step
+- [agent-identity-v1](/agent-identity/v1/): status, version, what the release contains and the five-step handshake.
+- [Specification](/agent-identity/v1/specification/): the normative specification rendered from the pinned spec tag.
+- [Scope boundaries](/agent-identity/v1/scope-boundaries/): the identity-versus-vendor rulebook.
 
-See [Reference](/reference/) for the MCP tools and broker endpoints that implement the contract. Providers implement it from [Providers](/providers/).
+## Look up a field or rule
+
+- [Discovery fields](/agent-identity/v1/discovery-fields/): the published document field by field.
+- [Assertion claims](/agent-identity/v1/assertion-claims/): the signed claims and a worked example.
+- [Receipt and context](/agent-identity/v1/receipt-and-context/): the optional receipt, the context pointer and credential handoff.
+- [Security](/agent-identity/v1/security/): prompt injection, SSRF, replay and key handling.
+- [Conformance](/agent-identity/v1/conformance/): the relying-party checklist, validator and registry.
+- [Versioning](/agent-identity/v1/versioning/): additive changes, breaking changes and deprecation.
+
+## Implementation and release history
+
+- [Implementation guide](/agent-identity/v1/implementation-guide/): the relying-party checklist.
+- [Conformance validator](/agent-identity/v1/validator/): commands, flags, exit codes and JSON output.
+- [Release notes and changelog](/agent-identity/v1/changelog/): `v1.1.0` and `v1.0.0`.
+- [JSON Schema](/agent-identity/v1/agent-signup.schema.json): the schema served at its canonical `$id`.
+
+The canonical source is [`agentregistrar/spec`](https://github.com/agentregistrar/spec). The rendered normative pages are generated from tag `v1.1.0`; do not edit them by hand.

@@ -20,7 +20,7 @@
 # Policy: the site is a static build, so there is no Accept negotiation and no
 # Vary: Accept to emit. Content types are declared per path. CORS is applied
 # where a browser or a browser-based agent fetches an artifact cross-origin
-# (discovery JSON, Agent Skills, and JSON Schema once Issue 06 publishes it).
+# (discovery JSON, Agent Skills, and the published JSON Schema).
 # Markdown and llms.txt do not need
 # it for non-browser clients.
 #
@@ -68,16 +68,14 @@
 /robots.txt
   Cache-Control: public, max-age=300
 
-# JSON Schema assets are deliberately untyped until Issue 06 publishes
-# public/agent-identity/v1/agent-signup.schema.json. Workers static assets apply
-# _headers to 404 responses too, so a `/*.schema.json` rule would serve the
-# Nimbus HTML 404 body as `application/schema+json` with a one-hour cache.
-# Issue 06 adds the rule back in the same change that publishes the file:
-#
-# /*.schema.json
-#   Content-Type: application/schema+json; charset=utf-8
-#   Access-Control-Allow-Origin: *
-#   Cache-Control: public, max-age=3600
+# JSON Schema asset, served at the schema's canonical $id. The rule names the
+# exact path, not `/*.schema.json`: Workers static assets apply _headers to 404
+# responses too, so a wildcard would serve the Nimbus HTML 404 body as
+# `application/schema+json` with a one-hour cache.
+/agent-identity/v1/agent-signup.schema.json
+  Content-Type: application/schema+json; charset=utf-8
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=3600
 
 # Published API citation manifest.
 /nimbus-api/coordinates.json

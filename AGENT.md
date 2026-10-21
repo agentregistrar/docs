@@ -20,7 +20,7 @@ Canonical sources live outside this repo. Do not restate normative text here.
 | Subject | Canonical source |
 | :--- | :--- |
 | Protocol `agent-identity-v1` | `agentregistrar/spec` at tag `v1.1.0` |
-| Discovery JSON Schema | `agentregistrar/spec/agent-signup.schema.json` at the pinned tag; a docs-site copy at `/agent-identity/v1/agent-signup.schema.json` is planned and not published |
+| Discovery JSON Schema | `agentregistrar/spec/agent-signup.schema.json` at the pinned revision; served byte-for-byte at `/agent-identity/v1/agent-signup.schema.json` |
 | Broker behavior, MCP tools, portal | the monorepo (`apps/broker-portal`, `packages/shared`) |
 | Product definitions and IA | `docs/12-docs-push/01-docs-ia-audit-and-decisions.md` |
 | Visual system | `THEME.md` and `docs/08-visual-identity/` |
@@ -53,8 +53,10 @@ wrangler.jsonc             Workers static-asset target
 AGENT.md                   this file
 THEME.md                   Terminal token map, component recipes, deviations
 skills/<name>/SKILL.md     published Agent Skills (section 9)
+spec.lock.json             pinned spec tag/ref/commit, source/output hashes
+scripts/sync-spec.mjs      spec sync and offline drift check (section 11)
 public/_headers            host headers for paths Nimbus does not own
-public/agent-identity/v1/  planned JSON Schema asset (from the spec repo; not published yet)
+public/agent-identity/v1/  JSON Schema served at its canonical $id
 src/
   components.ts            components usable in MDX without an import
   components/              layout chrome and the Nimbus UI components
@@ -239,13 +241,19 @@ the link rules read `.nimbus/routes.json`.
 
 ```bash
 pnpm install --frozen-lockfile   # cold checkout only
-pnpm build                       # writes dist/, .nimbus/routes.json, .nimbus/lint.json
+pnpm build                       # dist/, routes, lint cache; postbuild link gate
 pnpm check                       # nimbus-docs check: env, structure, authoring, types
 pnpm lint                        # nimbus-docs lint: authoring rules
 pnpm typecheck                   # astro check
 pnpm check:theme                 # Terminal QA gate
+pnpm check:links                 # internal links and anchors in dist/
 git diff --check                 # whitespace errors
 ```
+
+`pnpm build` runs `postbuild`, which runs the same link gate. The gate scans
+the built HTML, including the generated `.md` protocol pages that
+`nimbus-docs lint` does not see, and fails on a missing route, file or heading
+anchor.
 
 Pass/fail:
 
@@ -258,6 +266,8 @@ Pass/fail:
 - `pnpm typecheck` must pass.
 - `pnpm check:theme` must exit `0` (no default-Nimbus styling, no off-token
   values, no icons, no non-ASCII).
+- `pnpm check:links` must exit `0`; the same gate runs at the end of
+  `pnpm build`.
 - `git diff --check` must be clean.
 
 Agent-readable lint output:
@@ -308,22 +318,65 @@ nimbusDisableRules: ["nimbus/bare-url"]
 
 ## 11. Spec sync and generated pages
 
-Normative protocol pages are generated from a pinned `agentregistrar/spec` tag,
-never hand-edited.
+Normative protocol pages are generated from a pinned `agentregistrar/spec`
+revision, never hand-edited. The normal pin is a release tag. A docs-only
+refresh that landed after the tag can be pinned by commit: the lock keeps the
+protocol release in `tag`, records `ref`, `commit` and a `note`, and each page
+names the exact source commit.
 
-- `spec.lock.json` records the tag, resolved commit, source URLs, per-file
-  SHA-256, and `generated_at`.
-- `pnpm sync:spec` regenerates the pages; `pnpm sync:spec --check` re-runs the
-  same work in memory and exits non-zero on drift. The check runs before the
-  build.
-- Planned, not implemented: `scripts/sync-spec.mjs` is a placeholder today and
-  ignores `--check`. Do not create the generated pages by hand in the meantime.
-- Generated pages carry `source` and `lastReviewed` in frontmatter and a
-  generated-content banner. The only allowed transforms are frontmatter,
-  relative-to-absolute link rewriting, and the banner.
-- Updating the tag is its own PR: bump the lock, run the sync, review the
-  normative diff, update the changelog and cross-links, commit lock and pages
-  together.
+- `spec.lock.json` records `tag`, `ref` (commit pins only), `commit`, `note`
+  (commit pins only), `source`, `generated_at`, each source file's SHA-256, and
+  each generated output's SHA-256. `outputs` is what makes the offline build
+  guard possible.
+- `pnpm sync:spec` fetches the lock's pin, verifies the commit through the
+  GitHub API, verifies every source hash, transforms the pages and writes them
+  with the lock. A tag pin fetches the tag tarball; a commit pin fetches
+  `codeload` by commit SHA, so a moving branch cannot change the bytes. It is
+  the only step that uses the network.
+- `pnpm sync:spec:check` (also `node scripts/sync-spec.mjs --check`) verifies
+  the committed output hashes against the files on disk. It never uses the
+  network and runs before `pnpm build` through `prebuild`.
+- `node scripts/sync-spec.mjs --tag <tag>` previews a tag in memory and writes
+  nothing. `node scripts/sync-spec.mjs --commit <sha> --ref main --tag <tag>`
+  previews a commit pin. Add `--write` to update the lock and the pages.
+- Generated pages carry `source`, `specTag`, optional `sourceRef`/`sourceNote`,
+  `generated: true` and `lastReviewed` in frontmatter and a generated-content
+  banner. The banner names the exact source commit. `lastReviewed` is the spec
+  release date the page was generated from, not a human review of the rendered
+  page.
+- The only allowed transforms are frontmatter, relative-to-absolute link
+  rewriting, and the banner. Rewritten spec-repo links point at the pinned
+  commit, not the tag name. The changelog combines the two release-notes files
+  newest-first and demotes their headings one level; its frontmatter disables
+  the duplicate-heading rule because the canonical release notes share section
+  titles.
+- A generated page that opens with the source H1 does not get a second visible
+  H1 from the layout. `src/pages/[...slug].astro` passes `bodyHasH1` and
+  `src/layouts/DocsLayout.astro` suppresses the title heading in that case.
+  Never remove the source H1.
+- Updating the pin is its own PR: bump `tag` (or `commit`/`ref`) in
+  `spec.lock.json`, run `pnpm sync:spec`, review the normative diff, update the
+  hand-authored pages and cross-links, update the changelog and any
+  current-version strings, run the gates, and commit the lock with the
+  generated pages.
+
+Version bump runbook:
+
+1. Confirm the spec tag and release notes exist; read the diff against the
+   previous tag.
+2. Update `tag` in `spec.lock.json` (leave `commit`, `files` and `outputs` to
+   the sync). For a post-tag docs refresh, use
+   `node scripts/sync-spec.mjs --write --commit <sha> --ref main --tag <tag>`.
+3. Run `pnpm sync:spec`; review the generated diff for normative changes.
+4. Update the hand-authored pages if fields, errors or claims changed.
+5. Update the generated changelog (the sync does it) and any "current version"
+   strings on hand-authored pages.
+6. Run `pnpm build`, `pnpm check`, `pnpm lint`, `pnpm typecheck`,
+   `pnpm check:theme`, `pnpm check:links` and `git diff --check`; verify the
+   schema `$id`.
+7. Commit the lock, the generated pages and the hand-authored changes in one
+   PR.
+8. Update the spec repo's "Read online" links if a page path changed.
 
 ## 12. Verify against the running build
 
@@ -428,8 +481,21 @@ is wrong for this site and change the config in a reviewed diff.
   noise.
 - `nimbus-docs` reports `1 page found without an <html> element: "/docs/"` -
   the `/docs` redirect stub is not a page. Harmless.
-- `/docs` is a 308 to `/`, staged in `astro.config.ts` with the other
-  redirects. Do not activate a redirect before its destination exists.
+- `/docs` is a 308 to `/`; `/spec`, `/specification` and
+  `/agent-identity/v1/agent-signup` are 308s to the protocol pages. The
+  remaining staged redirects stay commented in `astro.config.ts` until their
+  destination page exists. Do not activate a redirect before its destination
+  exists.
+- `pnpm check:theme` exempts generated pages (`generated: true` in
+  frontmatter) from the non-ASCII rule. The spec text is canonical and contains
+  typographic punctuation; it is not hand-authored prose and must not be
+  rewritten. Every hand-authored page is still ASCII.
+- `nimbus-docs lint` reads the 15 hand-authored `.mdx` pages only. The five
+  generated `.md` pages are deliberately outside that lint pass (the spec text
+  is canonical), but they are inside the build: `pnpm build` runs
+  `scripts/check-links.mjs` over `dist/`, including both root-relative links and
+  the absolute `https://docs.agentregistrar.dev/...` links the sync writes, and
+  fails on a dead route or anchor. `check:theme` also scans them.
 
 ## 15. Deployment
 
