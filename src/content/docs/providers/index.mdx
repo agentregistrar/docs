@@ -1,0 +1,24 @@
+---
+title: Providers
+description: Implement agent-identity-v1 and accept brokered agent signups.
+---
+
+A relying party accepts agent signups by publishing an identity-only discovery document, verifying a short-lived signed assertion and returning a signed receipt. The provider keeps control of account creation and vendor capabilities; the protocol proves who the agent is and which human is accountable.
+
+## What this section covers
+
+- Provider quickstart: the conformant path, ending with the validator.
+- Identity-only discovery: what belongs in discovery and what does not.
+- Brokered signup handshake: assertion, verification, account and receipt.
+- Liability and ToS: delegation, hash pinning and what the provider must check.
+- Publish discovery: file, route, content type, caching and HTTPS.
+- Compute the ToS hash: exact bytes and UTF-8 encoding.
+- Verify assertions: JWKS, algorithm, audience, expiry, scopes, human status and ToS hash.
+- Stable error codes: envelopes, HTTP status and retry guidance.
+- Validate and register: validator commands, exit codes and registry criteria.
+- Production checklist: HTTPS, key rotation, replay, clock and contacts.
+- Reference implementation: VaporCloud, the deployed demo.
+
+## Primary next step
+
+Read the contract in [Protocol](/protocol/) and the lookup material in [Reference](/reference/). Agents connecting to a provider start from [Agents & harnesses](/agents/).
