@@ -115,12 +115,13 @@ availability problem and the recovery is different.
 
 ## 5. Inspect the schema when a field is unclear
 
-The JSON Schema is published at
-`https://docs.agentregistrar.dev/agent-identity/v1/agent-signup.schema.json`
-and checked in at the pinned tag as
+The schema is checked in at the pinned tag:
 `https://github.com/agentregistrar/spec/blob/v1.1.0/agent-signup.schema.json`.
-Read the property you need instead of guessing. Zod and the written
-specification win if the schema and prose ever disagree; report the divergence.
+A copy at
+`https://docs.agentregistrar.dev/agent-identity/v1/agent-signup.schema.json` is
+planned, not published, and returns `404` today; do not cite it as live. Read
+the property you need instead of guessing. Zod and the written specification win
+if the schema and prose ever disagree; report the divergence.
 
 ## 6. Report the verdict
 

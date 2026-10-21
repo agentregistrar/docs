@@ -148,12 +148,12 @@ Exit `0` means conformant, `1` means the document was fetched but is not
 conformant, `2` means no usable document was obtained (transport, status,
 content type, size, or JSON). Warnings do not change the exit code.
 
-The JSON Schema is published at
-`https://docs.agentregistrar.dev/agent-identity/v1/agent-signup.schema.json`,
-and the checked-in copy at the pinned tag is the same file:
+The schema is checked in at the pinned tag:
 `https://github.com/agentregistrar/spec/blob/v1.1.0/agent-signup.schema.json`.
-Zod and the written specification win over either copy; report any divergence
-instead of hiding it.
+A docs-site copy at
+`https://docs.agentregistrar.dev/agent-identity/v1/agent-signup.schema.json` is
+planned, not published yet. Zod and the written specification win over either
+copy; report any divergence instead of hiding it.
 
 ## 8. References
 

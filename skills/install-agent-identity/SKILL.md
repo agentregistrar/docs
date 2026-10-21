@@ -18,9 +18,10 @@ specification repository are documentation.
 
 ## 1. Choose a harness
 
-Read the harness guide and its verification tier at
-<https://docs.agentregistrar.dev/agents/>. Every claim on that page carries a
-tier and a date. Do not promise a tier the page does not show.
+Read the harness section at <https://docs.agentregistrar.dev/agents/>. It is a
+landing page today; the per-harness guides, each with a verification tier and a
+date, arrive with that section's pages. Do not claim a client is supported
+beyond what the page records.
 
 ## 2. Add the remote MCP server
 
@@ -86,7 +87,8 @@ The public demo relying party is <https://skdl.dev>.
 7. If the response carries provider credentials, store them in the user's
    credential store immediately. The broker never stores provider credentials.
    Never re-run signup to recover a credential: use the provider's recovery path
-   from its guide.
+   from its guide. That rule is about credentials only; re-running signup to
+   replace an invalid receipt token is the recovery in section 6.
 
 ## 5. Inbox and verification mail
 
@@ -98,8 +100,10 @@ than re-running signup.
 
 ## 6. Failure recovery
 
-Broker tool errors carry `error.code`, `error.retryable`, and usually
-`error.next_step`. Retry only when `retryable` is true.
+Broker tool errors carry `error.code`, `error.retryable`, `error.side_effects`
+and usually `error.next_step`. Read `retryable` as "this exact call can succeed
+if repeated": `false` means do not repeat the call, not do not recover. Follow
+the row and `next_step`.
 
 | Symptom | Action |
 | :--- | :--- |
@@ -107,13 +111,20 @@ Broker tool errors carry `error.code`, `error.retryable`, and usually
 | `human_email_unverified` or `master_tos_unsigned` | Stop. The human completes the portal step; the agent cannot. |
 | `scope_not_granted` | Request only scopes shown by `identity_whoami`. |
 | `tos_text_hash_mismatch` | Re-fetch discovery and pass the exact `terms.text` you hashed. |
-| `signup_token_invalid`, `signup_token_not_linked`, `signup_token_ownership_mismatch` | Do not re-run signup. Report the token and provider; a human resolves the linkage. |
+| `signup_token_invalid` | The token failed signature or format validation. Re-run signup for a fresh token, then record that one. A conformant provider resolves the existing account, so this is not a second signup. |
+| `signup_token_not_linked`, `signup_token_ownership_mismatch` | Do not re-run signup. Stop and report the token and provider; a human resolves the linkage. |
+| `ledger_email_failed` | The acceptance was already recorded. Retry `identity_prove` with the same inputs to re-send only the ledger email; this is not a new signup. |
+| `send_failed` | Retry `inbox_send`; the previous attempt did not deliver. |
 | `message_not_found` | Re-list the inbox before reading a message id. |
 | `wait_timeout` | Retry `inbox_wait_for_email` with a wider lookback window. |
 | `internal_error` | Retry once; if it persists, report it and stop. |
 | Provider returns `assertion_expired` | Mint a fresh assertion with `identity_prove`; assertions are short lived. |
-| Provider returns `assertion_replayed` | The assertion was already used for a different account. Mint a fresh one. |
+| Provider returns `assertion_replayed` | The assertion was already used in a conflicting context (another agent, account or service). Mint a fresh one; a same-context repeat resolves instead. |
 | Provider returns `tos_hash_mismatch` | The provider changed its terms. Re-fetch discovery, re-hash, re-prove. |
+
+Re-running signup means repeating the `POST` to `endpoints.agent_signup` with a
+fresh assertion. Do not decode or edit the assertion to do it, and never re-run
+signup to recover a credential: use the provider's recovery path.
 
 ## 7. References
 
@@ -123,5 +134,4 @@ Broker tool errors carry `error.code`, `error.retryable`, and usually
 - Normative specification (v1.1.0):
   <https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md>
 
-Do not claim a client is supported beyond the tier and date recorded on the
-harness guide.
+Do not claim a client is supported beyond what the harness section records.

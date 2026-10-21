@@ -105,7 +105,9 @@ Markdown for agents. The surface is:
 
 - `/llms.txt` and `/llms-full.txt` - the index and the whole site in one
   document.
-- `/<section>/llms.txt` - per-section indexes.
+- `/<section>/llms.txt` - per-section index, emitted once a section has more
+  than one page; every section is a single landing today, so only the root
+  `/llms.txt` exists.
 - `/<slug>/index.md` - the page as clean Markdown; `/<slug>/index.mdx` - the
   authored source.
 - `/.well-known/ard.json` and `/.well-known/ai-catalog.json` - discovery

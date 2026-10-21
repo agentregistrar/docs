@@ -19,7 +19,7 @@ Canonical sources live outside this repo. Do not restate normative text here.
 | Subject | Canonical source |
 | :--- | :--- |
 | Protocol `agent-identity-v1` | `agentregistrar/spec` at tag `v1.1.0` |
-| Discovery JSON Schema | `agentregistrar/spec/agent-signup.schema.json`, published at `/agent-identity/v1/agent-signup.schema.json` |
+| Discovery JSON Schema | `agentregistrar/spec/agent-signup.schema.json` at the pinned tag; a docs-site copy at `/agent-identity/v1/agent-signup.schema.json` is planned and not published |
 | Broker behavior, MCP tools, portal | the monorepo (`apps/broker-portal`, `packages/shared`) |
 | Product definitions and IA | `docs/12-docs-push/01-docs-ia-audit-and-decisions.md` |
 | Visual system | `THEME.md` and `docs/08-visual-identity/` |
@@ -53,7 +53,7 @@ AGENT.md                   this file
 THEME.md                   Terminal token map, component recipes, deviations
 skills/<name>/SKILL.md     published Agent Skills (section 9)
 public/_headers            host headers for paths Nimbus does not own
-public/agent-identity/v1/  published JSON Schema asset (from the spec repo)
+public/agent-identity/v1/  planned JSON Schema asset (from the spec repo; not published yet)
 src/
   components.ts            components usable in MDX without an import
   components/              layout chrome and the Nimbus UI components
@@ -151,9 +151,9 @@ verified against something is a concept page, not a how-to.
 - Rendered text is ASCII. The source may use `-` for ranges and `->` for
   arrows; never `--`, smart quotes, or a Unicode arrow.
 - Code fences declare a language. Shell blocks contain the command only, with
-  no `$ ` prompt, so a reader can copy-paste them (the
-  `nimbus/code-block-prompt-prefix` rule enforces this). Comments start with
-  `#`.
+  no `$ ` prompt, so a reader can copy-paste them; the
+  `nimbus/code-block-prompt-prefix` rule, a warning, flags a prefix. Comments
+  start with `#`.
 - Every sample must be copy-paste runnable against the deployed demo,
   `localhost`, or a public URL, with the expected output shown. If the output
   is illustrative, say so.
@@ -172,7 +172,9 @@ The build emits, for every discoverable page:
 
 - `/llms.txt` - site index with one hop to each section.
 - `/llms-full.txt` - all discoverable pages in one document.
-- `/<section>/llms.txt` - per-section index, nested one level at a time.
+- `/<section>/llms.txt` - per-section index, nested one level at a time. Emitted
+  only when a section has more than one page; every section is a single landing
+  today, so only the root `/llms.txt` exists.
 - `/<slug>/index.md` - clean Markdown of the page, components flattened.
 - `/<slug>/index.mdx` - authored source, including imports and JSX.
 - JSON-LD in every page `<head>`, plus `sitemap.xml`, `robots.txt`.
@@ -313,11 +315,11 @@ never hand-edited.
 - `pnpm sync:spec` regenerates the pages; `pnpm sync:spec --check` re-runs the
   same work in memory and exits non-zero on drift. The check runs before the
   build.
+- Planned, not implemented: `scripts/sync-spec.mjs` is a placeholder today and
+  ignores `--check`. Do not create the generated pages by hand in the meantime.
 - Generated pages carry `source` and `lastReviewed` in frontmatter and a
   generated-content banner. The only allowed transforms are frontmatter,
   relative-to-absolute link rewriting, and the banner.
-- Until `scripts/sync-spec.mjs` lands, `pnpm sync:spec` is a placeholder. Do not
-  create the generated pages by hand in the meantime.
 - Updating the tag is its own PR: bump the lock, run the sync, review the
   normative diff, update the changelog and cross-links, commit lock and pages
   together.
@@ -356,7 +358,7 @@ endpoints. A path that returns HTML here is a 404, not a page.
 
 Cross-checks for a page you added or changed:
 
-- The page appears in `/llms.txt` (or its section index) and in `sitemap-0.xml`.
+- The page appears in `/llms.txt` and in `sitemap-0.xml`.
 - `/<slug>/index.md` exists and contains the steps, not a stub.
 - The HTML head has one `application/ld+json` block and a
   `rel="alternate" type="text/markdown"` link.
@@ -371,10 +373,15 @@ const html = fs.readFileSync(process.argv[1], "utf8");
 const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
 if (blocks.length !== 1) throw new Error(`expected 1 JSON-LD block, got ${blocks.length}`);
 const data = JSON.parse(blocks[0][1]);
-for (const key of ["@context", "@type", "name", "url"]) if (!data[key]) throw new Error(`missing ${key}`);
+for (const key of ["@context", "@type", "name", "description", "url", "inLanguage"]) if (!data[key]) throw new Error(`missing ${key}`);
 console.log("JSON-LD ok:", data["@type"], data.url);
 ' dist/agents/index.html
 ```
+
+The home block is a `WebSite`: it carries `image` and intentionally has no
+`isPartOf`, because the site is not part of itself. Section pages are
+`WebPage` and do carry `isPartOf`. Both shapes are valid; do not add a
+self-referential `isPartOf` to the home page.
 
 ## 13. Audit recipe
 
@@ -400,7 +407,7 @@ Run, in order:
    broker commit, spec tag, or Nimbus version. A mismatch is a warning, not an
    edit - the page needs re-verification, not a new date.
 6. Agent-surface sweep: for every page in the sitemap, assert
-   `/<slug>/index.md` exists, the page appears in an `llms.txt`, and the
+   `/<slug>/index.md` exists, the page appears in `/llms.txt`, and the
    Markdown body matches the rendered page. Report the missing path, not just a
    count.
 7. Skill sweep: every folder under `skills/` appears in
@@ -432,11 +439,13 @@ pnpm deploy     # wrangler deploy; predeploy runs the build again
 
 The target is Cloudflare Workers static assets (`wrangler.jsonc`, directory
 `./dist`, `404-page` handling). The production branch is `main`. There is no
-deploy workflow in GitHub Actions; the Worker is connected to the repo and
-builds on push. Cloudflare's own `_headers` support consumes
-`public/_headers` plus the generated Nimbus block. Domain, DNS, and the
-security-header policy are owned by the deployment issue; do not change DNS
-from a content change.
+deploy workflow in GitHub Actions, and the Worker, its headers/redirects and the
+`docs.agentregistrar.dev` domain are not provisioned from this repository yet:
+deployment is a pending decision owned by the deployment issue, so do not
+describe the platform as building on push. Run `wrangler dev` locally (section
+12) for the host contract until the Worker exists. Cloudflare's own `_headers`
+support consumes `public/_headers` plus the generated Nimbus block. Do not
+change DNS from a content change.
 
 ## 16. Upgrading Nimbus
 
