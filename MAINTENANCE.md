@@ -34,12 +34,30 @@ generated and never hand-edited.
 
 1. Read the new release notes and the diff against the previous tag. List the
    normative changes: fields, errors, claims, context, compatibility.
-2. Update `tag` in `spec.lock.json`. Leave `commit`, `files` and `outputs` for
-   the sync. For a docs-only refresh after the tag, pin the commit instead:
-   `node scripts/sync-spec.mjs --write --commit <sha> --ref main --tag <tag>`.
-3. Run `pnpm sync:spec`. Review the generated diff, including the changelog and
-   the schema asset. Reject any transform outside frontmatter, link rewriting
-   and the generated banner.
+2. Bump the pin with the tag on the command line, never by editing `tag`
+   alone:
+
+   ```bash
+   node scripts/sync-spec.mjs --write --tag v1.2.0
+   ```
+
+   `--tag` resolves the tag to its commit through the GitHub API and rewrites
+   the lock as a tag pin, dropping any stale `ref`, `commit` and `note`.
+   Editing `tag` in `spec.lock.json` and running `pnpm sync:spec` does the
+   opposite: the lock still carries `ref`/`commit`, so the sync re-fetches the
+   old commit and only relabels it. For a docs-only refresh after the tag (a
+   branch that is not itself tagged), pin the commit instead:
+
+   ```bash
+   node scripts/sync-spec.mjs --write --commit <sha> --ref main --tag v1.2.0
+   ```
+3. Confirm the lock moved before reviewing the diff: `tag` is the new tag and
+   `ref`/`commit` name the new revision (or the commit pin). The generated
+   `lastReviewed` comes from `release-notes-<tag>.md`, so a missing or
+   misnamed release-notes file fails the sync instead of reusing the previous
+   release's date. Run `pnpm sync:spec:check` and review the generated diff,
+   including the changelog and the schema asset. Reject any transform outside
+   frontmatter, link rewriting and the generated banner.
 4. Update the hand-authored pages where fields, errors, claims or examples
    changed. Update current-version strings and cross-links.
 5. Update `verifiedAgainst` and `lastReviewed` on the pages a human re-checked.
@@ -49,8 +67,11 @@ generated and never hand-edited.
 8. Open one pull request with the lock, the generated pages and the
    hand-authored changes. State the old and new tag and the normative diff.
 
-A first dry run of a tag bump should be done on a scratch branch and never
-merged until the commands and failure messages are confirmed.
+A first dry run of a tag bump is rehearsed in a scratch copy, never against a
+real release: run the commands, confirm the lock records the new
+tag/ref/commit and the new `files`/`outputs` hashes, and that the generated
+bytes change, then record the transcript. A dry run that only edits `tag` and
+runs `pnpm sync:spec` is not a rehearsal of this runbook.
 
 ## 3. Runbook B - MCP tool or portal behavior change
 
@@ -74,8 +95,13 @@ Every rename ships a redirect. A previously public URL must never 404.
    build.
 2. Update internal links, the section landing page and any agent skill that
    names the old path. `nimbus/redirected-link` must stay at zero errors.
-3. Build, then verify the old URL returns one permanent hop to the new one:
-   `curl -sI http://127.0.0.1:8787/old-path/`.
+3. Build, then verify both URL shapes return one permanent (308) hop:
+   `curl -sI http://127.0.0.1:8787/old-path` and
+   `curl -sI http://127.0.0.1:8787/old-path/`. Register both the slashless and
+   the trailing-slash key in `astro.config.ts`: Workers static assets matches
+   `_redirects` entries exactly, and without the trailing-slash entry the
+   built `/old-path/index.html` meta-refresh page is served with a `200`
+   instead of the redirect.
 4. Remove a page only when nothing public depends on it. If the spec or registry
    links it, update those links first.
 5. Deprecate rather than delete when the content is still true: add a banner,
@@ -104,8 +130,10 @@ the findings in the pull request or the audit record.
 - `pnpm sync:spec:check` passes and the pin is the intended release.
 - Every behavior page has a `verifiedAgainst` that matches the current broker,
   spec tag or Nimbus version.
-- Every reviewed page has a `lastReviewed` inside the policy window. Pages that
-  are still `aiGenerated: true` are listed, not silently cleared.
+- Every reviewed page has a `lastReviewed` inside the policy window. The
+  window is 180 days: a page whose `lastReviewed` is older than 180 days is
+  flagged in the audit and either re-reviewed or marked stale. Pages that are
+  still `aiGenerated: true` are listed, not silently cleared.
 - Harness versions and tiers are current.
 - Screenshots match the live UI.
 - Internal links and redirects resolve; `pnpm check:links` and
@@ -154,8 +182,9 @@ Do this on a scratch branch before declaring a contribution guide change done.
 3. Review it against the source, clear `aiGenerated`, set `lastReviewed`, and
    record the reviewer and date in the pull request.
 4. Run the checks in section 11 and review the page against the checklist.
-5. Rename the page, add `previousSlug` or a redirect, build, and `curl` the old
-   URL to confirm one permanent hop.
+5. Rename the page, add `previousSlug` or a redirect (both the slashless and
+   the trailing-slash key), build, and `curl` both URL shapes to confirm one
+   permanent hop.
 6. Revert the rename, or keep it if it is real. Confirm no link is broken.
 7. Keep the page only if it is useful. Otherwise remove it and record that the
    workflow was exercised. Record the result in the change record, not on a
@@ -205,7 +234,7 @@ Response headers and content types are verified with `wrangler dev`, not
 - [ ] Hand-authored pages and cross-links match the new contract.
 - [ ] The changelog and any current-version strings are current.
 - [ ] The gate set in section 11 passes.
-- [ ] Renames have redirects and the old URL returns one permanent hop.
+- [ ] Renames have redirects and both URL shapes return one permanent hop.
 - [ ] The pull request records the evidence, reviewer and date.
 - [ ] The live site was checked after deploy: the changed page, its section
   `/llms.txt`, `/<slug>/index.md` and the schema path.

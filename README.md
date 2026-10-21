@@ -217,7 +217,7 @@ Manual deploy (the fallback, and what the cutover used):
 ```bash
 pnpm install --frozen-lockfile
 pnpm build
-pnpm deploy     # wrangler deploy; needs CLOUDFLARE_API_TOKEN or cf OAuth
+pnpm run deploy  # wrangler deploy; needs CLOUDFLARE_API_TOKEN or cf OAuth
 ```
 
 The Worker hostname `https://agentregistrar-docs.sdairs.workers.dev` is enabled

@@ -70,7 +70,7 @@ The content tree is the navigation. A folder is a group; its `index.mdx` is the 
 5. Run `pnpm build` and confirm the URL is `/<section>/<page>/`.
 6. Run the gates below before you open a pull request.
 
-A rename changes a public URL. Add a permanent redirect in `astro.config.ts` (a versioned collection may use `previousSlug`), and update the links in the same change.
+A rename changes a public URL. Add a permanent redirect in `astro.config.ts` for both the slashless and the trailing-slash form (a versioned collection may use `previousSlug`), and update the links in the same change.
 
 ## Sync the spec
 

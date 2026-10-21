@@ -45,8 +45,9 @@ skills/<name>/SKILL.md                  published Agent Skills
 ```
 
 A folder is a sidebar group. Its `index.mdx` is the landing page and its
-`sidebar.group.label` names the group. The tree is the information
-architecture; there is no second navigation file.
+`sidebar.group.label` names the group. The page tree is the information
+architecture; the only manual navigation is the top-level sidebar order and
+group membership in `astro.config.ts`, not a second page tree.
 
 ## 3. Page templates
 
@@ -138,10 +139,10 @@ Rules:
 - Do not link a private path, an internal issue tracker, a staging host or a
   customer detail.
 - Moving or renaming a page changes a public URL. Add a permanent redirect in
-  `astro.config.ts` in the same change, and only to a route that exists in the
-  same build. A versioned collection may use `previousSlug` instead. The
-  redirect and deprecation policy is in [`MAINTENANCE.md`](./MAINTENANCE.md)
-  runbook C.
+  `astro.config.ts` in the same change for both the slashless and the
+  trailing-slash form, and only to a route that exists in the same build. A
+  versioned collection may use `previousSlug` instead. The redirect and
+  deprecation policy is in [`MAINTENANCE.md`](./MAINTENANCE.md) runbook C.
 
 ## 8. Adding a page
 
@@ -180,7 +181,8 @@ review state.
 - [ ] `pnpm build`, `pnpm check`, `pnpm lint`, `pnpm typecheck`,
    `pnpm check:theme`, `pnpm check:links` and `git diff --check` pass.
    Warnings are explained, not ignored.
-- [ ] A rename ships a redirect, and the old URL returns one permanent hop.
+- [ ] A rename ships a redirect (both URL shapes), and the old URL returns one
+  permanent hop.
 - [ ] The page appears in its section `/llms.txt` and `/<slug>/index.md` when it is meant to
    be discoverable.
 - [ ] No private path, issue number, secret or personal data appears in the

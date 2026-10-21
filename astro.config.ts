@@ -137,20 +137,34 @@ export default defineConfig({
     }),
   ],
   // Redirect map from the information architecture decisions. Permanent (308)
-  // single hops. Only entries whose destination route is in this build are
-  // active: a redirect may never point at a 404. The staged shortcuts are
-  // activated by the issue that lands their target page, and every entry is
-  // re-verified against the deployed host by the release verification issue.
+  // single hops. Every source is registered twice, with and without the
+  // trailing slash: Workers static assets matches `_redirects` entries
+  // exactly, so the trailing-slash form needs its own rule or the built
+  // `<path>/index.html` meta-refresh stub is served with a 200 instead. Only
+  // entries whose destination route is in this build are active: a redirect
+  // may never point at a 404. The staged shortcuts are activated by the issue
+  // that lands their target page, and every entry is re-verified against the
+  // deployed host by the release verification issue.
   redirects: {
     "/docs": { status: 308, destination: "/" },
+    "/docs/": { status: 308, destination: "/" },
     "/spec": { status: 308, destination: "/agent-identity/v1/specification/" },
+    "/spec/": { status: 308, destination: "/agent-identity/v1/specification/" },
     "/specification": {
+      status: 308,
+      destination: "/agent-identity/v1/specification/",
+    },
+    "/specification/": {
       status: 308,
       destination: "/agent-identity/v1/specification/",
     },
     // The optional `spec` field's placeholder path. It now resolves to the v1
     // landing instead of a 404.
     "/agent-identity/v1/agent-signup": {
+      status: 308,
+      destination: "/agent-identity/v1/",
+    },
+    "/agent-identity/v1/agent-signup/": {
       status: 308,
       destination: "/agent-identity/v1/",
     },

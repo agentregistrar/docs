@@ -33,8 +33,11 @@
  *   1. prepend frontmatter;
  *   2. rewrite relative spec-repo links to absolute GitHub or docs URLs;
  *   3. add the generated-content banner and source link.
- * The changelog combines the two release-notes files newest-first; its headings
- * are demoted one level so the page has a single title from frontmatter.
+ * The changelog combines every `release-notes-<tag>.md` file in the tarball
+ * newest-first; its headings are demoted one level so the page has a single
+ * title from frontmatter. The generated `lastReviewed` comes from the release
+ * notes named after the pinned tag, so a new tag cannot silently reuse an older
+ * release's date.
  */
 
 import { createHash } from "node:crypto";
@@ -51,16 +54,20 @@ const CANONICAL_SCHEMA_ID = `${DOCS_ORIGIN}/agent-identity/v1/agent-signup.schem
 const API_ROOT = `https://api.github.com/repos/${SPEC_REPO}`;
 const USER_AGENT = "agentregistrar-docs-sync";
 
-/** Files the lock pins. Order is stable so the lock diff is readable. */
-const SOURCE_FILES = [
+/**
+ * Core spec files the lock pins. Order is stable so the lock diff is readable.
+ * The release-notes files are discovered from the tarball instead of being
+ * listed here, so a new `release-notes-<tag>.md` is picked up without editing
+ * this script (and an old one cannot be reused under a new tag).
+ */
+const CORE_SOURCE_FILES = [
   "agent-identity-v1.md",
   "scope-boundaries.md",
   "implementing-agent-identity-v1.md",
   "validator.md",
-  "release-notes-v1.0.0.md",
-  "release-notes-v1.1.0.md",
-  "agent-signup.schema.json",
 ];
+const SCHEMA_SOURCE = "agent-signup.schema.json";
+const RELEASE_NOTES_PATTERN = /^release-notes-(.+)\.md$/;
 
 /**
  * Generated pages. `source` is the spec file the page is generated from;
@@ -98,11 +105,8 @@ const PAGES = [
 ];
 
 const CHANGELOG = {
-  sources: ["release-notes-v1.1.0.md", "release-notes-v1.0.0.md"],
   output: "src/content/docs/agent-identity/v1/changelog.md",
   title: "Release notes and changelog",
-  description:
-    "Release notes for agent-identity-v1 v1.1.0 and v1.0.0, newest first.",
 };
 
 const SCHEMA_OUTPUT = "public/agent-identity/v1/agent-signup.schema.json";
@@ -349,10 +353,59 @@ function archiveRoot(files) {
   return root;
 }
 
+function releaseNoteVersion(file) {
+  const match = file.match(RELEASE_NOTES_PATTERN);
+  return match ? match[1] : null;
+}
+
+/** Compare two version labels, newest first (semver-ish, prerelease last). */
+function compareVersionsDescending(a, b) {
+  const parts = (value) =>
+    value
+      .replace(/^v/, "")
+      .split(/[.-]/)
+      .map((part) => (/^\d+$/.test(part) ? Number(part) : part));
+  const left = parts(a);
+  const right = parts(b);
+  for (let i = 0; i < Math.max(left.length, right.length); i += 1) {
+    const x = left[i] ?? 0;
+    const y = right[i] ?? 0;
+    if (x === y) continue;
+    if (typeof x === "number" && typeof y === "number") return y - x;
+    return String(x) < String(y) ? 1 : -1;
+  }
+  return 0;
+}
+
+/** Release-notes filenames in the tarball, newest first. */
+function releaseNoteFiles(files, root) {
+  const names = [];
+  for (const path of files.keys()) {
+    const name = path.startsWith(`${root}/`) ? path.slice(root.length + 1) : null;
+    if (!name || name.includes("/")) continue;
+    if (RELEASE_NOTES_PATTERN.test(name)) names.push(name);
+  }
+  return names.sort((a, b) =>
+    compareVersionsDescending(releaseNoteVersion(a), releaseNoteVersion(b)),
+  );
+}
+
+/** "v1.1.0 and v1.0.0" / "v1.2.0, v1.1.0 and v1.0.0". */
+function formatVersionList(versions) {
+  if (versions.length <= 1) return versions.join("");
+  return `${versions.slice(0, -1).join(", ")} and ${versions.at(-1)}`;
+}
+
 function readSources(files, label) {
   const root = archiveRoot(files);
+  const notes = releaseNoteFiles(files, root);
+  if (notes.length === 0) {
+    throw new Error(`${label} has no release-notes-*.md file`);
+  }
+  // Lock order: core files, release notes oldest-first, then the schema.
+  const paths = [...CORE_SOURCE_FILES, ...notes.slice().reverse(), SCHEMA_SOURCE];
   const sources = new Map();
-  for (const path of SOURCE_FILES) {
+  for (const path of paths) {
     const bytes = files.get(`${root}/${path}`);
     if (!bytes) {
       throw new Error(`${label} is missing ${path}`);
@@ -363,9 +416,9 @@ function readSources(files, label) {
 }
 
 function sourceHashes(sources) {
-  return SOURCE_FILES.map((path) => ({
+  return [...sources.entries()].map(([path, bytes]) => ({
     path,
-    sha256: sha256(sources.get(path)),
+    sha256: sha256(bytes),
   }));
 }
 
@@ -478,13 +531,21 @@ function demoteHeadings(text) {
 }
 
 function releaseDate(sources, tag) {
-  const newest = sources.get("release-notes-v1.1.0.md").toString("utf8");
-  const match = newest.match(/\*\*Release date:\*\*\s*(\d{4}-\d{2}-\d{2})/);
+  // The release notes are named after the tag. Requiring that file is what
+  // stops a new tag from silently stamping the previous release's date.
+  const candidate = `release-notes-${tag}.md`;
+  const notes = sources.get(candidate);
+  if (!notes) {
+    throw new Error(
+      `No ${candidate} in the fetched spec. The release notes for ${tag} must be named after the tag; refusing to reuse another release's lastReviewed date.`,
+    );
+  }
+  const match = notes.toString("utf8").match(/\*\*Release date:\*\*\s*(\d{4}-\d{2}-\d{2})/);
   if (match) return match[1];
   // The tag tarball has no git metadata; fall back to the sync date only if
   // the release notes stop carrying a date. `--write` prints a warning.
   console.warn(
-    `warning: no release date in release-notes-v1.1.0.md for ${tag}; using the sync date for lastReviewed`,
+    `warning: no release date in ${candidate} for ${tag}; using the sync date for lastReviewed`,
   );
   return new Date().toISOString().slice(0, 10);
 }
@@ -545,15 +606,22 @@ function buildPage(page, sources, pin, lastReviewed) {
 }
 
 function buildChangelog(sources, pin, lastReviewed) {
-  const body = CHANGELOG.sources
+  // `sources` is in lock order (oldest release notes first); the changelog is
+  // newest first.
+  const notes = [...sources.keys()]
+    .filter((path) => RELEASE_NOTES_PATTERN.test(path))
+    .reverse();
+  const body = notes
     .map((source) => {
       const text = sources.get(source).toString("utf8");
       return demoteHeadings(transformLinks(text, source, pin.commit)).trimEnd();
     })
     .join("\n\n");
 
+  const versions = notes.map((source) => releaseNoteVersion(source));
   const page = {
     ...CHANGELOG,
+    description: `Release notes for agent-identity-v1 ${formatVersionList(versions)}, newest first.`,
     source: `spec:${pin.tag}#release-notes`,
   };
   const sourceUrl = `${SPEC_ORIGIN}/tree/${pin.commit}`;

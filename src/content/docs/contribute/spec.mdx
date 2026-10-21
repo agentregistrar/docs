@@ -55,8 +55,12 @@ Do not list vendor features as protocol capabilities. The registry table and `im
 
 ## How the docs pick up a release
 
-1. The release is tagged in the spec repository and the release notes are published.
-2. A docs pull request bumps the tag in `spec.lock.json`, runs `pnpm sync:spec`, and reviews the generated diff.
+1. The release is tagged in the spec repository and the release notes are
+   published.
+2. A docs pull request bumps the pin with `node scripts/sync-spec.mjs --write
+   --tag <new-tag>` (never by editing `tag` alone, which re-syncs the old
+   commit under the new label), confirms the lock moved, runs
+   `pnpm sync:spec:check`, and reviews the generated diff.
 3. Hand-authored pages and cross-links are updated where fields, errors or claims changed.
 4. The changelog and current-version strings are updated, then the full gate set runs.
 

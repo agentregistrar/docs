@@ -90,10 +90,11 @@ scripts/check-theme.mjs    Terminal QA gate (not a test)
   without listing it.
 - Adding a page: create the file, give it a `title` and `description`, set the
   provenance fields, link it from its section landing page, then run the gates
-  in section 10. There is no second navigation config to update.
+  in section 10. The only manual navigation is the top-level sidebar order in
+  `astro.config.ts`; there is no second page tree to update.
 - Moving a page changes a public URL. Add a permanent redirect in
-  `astro.config.ts` in the same change, and only to a route that exists in the
-  same build.
+  `astro.config.ts` in the same change for both the slashless and the
+  trailing-slash form, and only to a route that exists in the same build.
 
 ## 5. Frontmatter and provenance
 
@@ -427,6 +428,9 @@ Cross-checks for a page you added or changed:
 - The HTML head has one `application/ld+json` block and a
   `rel="alternate" type="text/markdown"` link.
 - Nothing in the agent surface exposes a `draft` or `noindex` page.
+- Both URL shapes of a registered redirect return one `308` hop:
+  `curl -sI http://127.0.0.1:8787/old-path` and `.../old-path/`. A `200` on
+  either shape means the trailing-slash key is missing from `astro.config.ts`.
 
 JSON-LD check (structure, no network):
 
@@ -493,13 +497,14 @@ launch, and record the date and findings.
 - `WARN [vite] MODULE_LEVEL_DIRECTIVE "use astro:head-inject"` - emitted by
   Astro for MDX pages that render Nimbus head injection. Harmless upstream
   noise.
-- `nimbus-docs` reports `1 page found without an <html> element: "/docs/"` -
-  the `/docs` redirect stub is not a page. Harmless.
-- `/docs` is a 308 to `/`; `/spec`, `/specification` and
-  `/agent-identity/v1/agent-signup` are 308s to the protocol pages. The
-  remaining staged redirects stay commented in `astro.config.ts` until their
-  destination page exists. Do not activate a redirect before its destination
-  exists.
+- The redirect stubs are not pages, so the build reports "4 pages found without
+  an <html> element" (`/docs/`, `/spec/`, `/specification/`,
+  `/agent-identity/v1/agent-signup/`). Harmless. `/docs` is a 308 to `/`;
+  `/spec`, `/specification` and `/agent-identity/v1/agent-signup` are 308s to
+  the protocol pages. The redirect map registers both the slashless and the
+  trailing-slash key, so both URL shapes are one permanent hop. The remaining
+  staged redirects stay commented in `astro.config.ts` until their destination
+  page exists. Do not activate a redirect before its destination exists.
 - `pnpm check:theme` exempts generated pages (`generated: true` in
   frontmatter) from the non-ASCII rule. The spec text is canonical and contains
   typographic punctuation; it is not hand-authored prose and must not be
