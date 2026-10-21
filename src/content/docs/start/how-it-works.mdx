@@ -1,0 +1,69 @@
+---
+title: How it works
+description: The end-to-end brokered signup handshake, the claims a provider verifies and what revocation changes.
+audience: both
+aiGenerated: true
+verifiedAgainst: "live broker agentregistrar.dev, VaporCloud skdl.dev, spec v1.1.0, 2026-10-21"
+sidebar:
+  order: 3
+---
+
+import HandshakeDiagram from "../../../components/diagrams/HandshakeDiagram.astro";
+
+A brokered signup is five steps and one artifact. The human signs one master agreement, the agent gets an identity, the broker mints a short-lived proof for each service acceptance, the provider verifies it, and the broker records what happened.
+
+## The handshake
+
+<HandshakeDiagram />
+
+Diagram legend, eight events: 1 human consent, 2 connect, 3 register, 4 discover, 5 prove, 6 post, 7 verify, 8 record. The dashed rules mark the three trust boundaries: human consent after step 1, broker minting after step 5, provider verification after step 7.
+
+The five steps below are the same flow at a coarser grain than the diagram's eight events.
+
+1. **Register.** The harness connects to the broker's MCP endpoint at `https://agentregistrar.dev/mcp` and completes OAuth in the browser. `identity_register` returns the agent sub-identity: id, inbox address and delegated scopes.
+2. **Discover.** The agent fetches the provider's `/.well-known/agent-signup.json`, checks the protocol value, the issuer allowlist and the required scopes, then recomputes the SHA-256 of `terms.text` and compares it with `terms.sha256`.
+3. **Prove.** `identity_prove` records a delegated acceptance for the human owner and mints the assertion. The call is side-effecting: it writes a durable consent row and sends the ToS Acceptance Ledger email to the agent inbox plus a forward to the human.
+4. **Sign up.** The agent posts `assertion.jwt` as `Authorization: Bearer <assertion>` to the single endpoint `endpoints.agent_signup`. The provider verifies the assertion, creates or resolves the account, and returns a receipt and usually a context pointer.
+5. **Record.** `identity_record_signup` verifies the signed `signup_token` and stores the proof against the human's ledger. The result carries a handoff reminder: store any provider credential now, and never re-run signup to recover one.
+
+The diagram is not normative. The contract is [section 3](https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md#3-roles--end-to-end-flow) and [section 7](https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md#7-assertion--agent_signup-handshake) of the specification.
+
+## What the provider sees
+
+The assertion is a signed JWT with four claim groups. The provider must verify the signature against the issuer's JWKS before trusting any of it.
+
+| Claim | Meaning | What the provider checks |
+| :--- | :--- | :--- |
+| `iss` | Broker origin | Exact match against an entry in `issuer_allowlist`; JWKS fetched from that origin |
+| `aud` | Service audience | Equals the discovery `audience` |
+| `jti` | Assertion id | Not reused in a conflicting context; a repeat for the same account resolves |
+| `iat`, `exp` | Issued and expiry | Not expired, allowing at most 60 seconds of clock skew; a lifetime of about five minutes is expected |
+| `agent.id`, `agent.name`, `agent.email`, `agent.harness` | Agent identity | Stable key for attribution |
+| `human.id`, `human.name`, `human.email` | Human principal | Stable across that human's agents |
+| `human.verified` | Email verification flag | Must be `true` |
+| `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash` | The accepted terms | URL matches `terms.url`; hash equals the current `terms.sha256` |
+| `delegation.accepted_at` | Original consent time | The durable acceptance time, not the mint time |
+| `delegation.scopes` | Delegated scopes | Covers every `required_scopes` entry |
+| `delegation.master_tos_version` | Master agreement version | Informational |
+
+A provider keys an account on `(iss, human.id)` for one account per human, or on `(iss, agent.id)` for one account per agent. Keying on email creates duplicates when an address changes, and agent addresses are broker-controlled.
+
+## Where email fits
+
+The broker's inbox is part of the handshake, not an add-on.
+
+- The acceptance receipt goes to the agent inbox and is forwarded to the verified human email. That is the human's record of what was accepted.
+- Provider welcome mail and legal receipts go to the agent's inbox address.
+- If a provider verifies by email, the six-digit code arrives in the same inbox and is read with `inbox_read` or `inbox_wait_for_email` as `detected_otp`.
+
+## Revocation and retries
+
+**Revocation.** The kill switch suspends the agent identity. New `identity_prove` calls fail with `agent_revoked`, and the identity and inbox tools reject the agent at the gate. `identity_record_signup` still accepts a receipt the provider already issued. An assertion already minted and handed to a provider stays valid until it expires, at most five minutes, because the provider verifies it offline. Revocation does not delete a provider account, revoke a provider credential, or undo an accepted ToS.
+
+**Retries.** Identical `identity_prove` calls while the assertion is unexpired return the same JWT, with `reuse.reused: true`, and create no new acceptance and no new ledger mail. After expiry a fresh assertion references the same acceptance and the original consent time. On the provider side, a repeated signup for the same account resolves idempotently and reports `resolution: "resolved"`, which is a success.
+
+## Next
+
+- [First signup](/agents/first-signup/) walks the same steps with real request and response shapes.
+- [Trust and limits](/start/trust-and-limits/) states what this model does not cover.
+- [Identity lifecycle](/agents/identity-lifecycle/) covers register, resume, prove, record and revoke in detail.

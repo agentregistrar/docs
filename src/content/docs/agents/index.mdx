@@ -1,23 +1,52 @@
 ---
-title: Agents & harnesses
+title: Agents and harnesses
 description: Connect a harness to the Agent Registrar broker and use a brokered agent identity.
 audience: both
 aiGenerated: true
+verifiedAgainst: "live broker agentregistrar.dev, 2026-10-21"
+sidebar:
+  order: 0
 ---
 
-An agent runs through a harness that connects to the broker's remote MCP server. The broker registers the agent sub-identity, gives it a dedicated inbox, mints assertions and records ToS acceptances. This section covers installation, the first signup, the identity lifecycle and recovery.
+An agent runs through a harness that connects to the broker's remote MCP server. The broker registers the agent sub-identity, gives it a dedicated inbox, mints assertions and records ToS acceptances. This section covers the first signup, the identity lifecycle, the inbox, credentials and the ledger.
 
-## What this section covers
+## What you get
 
-- Agent quickstart: zero to a first brokered signup.
-- Install overview: the harness support matrix and verification tiers.
-- First signup tutorial: an end-to-end run against the VaporCloud demo.
-- Identity lifecycle: register, resume, prove, record, revoke and re-register.
-- Inbox and verification: list, read, wait, send and extract one-time codes.
-- Credentials and recovery: store the handoff immediately and use the provider's recovery path.
-- ToS and ledger: acceptance, receipts and human forwarding.
-- Troubleshooting: OAuth, 401, hash mismatch and inbox timeouts.
+- **A sub-identity.** An id (`agt_...`), a display name, a harness label and a set of delegated scopes.
+- **A dedicated inbox.** An address of the form `<agent-slug>@agents.agentregistrar.dev`, readable by the agent through MCP and by the human in the portal.
+- **Scoped delegation.** A new agent starts with `tos:accept`, `signup:free_tier`, `inbox:read` and `inbox:send`.
+- **A ledger.** One row per ToS acceptance, with the exact terms URL, hash and master agreement version, plus one proof row per provider account.
+- **A kill switch.** A per-agent revocation control in the portal that stops new assertions and further identity and inbox calls for that agent.
 
-## Primary next step
+## Before you start
 
-Providers should read [Accept agent signups](/providers/). The contract these steps implement is under [Protocol](/protocol/), and the shared vocabulary is in [Start here](/start/).
+- A harness that supports remote MCP over OAuth. OpenCode V2 and Claude Code are the tier-1 clients; Codex CLI, Cursor, Gemini CLI, VS Code and Claude Desktop are planned for tier 2 or 3. Issue 09 adds a page per client with its tier, the client version and the date it was checked; until those pages exist, the endpoint below is the same for every client.
+- A GitHub account for the human owner, and a browser for the OAuth step. The OAuth consent is a human action; no tool can complete it for you.
+- A terminal, if your client is configured from the command line.
+- Nothing else. There is no API key to create and no separate broker signup form.
+
+## The path
+
+1. [Quickstart](/agents/quickstart/): from zero to a first brokered signup.
+2. [First signup](/agents/first-signup/): the same flow as a tutorial, with every request and response shape.
+3. [Identity lifecycle](/agents/identity-lifecycle/): register, resume, prove, record, revoke and re-register.
+4. [Inbox and verification](/agents/inbox-and-verification/): list, read, wait and send, plus one-time codes.
+5. [Credentials and recovery](/agents/credentials-and-recovery/): store the credential at handoff and never re-run signup to recover it.
+6. [ToS and ledger](/agents/tos-and-ledger/): what was accepted, where it is recorded and who gets the receipt.
+7. [Troubleshooting](/agents/troubleshooting/): OAuth, 401, hash mismatches, inbox timeouts and provider errors.
+
+## The endpoint
+
+Every client connects to the same remote MCP server:
+
+```text
+https://agentregistrar.dev/mcp
+```
+
+The server publishes OAuth metadata and a JWKS, so a compliant client discovers the authorization server and registers itself. The broker endpoint rejects an unauthenticated request with `401` and a `WWW-Authenticate` challenge.
+
+## Where the reference is
+
+Tool names, inputs, side effects and error codes are listed in the [reference section](/reference/). The protocol rules behind them are in the [specification](https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md). Shared vocabulary is in [Key concepts](/start/concepts/).
+
+Providers should read [Accept agent signups](/start/quickstart-provider/) instead.

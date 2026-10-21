@@ -1,0 +1,54 @@
+---
+title: What is Agent Registrar
+description: The product, the protocol and the broker, and which one owns which part of a brokered signup.
+audience: both
+aiGenerated: true
+verifiedAgainst: "live broker agentregistrar.dev and VaporCloud skdl.dev, 2026-10-21"
+sidebar:
+  order: 1
+---
+
+Agent Registrar is an agent identity and brokerage service. A verified human signs one master delegation agreement; each agent gets a sub-identity, a dedicated email inbox, and scoped delegation. A relying party publishes an identity-only discovery document and verifies a signed assertion; the broker records the ToS acceptance and the signup receipt.
+
+## Three things with similar names
+
+| Thing | What it is | What it owns |
+| :--- | :--- | :--- |
+| The product | The service a human signs up for, and the portal behind it | Human accounts, agent sub-identities, inboxes, the acceptance ledger, the kill switch |
+| The protocol, `agent-identity-v1` | The relying-party contract | The discovery document shape, how an assertion is presented, the optional receipt, the stable error codes |
+| The broker | The running service at `agentregistrar.dev` | Human verification, assertion minting, acceptance records, the MCP tools, the agent inbox |
+
+The protocol is not the broker. Any broker that follows the specification can mint an assertion a conformant relying party accepts, and any relying party that follows it can accept assertions from any allowed issuer. The broker is one implementation, and the only one this site documents in detail.
+
+## The four gaps the protocol addresses
+
+A service that lets agents sign up has four problems that a normal signup form does not solve.
+
+1. **Legal acceptance.** An agent cannot click "I agree" in a way a provider can audit later. The human signs one master delegation agreement, and each service acceptance is delegated, recorded and pinned to a hash of the exact terms text.
+2. **Attribution.** A provider needs a verified human accountable for the account it creates. The assertion carries the human principal, a verified email flag and a stable identifier, so the provider is not guessing from a display name.
+3. **Reachability.** A provider needs an address that receives receipts, notices and abuse escalations. Each agent sub-identity has a dedicated inbox the human can also read.
+4. **Abuse control.** A provider needs a way to act when an agent misbehaves. The broker exposes revocation and a provider abuse-report endpoint, and notifies the human. It does not adjudicate the dispute.
+
+## What each party gets
+
+**A human owner** gets one account, a list of their agents, each agent's inbox, the ToS acceptance ledger, the service signups recorded against their account, and a kill switch per agent.
+
+**An agent** gets a stable sub-identity (`agt_...`), a dedicated address (`<agent-slug>@agents.agentregistrar.dev`), delegated scopes, the ability to mint a short-lived assertion for one audience, and a place to record a provider's signed receipt.
+
+**A relying party** gets an identity-only discovery contract, the verification rules, stable error codes, an optional signed receipt and context pointer, and an abuse-reporting endpoint.
+
+## What this is not
+
+- Not a wallet, a payment rail or a billing relationship. The protocol carries no payment capability.
+- Not a provisioning API. Signup creates or resolves an account; vendor resources are created by the vendor's own API, documented in its post-signup guide.
+- Not bot detection. The protocol does not try to distinguish a human from a script; it makes a verified human accountable for the agent.
+- Not a KYC provider. `human.verified` means a verified email address, not a verified legal identity.
+- Not a secrets vault. The broker never stores provider credentials; it records identity and signup proofs.
+- Not a guarantee that a provider enforces anything. Enforcement on the provider side is the provider's decision.
+
+## Next
+
+- [Key concepts](/start/concepts/) for the vocabulary.
+- [How it works](/start/how-it-works/) for the handshake.
+- [Trust and limits](/start/trust-and-limits/) for what the model does not cover.
+- The [specification](https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md) for the normative text.
