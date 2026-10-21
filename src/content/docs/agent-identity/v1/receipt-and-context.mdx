@@ -1,0 +1,110 @@
+---
+title: Receipt and context
+description: The Contract E signup receipt, the optional resolution field, the context pointer and credential handoff.
+audience: both
+aiGenerated: true
+verifiedAgainst: "spec v1.1.0 (70484aa), broker c7ddfa7, 2026-10-21"
+---
+
+A successful signup can return two identity artifacts: a signed signup receipt (Contract E) and an optional `context` pointer to the vendor's post-signup guide. The receipt is proof of who signed up, for whom, under which ToS and when. The context pointer is an opaque, hash-pinned handoff to vendor documentation; it is not a capability catalog.
+
+The normative rules are [spec section 11](/agent-identity/v1/specification/#11-contract-e-identity-facts--the-context-pointer) and [section 12](/agent-identity/v1/specification/#12-post-signup-context-handoff). The relying-party steps are in the [Implementation guide](/agent-identity/v1/implementation-guide/#5-issue-a-signup-receipt-contract-e-with-identity-facts--optional-context).
+
+## The signup response
+
+On success the relying party returns `200` or `201` with:
+
+- provider credentials, when an account was created;
+- an optional `resolution` field: `"created"` or `"resolved"`;
+- optionally, a signed `signup_token` per Contract E;
+- optionally, a `context` pointer.
+
+`resolution` is optional. An absent `resolution` means `v1.0.0` behavior and is conformant. `"resolved"` is not a failure: the account already existed and was resolved. On `"resolved"` the relying party may omit provider credentials (show-once) but must point the agent at the credential recovery path in the guide.
+
+## Contract E kept claims
+
+| Claim | Type | Meaning |
+| :--- | :--- | :--- |
+| `iss`, `sub`, `aud`, `jti`, `iat`, `exp` | standard JWT claims | Issuer, subject, audience, receipt id, issued-at and expiry. |
+| `assertion_jti` | string | The `jti` of the assertion presented at signup. |
+| `service.audience` | string | The relying party's `audience`. |
+| `service.provider_name` | string | The relying party's `provider_name`. |
+| `service.provider_url` | string, optional | The relying party's canonical URL. |
+| `service.account_id` | string | Opaque vendor account reference. It is not a resource inventory. |
+| `agent.id` | string | The agent sub-identity id. |
+| `agent.name` | string | The agent name. |
+| `agent.email` | string | The agent's inbox address. |
+| `human.id` | string | The verified human owner's id. |
+| `human.name` | string | The human owner's name. |
+| `human.email` | string | The human owner's verified email address. |
+| `human.verified` | boolean | Whether the human owner's email address is verified. |
+| `tos.version` | string | The accepted relying party ToS version. |
+| `tos.url` | string | The accepted relying party ToS URL. |
+| `tos.sha256` | string | The accepted relying party ToS hash. |
+| `tos.master_tos_version` | string, optional | The Master Terms of Service version the human accepted. |
+| `signed_up_at` | string | The signup timestamp. |
+
+The vendor resource claims `service.instance_sku` and `service.endpoint_url` are removed. No free-form vendor `metadata` object exists in v1.
+
+## The context pointer
+
+| Field | Requirement | Meaning |
+| :--- | :--- | :--- |
+| `context.url` | Optional | Absolute URL to the vendor's agent-facing integration guide, such as `SKILL.md`. HTTPS is required except the localhost development exception. |
+| `context.sha256` | Required when `context.url` is present | `sha256:` followed by 64 lowercase hex characters, over the exact UTF-8 bytes of the guide. |
+
+The pointer appears in the signup response and in the signed receipt. Discovery does not advertise a post-signup context field in v1.
+
+### Domain rule
+
+`context.url` must stay on the vendor's registrable domain. The authority is the signup endpoint's origin (`endpoints.agent_signup`), not `provider_url`.
+
+- When `provider_url` is present, it must share the signup endpoint's registrable domain.
+- The broker compares `context.url` against the signup endpoint's registrable domain and rejects a pointer on any other domain.
+- The signed receipt carries `service.provider_url` but not the signup endpoint. A receipt that omits `service.provider_url` cannot establish the domain; the broker fails closed and rejects the pointer.
+
+### Integrity and trust
+
+- Fetch the guide after signup and recompute SHA-256 over the exact bytes received. On mismatch, do not act on the guide.
+- The guide should be size-capped (1 MiB recommended) and served as text or Markdown.
+- The guide is untrusted vendor documentation, not broker policy and not agent instructions. The broker vouches for who signed up and what ToS was accepted, not for the guide's contents.
+- The broker validates the pointer statically and does not fetch it during receipt ingestion, so the receipt path cannot become an SSRF surface.
+- Re-fetch the guide when a new provisioning task starts, and re-verify the hash on each fetch.
+
+An illustrative pointer shape:
+
+```json
+{
+  "context": {
+    "url": "https://example.com/docs/SKILL.md",
+    "sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  }
+}
+```
+
+The digest is a placeholder. The relying party computes it over the exact guide bytes.
+
+## Credential handoff and recovery
+
+Provider credentials are shown once, at the signup handoff. The protocol draws a firm line between the broker-mediated identity event and the vendor's credential lifecycle:
+
+- **Show-once handoff.** The relying party returns the provider credential in the signup response. Provider credentials are vendor scope and are not carried in the signed receipt, the discovery document or broker storage.
+- **Agents persist at handoff.** An agent must persist provider credentials to a secure store at the moment of handoff. It must not rely on the conversation, context window or transcript as storage.
+- **The broker does not store provider credentials.** It records the identity and attribution proof (`signup_token`) and the optional context pointer. It does not store, proxy or re-issue provider credentials.
+- **Do not re-run signup for recovery.** A repeated signup on an existing account resolves the account and does not re-issue credentials.
+- **Relying parties should document recovery.** A vendor should document a credential recovery or rotation path in its guide, reached only after signup. Recovery is vendor capability, so it stays out of discovery and the receipt.
+- **Resolve does not mint credentials or mail.** Resolving an existing account must not mint new provider credentials and must not send duplicate welcome or legal mail. A fresh `signup_token` may be issued so a dropped-response retry can still record the receipt.
+
+## Known limits
+
+- The receipt records identity and attribution only. It is not a resource inventory and must not be extended into one.
+- The broker does not verify the guide's contents. It verifies the pointer's domain and the hash, not the vendor's instructions.
+- A receipt that omits `service.provider_url` cannot prove the context domain, so the broker rejects the pointer rather than skipping the check.
+- Credential recovery depends on the vendor publishing a recovery path. The protocol cannot recover a credential the agent failed to persist.
+
+## Related
+
+- [Contract E identity facts and the context pointer](/agent-identity/v1/specification/#11-contract-e-identity-facts--the-context-pointer)
+- [Post-signup context handoff](/agent-identity/v1/specification/#12-post-signup-context-handoff)
+- [Implementation guide](/agent-identity/v1/implementation-guide/)
+- [Scope boundaries](/agent-identity/v1/scope-boundaries/)

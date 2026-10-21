@@ -29,12 +29,17 @@ export const collections = {
          * - `source` - the canonical source of a generated page, e.g.
          *   "spec:v1.1.0#agent-identity-v1.md". Hand-edited pages have no
          *   `source`.
+         * - `specTag` - the pinned spec tag a generated page came from.
+         * - `generated` - true only on pages written by `pnpm sync:spec`.
+         *   Never set it by hand.
          */
         audience: z.enum(["human", "agent", "both"]).default("both"),
         aiGenerated: z.boolean().optional(),
         verifiedAgainst: z.string().min(1).optional(),
         lastReviewed: z.coerce.date().optional(),
         source: z.string().min(1).optional(),
+        specTag: z.string().min(1).optional(),
+        generated: z.boolean().optional(),
       },
     }),
   ),

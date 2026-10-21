@@ -8,9 +8,9 @@ static output.
 - Product site: <https://agentregistrar.dev>
 - Specification repository: <https://github.com/agentregistrar/spec>
 
-The site currently ships the functional shell and the home and section landing
-pages. The protocol, provider, agent, portal and reference content is being
-added section by section.
+The site ships the functional shell, the home and section landing pages, and the
+`agent-identity-v1` protocol section. The provider, agent, portal and reference
+content is being added section by section.
 
 ## Local development
 
@@ -77,10 +77,20 @@ Current pages:
 - `/` - docs home
 - `/start/`, `/agents/`, `/providers/`, `/protocol/`, `/portal/`, `/reference/`,
   `/contribute/` - section landings
+- `/agent-identity/v1/` - protocol landing, with hand-authored reference pages
+  for discovery fields, assertion claims, receipt and context, security,
+  conformance and versioning
+- `/agent-identity/v1/specification/`, `/scope-boundaries/`,
+  `/implementation-guide/`, `/validator/`, `/changelog/` - generated from the
+  pinned spec tag; never edit these by hand
+- `/agent-identity/v1/agent-signup.schema.json` - the JSON Schema served at its
+  canonical `$id`
 - `/404.html` - not-found page
 
 Redirects are declared in `astro.config.ts` and emitted to `dist/_redirects` at
-build time. Only redirects whose destination page exists are active.
+build time. Only redirects whose destination page exists are active. `/spec`,
+`/specification` and `/agent-identity/v1/agent-signup` are active with the
+protocol pages.
 
 ## Authoring
 
@@ -130,10 +140,33 @@ Content types and cache policy for these paths are in `public/_headers`.
 
 ## Spec sync
 
-The normative protocol pages will be generated from a pinned tag of
-`agentregistrar/spec` by `scripts/sync-spec.mjs`, with `spec.lock.json` recording
-the tag, commit and file hashes. The sync is not implemented yet; `pnpm
-sync:spec` is a placeholder today.
+The normative protocol pages are generated from a pinned tag of
+`agentregistrar/spec`. `spec.lock.json` records the tag, the peeled commit, the
+source file hashes, the generated output hashes and `generated_at`.
+
+```bash
+pnpm sync:spec          # fetch the pinned tag, verify it, write pages and lock
+pnpm sync:spec:check    # offline drift check; runs before pnpm build
+```
+
+`pnpm build` runs `prebuild`, which runs the offline check. A hand edit to a
+generated page fails the build. The explicit sync is the only step that uses the
+network; it verifies the tag's commit and every source hash before writing.
+
+Generated files:
+
+- `src/content/docs/agent-identity/v1/specification.md`
+- `src/content/docs/agent-identity/v1/scope-boundaries.md`
+- `src/content/docs/agent-identity/v1/implementation-guide.md`
+- `src/content/docs/agent-identity/v1/validator.md`
+- `src/content/docs/agent-identity/v1/changelog.md`
+- `public/agent-identity/v1/agent-signup.schema.json`
+
+Allowed transforms are frontmatter, relative-to-absolute link rewriting, and the
+generated banner. Nothing else. To bump the spec version, edit `tag` in
+`spec.lock.json`, run `pnpm sync:spec`, review the normative diff, update the
+hand-authored pages and cross-links, and commit the lock with the generated
+pages. The full runbook is in [`AGENT.md`](./AGENT.md) section 11.
 
 ## Deployment
 
@@ -166,9 +199,11 @@ The Worker hostname `https://agentregistrar-docs.sdairs.workers.dev` is enabled
 for verification. `_headers` in `public/` is copied to `dist/_headers` and
 applied by Workers static assets: it sets the Markdown/llms/discovery content
 types, cache policy, CORS for agent artifacts and baseline security headers. The
-JSON Schema content-type/CORS rule is deferred to Issue 06: until
-`public/agent-identity/v1/agent-signup.schema.json` exists, that path is a plain
-`text/html` 404 rather than HTML cached under a schema media type.
+published JSON Schema is served at
+`/agent-identity/v1/agent-signup.schema.json` as
+`application/schema+json; charset=utf-8` with `Access-Control-Allow-Origin: *`
+and a one-hour cache. The rule names the exact path, not `/*.schema.json`, so an
+unknown schema path still returns the normal HTML 404.
 
 The former Cloudflare Pages project `agentregistrar-docs` is a frozen rollback
 snapshot: no custom domain and, since 2026-10-21, no Git source, so pushes no

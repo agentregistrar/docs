@@ -1,0 +1,111 @@
+---
+title: Assertion claims
+description: The Contract A claim set, a worked example, and the checks a relying party performs on a signed assertion.
+audience: both
+aiGenerated: true
+verifiedAgainst: "spec v1.1.0 (70484aa), broker c7ddfa7, 2026-10-21"
+---
+
+An agent obtains a signed Agent Identity assertion from its broker with `identity_prove`. The assertion is a compact Ed25519-signed JWT. It is the proof the agent presents at `endpoints.agent_signup`; the discovery document and the assertion are separate artifacts.
+
+This page is a reference for the claims and the relying-party checks. The normative handshake is [spec section 7](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake); the assertion format itself is Contract A and is referenced, not redefined, by the discovery specification.
+
+## Claim set
+
+| Claim | Type | Meaning |
+| :--- | :--- | :--- |
+| `iss` | string | Issuer: the broker origin that minted and signed the assertion. |
+| `sub` | string (`agt_...`) | Subject: the agent sub-identity id. |
+| `aud` | string | Audience: the exact `audience` from the relying party's discovery document, case-sensitive. |
+| `jti` | string (`jti_...`) | Unique assertion id. |
+| `iat` | integer | Issued-at, Unix seconds. |
+| `exp` | integer | Expiry, Unix seconds. The broker default lifetime is 5 minutes. |
+| `agent.id` | string (`agt_...`) | The agent sub-identity id. |
+| `agent.name` | string | Human-readable agent name. |
+| `agent.email` | string | The agent's dedicated inbox address. |
+| `agent.harness` | string | The agent harness identifier. |
+| `human.id` | string | The verified human owner's id. |
+| `human.name` | string | The human owner's display name. |
+| `human.email` | string | The human owner's verified email address. |
+| `human.verified` | boolean | Whether the human owner's email address is verified. |
+| `delegation.master_tos_version` | string | The Master Terms of Service version the human accepted. |
+| `delegation.master_tos_hash` | string (`sha256:...`), optional | Content hash of the Master Terms of Service. |
+| `delegation.accepted_rp_tos_url` | string (URL), optional | URL of the relying party ToS accepted through the agent. |
+| `delegation.accepted_rp_tos_hash` | string (`sha256:...`) | Content hash of the accepted relying party ToS text. |
+| `delegation.accepted_at` | integer | Acceptance time, Unix seconds. |
+| `delegation.scopes` | array of strings | Scopes delegated for this signup. |
+
+The claim names and types are validated by `AgentAssertionClaimsSchema` in the shared broker package. `identity_prove` returns the exact signed payload as `assertion.claims` for inspection.
+
+## Worked example
+
+Ids are truncated and the audience is a placeholder. The issuer is the broker origin; `identity_prove` returns the real values in `assertion.claims`.
+
+```json
+{
+  "iss": "https://agentregistrar.dev",
+  "sub": "agt_01j00000000000000000000000",
+  "aud": "example-rp",
+  "jti": "jti_01j00000000000000000000000",
+  "iat": 1761000000,
+  "exp": 1761000300,
+  "agent": {
+    "id": "agt_01j00000000000000000000000",
+    "name": "opencode-agent",
+    "email": "opencode-agent@agents.example",
+    "harness": "opencode-v2"
+  },
+  "human": {
+    "id": "hum_01j00000000000000000000000",
+    "name": "Example Human",
+    "email": "human@example.com",
+    "verified": true
+  },
+  "delegation": {
+    "master_tos_version": "2026.1",
+    "master_tos_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "accepted_rp_tos_url": "https://example.com/terms",
+    "accepted_rp_tos_hash": "sha256:05435fa3eaee7f3534b4a771ab2328d66d33f712f3534b29e9035717c246d953",
+    "accepted_at": 1761000000,
+    "scopes": ["tos:accept"]
+  }
+}
+```
+
+The hashes in the example are illustrative except `accepted_rp_tos_hash`, which matches the example terms text on [Discovery fields](/agent-identity/v1/discovery-fields/#minimal-conformant-example).
+
+## Verify the assertion
+
+A relying party verifies at least these checks before creating or resolving an account:
+
+1. **Fetch the issuer keys.** Use the `verification.jwks_url` returned by `identity_prove`, which is `GET <iss>/.well-known/jwks.json` for the broker. Do not accept a `jku` or `x5u` header that points at another host.
+2. **Check the JOSE header.** Require `alg` to be `EdDSA`. Select the key whose `kid` matches the header; the broker currently uses `kid` `broker-key-1`. When the header carries `typ`, it is `agent-id+jwt`.
+3. **Verify the signature.** Verify the compact JWT against the selected issuer key.
+4. **Check the issuer.** `iss` must match one `issuer_allowlist` entry exactly.
+5. **Check the audience.** `aud` must equal the published `audience`.
+6. **Check the lifetime.** `exp` must not have passed, with at most 60 seconds of clock skew. The recommended maximum assertion lifetime is 5 minutes.
+7. **Check the assertion id.** A `jti` reused in a conflicting context is `assertion_replayed`. A repeated request for the same agent, account and service is not a replay; resolve it idempotently.
+8. **Check the scopes.** `delegation.scopes` must include every `required_scopes` entry.
+9. **Check the human.** `human.verified` must be `true`.
+10. **Check the ToS hash.** `delegation.accepted_rp_tos_hash` must equal the currently advertised `terms.sha256`. A mismatch is `tos_hash_mismatch` and a hard stop for the agent.
+11. **Record the proof.** Keep the assertion `jti`, the accepted ToS version and hash, and the attribution for audit.
+
+The stable error codes and their HTTP statuses are in [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes).
+
+## Inspection-only rule
+
+Never decode, re-encode or modify the compact JWT to guess fields. Send `assertion.jwt` verbatim to `endpoints.agent_signup`. Use `assertion.claims` only to inspect what was signed; the JWT is the proof.
+
+## Known limits
+
+- `human.verified` means the human owner's email address is verified. It is not a KYC or identity-document check, and a relying party must not represent it as one.
+- Revocation is enforced by the broker when an assertion is minted. A relying party that only verifies signatures learns about revocation when it next asks for an assertion or through an out-of-band feed it chooses to support.
+- The protocol has no relying-party allowlist. Any service can publish a discovery document and ask an agent to sign up.
+- An assertion proves identity, delegation and ToS acceptance for its audience. It does not prove that the service is trustworthy or that its guide is safe.
+
+## Related
+
+- [Assertion and agent_signup handshake](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake)
+- [Issuer and JWKS assumptions](/agent-identity/v1/specification/#10-issuer--jwks-assumptions)
+- [Receipt and context](/agent-identity/v1/receipt-and-context/)
+- [Reference](/reference/) for the broker's MCP tools and endpoints.

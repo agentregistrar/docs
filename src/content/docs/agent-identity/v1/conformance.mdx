@@ -1,0 +1,102 @@
+---
+title: Conformance
+description: The relying-party conformance checklist, validator commands and exit codes, fixtures and registry entry.
+audience: both
+aiGenerated: true
+verifiedAgainst: "spec v1.1.0 (70484aa), validator 1.0.0, 2026-10-21"
+---
+
+A relying party is `agent-identity-v1` conformant when the discovery document it serves at `GET /.well-known/agent-signup.json` passes the identity-only conformance validator with zero errors. Conformance is about the discovery document, not the vendor's product.
+
+The normative checklist is [spec section 15](/agent-identity/v1/specification/#15-conformance-checklist--minimal-conformant-example). The validator reference is the generated [Conformance validator](/agent-identity/v1/validator/) page.
+
+## Relying-party checklist
+
+- [ ] `GET /.well-known/agent-signup.json` returns `200` with `Content-Type: application/json`.
+- [ ] `GET` returns `404` or `410`, never `401` or `403`, when the service does not support the protocol.
+- [ ] `protocol` is exactly `agent-identity-v1`.
+- [ ] `audience`, `provider_name`, a non-empty `issuer_allowlist`, and unique `required_scopes` including `tos:accept` are present.
+- [ ] `terms.text` is the complete ToS text; `terms.sha256` is `sha256:` plus 64 lowercase hex characters over its exact UTF-8 bytes; `terms.url` and `terms.version` are present and consistent.
+- [ ] `endpoints.agent_signup` is the only endpoint and is an absolute URL.
+- [ ] No forbidden vendor field appears anywhere, including under `extensions`.
+- [ ] CORS and cache headers follow [spec section 4](/agent-identity/v1/specification/#4-discovery-endpoint--transport); the body is within the 1 MiB cap.
+- [ ] Assertions are verified against issuer JWKS with every check in [spec section 7.1](/agent-identity/v1/specification/#71-handshake).
+- [ ] Stable [section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes) error codes are returned.
+- [ ] A `context` pointer, if the vendor has capabilities to document, is on the vendor's registrable domain, uses HTTPS, and is hash-pinned. It is returned in the signup response and receipt, not in discovery.
+- [ ] `signup_token` contains identity facts, an opaque `service.account_id`, ToS facts and optional `context`, and no `instance_sku` or `endpoint_url`.
+- [ ] A repeated signup for an existing account, keyed as recommended in [spec section 9.1](/agent-identity/v1/specification/#91-account-identity-keys), resolves idempotently: it returns `resolution: "resolved"`, does not re-issue provider credentials and sends no duplicate welcome or legal mail. This is a `SHOULD`.
+- [ ] The vendor guide documents a credential recovery or rotation path reached after signup, and that path is not advertised in discovery or the receipt. This is a `SHOULD`.
+
+## Validate a document
+
+Run the validator from a clone of `agentregistrar/spec` at the pinned tag. The package is source-first; install its dependencies first.
+
+```bash
+pnpm install
+pnpm validate:discovery fixtures/valid-full.json
+pnpm validate:discovery https://example.com/.well-known/agent-signup.json
+```
+
+For machine-readable output, pass `--silent` so stdout is pure JSON:
+
+```bash
+pnpm --silent validate:discovery https://example.com/.well-known/agent-signup.json --json | jq .
+```
+
+Opt-in probes are non-destructive and off by default:
+
+```bash
+pnpm validate:discovery https://example.com/.well-known/agent-signup.json --probe-jwks
+pnpm validate:discovery https://example.com/.well-known/agent-signup.json --probe-endpoints
+```
+
+Probes never `POST`, never trigger signup or provisioning, and are limited to the issuers in `issuer_allowlist` and the advertised `endpoints.agent_signup`.
+
+## Exit codes
+
+| Code | Meaning |
+| :--- | :--- |
+| `0` | Valid conformant document. Warnings are allowed and do not change the code. |
+| `1` | A document was obtained and parsed, but it failed conformance: schema, hash, forbidden vendor fields, invalid fields, or a failed opt-in probe. |
+| `2` | Could not fetch a usable document: unreadable file, network or timeout failure, redirect limit or cross-origin redirect, non-`200` status, wrong content type, over the size cap, or an unparseable JSON body. |
+
+Exit `2` is "no document" and exit `1` is "bad document". Both are non-zero, so a gate that checks only the exit status still fails correctly.
+
+## Fixtures
+
+The spec repository ships conformance fixtures:
+
+- `fixtures/valid-*` documents pass with exit `0`.
+- `fixtures/invalid-*` documents fail with exit `1` and a field-level message.
+- A fixture's `__fixture_note` field is an unknown top-level field and produces a warning only.
+
+The checked-in `fixtures/valid-full.json` is the reference relying party's identity-only document. See the generated [Conformance validator](/agent-identity/v1/validator/) page for the full `--json` field reference.
+
+## Registry entry
+
+A validator-passing discovery document is the objective entry criterion. The registry is adoption infrastructure, not an enforcement mechanism.
+
+Entry criteria:
+
+1. The identity-only validator passes: `valid: true` with `exitCode: 0`. Warnings are permitted; errors are not.
+2. The discovery document is public and stable: an HTTPS `/.well-known/agent-signup.json` on the implementation's canonical origin, not a throwaway or per-deploy URL.
+3. The contact is reachable: a security, abuse or legal contact that someone monitors.
+4. A post-signup context guide is published if the vendor has capabilities to document. Vendor features belong in that guide, not in discovery or the registry.
+
+Submission path: open a pull request against [`agentregistrar/spec`](https://github.com/agentregistrar/spec) that adds one object to the `implementations` array in [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/implementations.json) and updates the table in [`registry/README.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/README.md). Include `name`, `url`, `discovery_url`, `audience`, `protocol`, `capabilities` (protocol capabilities only), `contact`, `validated_at`, `validator_version`, and the exact command and counts in `validator_evidence`.
+
+Registry capabilities are protocol capabilities only: `agent_signup` and `post_signup_context`. Vendor features such as provisioning, catalogs, SKUs, pricing and OTP endpoints are never registry capabilities.
+
+## Known limits
+
+- The registry lists discovery documents that pass the validator. It is not a broker endorsement of the implementation's product, security posture, uptime or pricing.
+- A document can be conformant and still be a poor or malicious service. Conformance is a schema and scope check, not a trust decision.
+- The reference entry in the registry records a local validator run; live validation of a hosted implementation is an operational step performed by that implementer.
+- Warnings do not fail conformance. Review them, but do not treat a warning-free run as a security review.
+
+## Related
+
+- [Conformance validator](/agent-identity/v1/validator/)
+- [Discovery fields](/agent-identity/v1/discovery-fields/)
+- [Scope boundaries](/agent-identity/v1/scope-boundaries/)
+- [Implementation guide](/agent-identity/v1/implementation-guide/)
