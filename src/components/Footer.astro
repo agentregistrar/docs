@@ -1,0 +1,27 @@
+---
+const year = 2026;
+---
+
+<footer class="border-t border-border bg-card">
+  <div class="mx-auto w-full max-w-(--nb-content-max) px-4 py-8 md:px-6">
+    <div class="flex flex-col gap-6 sm:flex-row sm:justify-between">
+      <div class="max-w-sm">
+        <a href="/" class="text-sm font-semibold text-foreground no-underline">Agent Registrar Docs</a>
+        <p class="mt-2 text-sm leading-normal text-muted-foreground">
+          Documentation for agent-identity-v1, the Agent Registrar broker and the harnesses that use them.
+        </p>
+      </div>
+      <nav aria-label="Project" class="grid grid-cols-1 gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
+        <a href="https://github.com/agentregistrar/spec" class="text-muted-foreground no-underline hover:text-foreground">Specification repository</a>
+        <a href="https://github.com/agentregistrar/spec/tree/main/registry" class="text-muted-foreground no-underline hover:text-foreground">Registry</a>
+        <a href="https://github.com/agentregistrar/spec/blob/main/validator.md" class="text-muted-foreground no-underline hover:text-foreground">Validator</a>
+        <a href="mailto:security@agentregistrar.dev" class="text-muted-foreground no-underline hover:text-foreground">Security contact</a>
+        <a href="https://github.com/agentregistrar/docs/blob/main/LICENSE" class="text-muted-foreground no-underline hover:text-foreground">License (Apache-2.0)</a>
+        <a href="https://agentregistrar.dev" class="text-muted-foreground no-underline hover:text-foreground">agentregistrar.dev</a>
+      </nav>
+    </div>
+    <p class="mt-8 border-t border-border pt-4 text-xs text-muted-foreground">
+      (c) {year} Agent Registrar. Documentation is Apache-2.0.
+    </p>
+  </div>
+</footer>

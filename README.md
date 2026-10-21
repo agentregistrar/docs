@@ -1,42 +1,110 @@
-# Agent Registrar Developer Docs
+# Agent Registrar Docs
 
-Source for the public Agent Registrar developer documentation site, built with
-[Astro Starlight](https://starlight.astro.build/) and served at
-<https://docs.agentregistrar.dev>.
+The public documentation site for Agent Registrar and `agent-identity-v1`. It is
+built with [Cloudflare Nimbus](https://nimbus-docs.com) on Astro and deploys as
+static output.
 
-This repository currently contains a placeholder landing page. The documentation
-content and the docs-site visual design are follow-on work; this repo ships the
-stock Starlight theme, unmodified.
+- Live site: <https://docs.agentregistrar.dev>
+- Product site: <https://agentregistrar.dev>
+- Specification repository: <https://github.com/agentregistrar/spec>
 
-The `agent-identity-v1` specification, JSON Schema, fixtures, conformance
-validator, and implementation registry live in
-[`agentregistrar/spec`](https://github.com/agentregistrar/spec).
+The site currently ships the functional shell and the home and section landing
+pages. The protocol, provider, agent, portal and reference content lands in
+Issues 06-11 of `docs/12-docs-push`.
 
 ## Local development
 
-Requires Node.js ≥ 20 and pnpm (see `packageManager` in `package.json`).
+Requirements:
 
-| Command | Action |
-| :--- | :--- |
-| `pnpm install` | Install dependencies |
-| `pnpm dev` | Start the dev server at `http://localhost:4321` |
-| `pnpm build` | Build the production site to `./dist/` |
-| `pnpm preview` | Preview the production build locally |
+- Node `22.12` or newer (the repository is developed on Node 24).
+- pnpm `9.15.4` (pinned in `package.json`).
+
+```bash
+pnpm install
+pnpm dev        # Astro dev server at http://localhost:4321
+pnpm build      # static output in dist/
+pnpm preview    # serve the built output
+```
+
+Authoring checks:
+
+```bash
+pnpm check      # nimbus-docs check: environment, structure, authoring, types
+pnpm lint       # nimbus-docs lint: content rules
+pnpm typecheck  # astro check (TypeScript and .astro files)
+```
+
+Do not run the build and the dev server against the same `.nimbus/` cache at the
+same time.
+
+## Project structure
+
+Nimbus owns the framework package; everything under `src/` is owned by this
+repository. The important files:
+
+```text
+astro.config.ts          Nimbus config, integration options and redirects
+nimbus.json              framework provenance (pinned Nimbus release)
+wrangler.jsonc           Cloudflare Workers static-assets target
+src/
+  components.ts          components available in every MDX file
+  components/            Header, Footer and the Nimbus UI components
+  content/
+    docs/                the page tree: routes and sidebar
+    partials/            shared MDX partials
+  content.config.ts      docs/partials collections and provenance fields
+  layouts/               BaseLayout and DocsLayout
+  pages/                 routes, 404, Markdown/llms/robots/OG endpoints
+  styles/                Tailwind entry, dark-only tokens and prose styles
+```
+
+The content tree is the IA: a page's path under `src/content/docs/` is its URL,
+and the sidebar is generated from the same tree. Top-level order and the
+Protocol group are pinned in `astro.config.ts`.
+
+Current pages:
+
+- `/` - docs home
+- `/start/`, `/agents/`, `/providers/`, `/protocol/`, `/portal/`, `/reference/`,
+  `/contribute/` - section landings
+- `/404.html` - not-found page
+
+Redirects from the Issue 01 URL map are declared in `astro.config.ts` and emitted
+to `dist/_redirects` at build time.
+
+## Authoring
+
+- A page is a `.md` or `.mdx` file under `src/content/docs/`. Frontmatter
+  requires `title`; `description`, `sidebar.order` and the provenance fields
+  (`audience`, `verifiedAgainst`, `lastReviewed`, `aiGenerated`, `source`) are
+  optional today and become policy in Issue 05.
+- Use the Nimbus components registered in `src/components.ts` (`Aside`, `Card`,
+  `CardGrid`, `Steps`, `Tabs`, and the rest) rather than new one-off widgets.
+- Rendered text is ASCII, sentence case and free of icons. The site is dark-only
+  and has no theme toggle.
+- The contribution guide (`CONTRIBUTING.md`) lands in Issue 12. Until then, use
+  the page templates and voice rules in
+  `docs/12-docs-push/01-docs-ia-audit-and-decisions.md`.
+
+## Spec sync
+
+The normative protocol pages will be generated from a pinned tag of
+`agentregistrar/spec` by `scripts/sync-spec.mjs`, with `spec.lock.json` recording
+the tag, commit and file hashes. Issue 06 implements the sync. `pnpm sync:spec`
+is a placeholder today.
 
 ## Deployment
 
-The site is deployed with **Cloudflare Pages** using its Git integration:
+The build is static and targets Cloudflare Workers static assets
+(`wrangler.jsonc`). Issue 04 creates the Worker, verifies the redirects and
+headers, and attaches `docs.agentregistrar.dev`; this repository does not deploy
+from Issue 02.
 
-- **Repository:** `agentregistrar/docs`
-- **Production branch:** `main` (auto-deploy on push)
-- **Build command:** `pnpm build`
-- **Build output directory:** `dist`
+```bash
+pnpm build
+pnpm deploy     # wrangler deploy, once Issue 04 has provisioned the Worker
+```
 
-There are no deploy workflows or CI configuration in this repository — Cloudflare
-Pages builds on push.
+## License
 
-## Links
-
-- Documentation site: <https://docs.agentregistrar.dev>
-- Specification repository: <https://github.com/agentregistrar/spec>
-- Broker: <https://agentregistrar.dev>
+Apache-2.0. See [LICENSE](./LICENSE).

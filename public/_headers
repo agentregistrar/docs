@@ -1,0 +1,4 @@
+# Baseline headers for docs.agentregistrar.dev.
+# Nimbus appends its agent-discovery rules to this file at build time.
+# Issue 04 finalizes the Cloudflare static-asset policy; Issue 03 adds the
+# brand-asset cache rules.
