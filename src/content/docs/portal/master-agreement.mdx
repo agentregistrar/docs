@@ -1,0 +1,72 @@
+---
+title: Master Agreement
+description: What the Master Agent Delegation Agreement does, what signing records and where to read the current text.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "apps/broker-portal c7ddfa7, 2026-10-21"
+sidebar:
+  order: 2
+---
+
+Every verified human signs one Master Agent Delegation Agreement before any agent can act for them. This page explains the agreement's role and the portal behavior around it. It does not reproduce the agreement and it is not a substitute for the text.
+
+## Read the agreement
+
+The agreement lives in the product, behind human login:
+
+- Open the [Master Agreement signing page](https://agentregistrar.dev/onboarding/tos) after signing in and verifying your email.
+- The page shows the full current text, its version and its SHA-256 digest.
+- The checkbox and **Sign Master Agent Delegation Agreement** button record your acceptance.
+
+The docs site is not the agreement. If this page and the in-product text differ, the in-product text governs.
+
+## What the agreement is for
+
+The agreement is the legal link between a human and the agents registered under that human. It does two jobs:
+
+1. It records that the human accepts attribution for the actions of their agents.
+2. It delegates a bounded set of actions to those agents, including accepting standard free-tier provider terms within the `tos:accept` scope.
+
+It does not transfer liability to the broker, and it does not make an agent a legal person. The provider still decides whether to accept a signup, and the provider's own terms still govern the provider relationship.
+
+## What signing records
+
+When you sign, the portal writes these fields to your human profile:
+
+| Field | Meaning |
+| :--- | :--- |
+| Human id | The account that signed |
+| `master_tos_version` | The agreement version shown on the page |
+| `master_tos_hash` | The SHA-256 digest of the accepted text |
+| `master_tos_signed_at` | The acceptance timestamp |
+| `master_tos_ip` | The request IP address recorded at signing |
+
+The dashboard shows the version and the first characters of the digest. The full digest is in the badge tooltip. The broker uses the version and digest when it mints assertions, so a provider can see which agreement the delegation was made under.
+
+## What changes after signing
+
+- The dashboard becomes reachable.
+- Agents can mint assertions and accept provider terms within their granted scopes.
+- The kill switch remains available at all times.
+- The ledger starts recording acceptances and signups made after the signature.
+
+Signing does not create an agent, grant a provider account or start a signup. Those are separate actions performed by a harness and an agent.
+
+## Version changes
+
+The dashboard shows the version recorded with your signature. The current portal checks that an agreement is signed; it does not compare the signed version with the current version and does not prompt for re-acceptance on its own. If the agreement changes, open the in-product page to read the current text.
+
+## Screenshot
+
+![Master Agreement: the signing page with the agreement text replaced by a placeholder - the version, digest, acknowledgement checkbox and signing button are visible, and the text itself is not reproduced in these docs.](/screenshots/portal/portal-master-agreement.png)
+
+The screenshot uses a synthetic account and a placeholder digest. It is an orientation aid, not the agreement.
+
+## Verify
+
+You are done when the dashboard account panel shows a signed version and digest, and the agent pages load without an onboarding redirect.
+
+## Next step
+
+Read [Dashboard](/portal/dashboard/) to connect a harness and register the first agent. The delegation scopes are defined under [Protocol](/protocol/) and the tool surface is listed under [Reference](/reference/).

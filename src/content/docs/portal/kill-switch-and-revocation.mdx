@@ -1,0 +1,73 @@
+---
+title: Kill switch and revocation
+description: What revoking an agent does immediately, what it does not do and what to do after a compromise.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "apps/broker-portal c7ddfa7, 2026-10-21"
+sidebar:
+  order: 7
+---
+
+The kill switch suspends one agent sub-identity. It is the fastest broker-side control you have, and it has a narrow scope: it stops the broker from vouching for that agent. It does not reach into a provider's account.
+
+## Where the control is
+
+- On each agent card on the [dashboard](/portal/dashboard/).
+- On the [agent detail](/portal/agent-detail/) header.
+
+An active agent shows **Revoke agent**. A revoked agent shows **Reactivate agent**. The action is a single click. The current portal does not show a confirmation dialog.
+
+![Revoked agent: the header shows REVOKED, the reason and the timestamp - the kill switch has changed to Reactivate agent and the historical tabs remain readable.](/screenshots/portal/portal-revoked-agent.png)
+
+## What revocation does immediately
+
+- Sets the agent status to `revoked`.
+- Records the reason and the revocation timestamp. The default reason for a human revocation is `Revoked by human owner in Broker Portal`.
+- Blocks new `identity_prove` calls for that agent. No new assertion is minted.
+- Blocks the agent's MCP tools, including inbox reads and sends. A revoked agent fails when the broker resolves the session.
+- Leaves the human account and every other agent unchanged.
+- Leaves the historical inbox, acceptances, signups and abuse reports readable in the portal.
+
+## What revocation does not do
+
+- It does not delete a provider account the agent created.
+- It does not cancel a subscription, delete a resource or revoke an API key held by the provider or the agent.
+- It does not undo a ToS acceptance or erase the ledger row.
+- It does not recall an assertion that was already issued. An assertion has a short expiry (five minutes by default); the broker does not push a revocation to providers, so a provider that already accepted an assertion is not notified by the broker.
+- It does not stop a running process on the agent's host. If the harness still runs, the agent can still try; the broker will refuse to mint or operate.
+- It does not guarantee that a provider stops using data it already received.
+
+The honest summary: revocation is a broker identity control, not a kill switch for third-party infrastructure.
+
+## Reactivate
+
+**Reactivate agent** restores the agent to `active` and clears the revocation reason and timestamp. The agent id, inbox address and scopes are unchanged. The historical rows remain. Reactivate only when you understand why the agent was revoked; if the cause was a compromised host or credential, fix that first.
+
+## After you revoke
+
+1. Note the agent id, revocation timestamp and reason.
+2. List the providers the agent signed up with in [Ledger](/portal/ledger/).
+3. Contact each provider to close or secure the account, rotate credentials and stop resources you no longer want.
+4. Review the [inbox](/portal/inbox/) and ledger for signups or mail you did not expect.
+5. Preserve evidence: agent id, assertion JTIs, signup token ids and timestamps.
+6. Re-register only after the cause is understood.
+
+## If an agent or credential is compromised
+
+1. Revoke the agent with the kill switch.
+2. Rotate every provider credential the agent held. The broker never stored those credentials, so rotation happens in the provider's system.
+3. Review the ledger and inbox for unexpected signups, terms acceptances or mail.
+4. Contact affected providers and tell them what happened.
+5. Preserve the ids, JTIs and timestamps before you change or delete anything.
+6. Re-register the agent only after you have fixed the cause.
+
+If the human account is compromised, sign out, secure the GitHub account and the email address, then revoke every agent under the account. The broker has not published a public security address in these docs; use the reply path in an abuse notification if you have one, and do not send reports to an address you cannot verify.
+
+## Audit
+
+The portal keeps the revocation reason and timestamp on the agent card and the agent detail header. It does not email the human when the human flips the switch. An abuse-driven revocation is different: the broker records the report and attempts to alert the human. See [Abuse reports](/portal/abuse-reports/).
+
+## Next step
+
+Read [Abuse reports](/portal/abuse-reports/) for the provider reporting path, or [Ledger](/portal/ledger/) to review what the agent did before revocation. The assertion fields and their expiry are defined under [Protocol](/protocol/).

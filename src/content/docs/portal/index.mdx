@@ -1,24 +1,64 @@
 ---
 title: Portal
 description: Guides for the human account that owns agents, inboxes and the acceptance ledger.
-audience: both
+audience: human
 aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "apps/broker-portal c7ddfa7, 2026-10-21"
+sidebar:
+  order: 0
 ---
 
-The broker portal is where a verified human manages the account behind their agents: agent sub-identities, the shared inbox, ToS acceptances and service signups. These guides describe the visible behavior; the portal itself remains the system of record.
+The broker portal is the console for the verified human behind one or more agents. It holds the human account, the agent sub-identities, the agent inboxes, the ToS acceptance ledger, the signup proof ledger and the kill switch. These guides describe the visible behavior; the portal remains the system of record.
 
-## What this section covers
+![Portal dashboard: a verified human with one active agent, one revoked agent and one recorded signup - the header shows the signed Master Agreement version and the agent cards show their current state.](/screenshots/portal/portal-dashboard.png)
 
-- Portal overview: account responsibilities and the main surfaces.
-- Sign in and verify email: GitHub login and the six-digit email code.
-- Master Agreement: where the agreement lives and how it is accepted.
-- Dashboard and agents: agent list, statuses and setup commands.
-- Agent detail: identity facts, status and tabs.
-- Inbox: the live inbox, message view and forwarding.
-- Ledger: ToS acceptances, service signups and receipts.
-- Kill switch and revocation: what suspension does and does not do.
-- Abuse reports: provider reporting, human notification and limits.
+<Aside type="note" title="About the screenshots">
+The screenshots in this section use a synthetic demo account (`Demo Owner`, `portal-demo@example.com`), synthetic agent ids and inbox addresses, and synthetic hashes, proof tokens and message bodies. No real account, email, credential or personal data is shown.
+</Aside>
 
-## Primary next step
+## Responsibility chain
 
-The protocol rules behind these screens are under [Protocol](/protocol/). For the shared account model, see [Start here](/start/).
+The portal makes one chain visible:
+
+1. A human signs in with GitHub and verifies an email address.
+2. The human signs the Master Agent Delegation Agreement once.
+3. Each agent is registered as a sub-identity under that human, with a dedicated inbox and scopes.
+4. The agent presents a signed assertion to a relying party. The provider decides whether to create an account.
+5. The broker records the ToS acceptance and, when the provider returns one, the signup receipt.
+
+Every step stays attached to the human account. The provider sees a delegated agent, not an independent legal person.
+
+## What you can do
+
+- Register agents through a supported harness. The dashboard shows the commands; the full matrix is under [Agents & harnesses](/agents/).
+- Read the agent inbox and open message bodies, headers and verification codes.
+- Review every ToS acceptance and service signup recorded for your agents.
+- Revoke an agent, and reactivate it later if you revoked it by mistake.
+- Receive and review abuse reports filed by providers.
+
+## What you cannot do
+
+- Read provider credentials. The broker records identity, delegation, acceptance and signup proof; it does not store the API keys or passwords a provider issues to an agent.
+- Provision or delete resources in a provider account. That happens in the provider's own system, after the agent completes the provider's signup flow.
+- Undo an accepted set of provider terms or erase an obligation that already exists with a provider.
+- Make a provider stop using data it already received. Revocation changes the broker identity, not the provider's copy.
+
+<Aside type="note" title="Known limits">
+A malicious relying party can harvest the contact details an agent shares. Discovery conformance is cheap to publish. Revocation suspends the broker identity but does not delete accounts a provider already created. The protocol does not prevent abuse; it makes accountability and revocation possible.
+</Aside>
+
+## Guides
+
+- [Sign in and verify email](/portal/sign-in-and-verification/): GitHub login, the six-digit code and the OAuth consent screen.
+- [Master Agreement](/portal/master-agreement/): what the agreement does and where to read it.
+- [Dashboard](/portal/dashboard/): agents, setup commands and account status.
+- [Agent detail](/portal/agent-detail/): identity facts and the four tabs.
+- [Inbox](/portal/inbox/): live mail, message view and forwarding.
+- [Ledger](/portal/ledger/): ToS acceptances, service signups and receipts.
+- [Kill switch and revocation](/portal/kill-switch-and-revocation/): what suspension does and does not do.
+- [Abuse reports](/portal/abuse-reports/): provider reports, human alerts and limits.
+
+## Next step
+
+Open the [portal sign-in page](https://agentregistrar.dev/login) and follow [Sign in and verify email](/portal/sign-in-and-verification/). If you have not connected a harness yet, read [Agents & harnesses](/agents/) first. The shared concepts and the known limits are introduced under [Start here](/start/), and the contract behind the delegation is under [Protocol](/protocol/).
