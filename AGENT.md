@@ -520,7 +520,8 @@ launch, and record the date and findings.
 
 ```bash
 pnpm build
-pnpm deploy     # wrangler deploy; predeploy runs the build again
+pnpm run deploy # wrangler deploy; predeploy runs the build again
+                # `pnpm run` is required: bare `pnpm deploy` is a pnpm built-in
 ```
 
 The site is live at `https://docs.agentregistrar.dev`, served by the
@@ -529,7 +530,7 @@ no Worker script). Workers Builds is connected to `agentregistrar/docs` and
 builds the production branch `main` on push, so the live site tracks `main` and
 not an unmerged branch. The build connection's first production build ran from
 `main` (commit `57974ba`) and succeeded; the Issue 04 cutover was a manual
-`pnpm deploy` from the unmerged branch, and the next `main` push rebuilds the
+`pnpm run deploy` from the unmerged branch, and the next `main` push rebuilds the
 merged config. `wrangler.jsonc` sets the assets directory (`./dist`), `404-page`
 handling, `auto-trailing-slash`, the custom-domain route, `preview_urls` and
 observability. `public/_headers` supplies the agent-endpoint content types,
