@@ -3,6 +3,8 @@ title: Agent Registrar Docs
 description: Brokered identity for AI agents, every agent acts under a verified human owner.
 audience: both
 aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "live broker agentregistrar.dev and VaporCloud skdl.dev, 2026-10-21"
 ---
 
 Brokered identity for AI agents: every agent acts under a verified human owner.
@@ -14,36 +16,40 @@ Agent Registrar is an agent identity and brokerage service. A verified human sig
 <CardGrid>
   <LinkCard
     title="Use an agent"
-    description="Connect a harness to the broker, verify the human owner and complete a first brokered signup."
-    href="/agents/"
+    description="Connect a harness, register an agent and complete a first brokered signup. You get an identity, an inbox, a ledger and a kill switch."
+    href="/agents/quickstart/"
   />
   <LinkCard
     title="Accept agent signups"
-    description="Publish identity-only discovery, verify assertions and issue a signup receipt."
+    description="Publish identity-only discovery, verify a signed assertion and return a receipt. The provider keeps the account and every vendor capability."
     href="/providers/"
   />
 </CardGrid>
 
-Add the broker endpoint to a harness:
+## How it works
 
-```bash
-opencode mcp add agentregistrar --global --url https://agentregistrar.dev/mcp
-# then run /mcps to complete oauth sign-in
-```
+1. The human verifies an email address and signs the master delegation agreement.
+2. The agent registers a sub-identity with a dedicated inbox address.
+3. The agent reads the provider discovery document and recomputes the terms hash.
+4. `identity_prove` records the acceptance and mints a short-lived signed assertion.
+5. The provider verifies the assertion, creates the account and returns a receipt.
 
-## What this is
+[How the handshake works](/start/how-it-works/) has the diagram, the numbered flow and the claim-by-claim detail.
 
-`agent-identity-v1` is the relying-party discovery contract (`GET /.well-known/agent-signup.json`), the brokered signup handshake, and the optional signed receipt. It proves identity, human accountability and hash-pinned ToS acceptance. It does not provision resources or carry vendor capability.
+## Protocol and reference
 
-The broker verifies the human, holds the agent sub-identity and inbox, mints signed assertions, records acceptances and receipts, and exposes the MCP tools. A harness is the client that connects to the remote MCP server and runs the agent.
-
-## Where to go next
-
-- [Protocol](/protocol/): the versioned normative contract at `/agent-identity/v1/`.
+- [Protocol](/protocol/): the landing page for `agent-identity-v1`.
+- [Specification v1.1.0](https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md): discovery, assertion, handshake, receipt and context.
+- [Scope boundaries](https://github.com/agentregistrar/spec/blob/v1.1.0/scope-boundaries.md): what belongs in the protocol and what stays vendor capability.
+- [Validator](https://github.com/agentregistrar/spec/blob/v1.1.0/validator.md): check a discovery document before publishing it.
+- [Registry](https://github.com/agentregistrar/spec/tree/v1.1.0/registry): the conformance criteria for relying parties.
 - [Reference](/reference/): MCP tools, broker endpoints, error codes and the glossary.
-- [Start here](/start/): the shared concepts and onboarding path.
-- [VaporCloud demo](https://skdl.dev): the reference relying party used in the end-to-end tutorial.
+- [Key concepts](/start/concepts/): the vocabulary used across this site.
 
-<Aside type="note" title="Known limits">
-A malicious relying party can harvest contact details, and discovery conformance is cheap to publish. Revocation suspends the broker identity but does not delete accounts a provider already created. The protocol does not prevent abuse; it makes accountability and revocation possible.
+## Live demo
+
+The broker runs at [agentregistrar.dev](https://agentregistrar.dev). The reference relying party is [VaporCloud](https://skdl.dev), a mock infrastructure provider built for the demo: it publishes terms, a discovery document, a signup endpoint and a vendor guide, and its appliances are fictional.
+
+<Aside type="caution" title="Known limits">
+A malicious relying party can harvest contact details, and discovery conformance is cheap to publish. Revocation suspends the broker identity but does not delete accounts a provider already created. The protocol does not prevent abuse; it makes accountability and revocation possible. [Trust and limits](/start/trust-and-limits/) states every known gap.
 </Aside>

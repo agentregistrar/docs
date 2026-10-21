@@ -1,0 +1,122 @@
+---
+title: Identity lifecycle
+description: Register, resume, prove, record and revoke an agent sub-identity, and what each state allows.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "broker monorepo c7ddfa7 and live agentregistrar.dev, 2026-10-21"
+sidebar:
+  order: 3
+---
+
+An agent sub-identity moves through a small number of states. This page is the map: what each tool does, what it changes, and what still works after revocation.
+
+## Register and resume
+
+Two tools can create the first agent, and they differ.
+
+`identity_register` is explicit. It takes an optional `name` and `harness` (defaults `opencode-agent` and `opencode-v2`) and returns the profile.
+
+`identity_whoami` is the read path, and it auto-provisions a default agent when the session has none. It returns the profile, the verified human owner, the recent signups and the latest acceptance per service, plus documentation links.
+
+`identity_register` resumes in this order:
+
+1. The agent bound to this OAuth session, if one exists.
+2. Otherwise the most recent agent for this human with the same `name` and `harness`.
+3. Otherwise a new agent with those values.
+
+`identity_whoami` and the inbox tools resume differently:
+
+1. The agent bound to this OAuth session, if one exists.
+2. Otherwise the most recent agent for this human, whatever its name.
+3. Otherwise a new default agent.
+
+The difference matters once a human has more than one agent. `identity_register` can name a specific identity; the read tools follow the session, then recency.
+
+All of them are idempotent: reconnecting the same client resumes the same identity, and calling one twice does not create a second agent.
+
+A sub-identity contains:
+
+| Field | Example | Notes |
+| :--- | :--- | :--- |
+| `id` | `agt_01JAB2C3D4E5F6G7H8J9K0MN1P` | Stable. The `sub` claim and the provider's attribution key. |
+| `name` | `opencode-macbook` | Display name you chose, or the default. |
+| `slug` | `opencode-macbook-1a2b3c` | Derived from the name plus a suffix, used in the address. |
+| `harness` | `opencode-v2` | The client label. Part of the `identity_register` resume match. |
+| `email_address` | `opencode-macbook-1a2b3c@agents.agentregistrar.dev` | The dedicated inbox. |
+| `scopes` | `tos:accept`, `signup:free_tier`, `inbox:read`, `inbox:send` | Delegated permissions, embedded in the assertion. |
+| `status` | `active` or `revoked` | The kill switch. |
+| `human_owner` | id, name, email, master agreement version, verified flag | The accountable principal. |
+
+## Prove
+
+`identity_prove` verifies that `accepted_tos_text` hashes to `accept_tos_hash` first, then runs every gate, then records an acceptance if the terms are new, then mints the assertion.
+
+Gates, in order, all before any reuse lookup: the human is active, the human email is verified, the master agreement is signed, the agent is not revoked, `tos:accept` is granted, and every requested scope is granted. A failure returns a non-retryable error with the side effects that did not happen.
+
+The acceptance dispatches the ledger receipt at most once, and the minted assertion lives for five minutes.
+
+**Acceptance versus assertion.** The acceptance is the durable legal event. The assertion is a short-lived proof that points at it. Re-proving is not re-accepting.
+
+| Situation | `reuse.reason` | New acceptance | New ledger mail | New JWT |
+| :--- | :--- | :--- | :--- | :--- |
+| First prove for this agent and terms | `new_acceptance` | yes | yes | yes |
+| Identical call, assertion still unexpired | `existing_assertion` | no | no | no, the same bytes are returned |
+| Identical call after the assertion expired | `fresh_assertion_existing_acceptance` | no | no | yes, same acceptance and consent time |
+| Different terms URL or hash | `new_acceptance` | yes | yes | yes |
+| `force_new: true` | `forced_new_acceptance` | yes | yes | yes |
+| Same terms, different requested scopes | `fresh_assertion_existing_acceptance` | no | no | yes |
+
+`force_new` exists for a genuine second consent event, for example a human who wants a new record after a dispute. Leave it unset for normal use.
+
+Two rules that matter when you write code against the result:
+
+- **Never decode the JWT.** `assertion.claims` is the exact signed payload; use it for inspection. Send `assertion.jwt` verbatim.
+- **Retry the same call, not a new one.** A retry with identical inputs cannot create a second acceptance. Changing the inputs can.
+
+If the acceptance is recorded but the ledger mail fails, the error is `ledger_email_failed` with `retryable: true` and side effects that show the acceptance exists. Retrying re-sends the mail and reuses the acceptance.
+
+## Record the signup
+
+`identity_record_signup` takes the provider's `signup_token` and does three things: verifies the signature, links the receipt to the acceptance it references, and stores one proof row for the account.
+
+It is idempotent per token and per assertion, and it refreshes rather than duplicates when a provider resolve issues a fresh token for the same account.
+
+| Error | Meaning | What to do |
+| :--- | :--- | :--- |
+| `signup_token_invalid` | Signature or shape failed | Get a valid token from the provider; do not retry the same one |
+| `signup_token_not_linked` | The receipt references an acceptance this broker has not recorded | Run `identity_prove` for that audience, then retry |
+| `signup_token_ownership_mismatch` | The token belongs to another human owner | Stop; use the token issued for your account |
+
+The result always includes `context_url`, `context_sha256` and the `handoff` block. The broker never stores the credential and never fetches the guide.
+
+## Revoke and re-register
+
+Revocation is per agent, from the portal kill switch or from a provider abuse report. It sets the agent status to `revoked` with a reason and a timestamp.
+
+What stops: `identity_prove` fails with `agent_revoked`, the identity and inbox tools reject the agent at the gate, and no new assertion can be minted. `identity_record_signup` still accepts a receipt the provider already issued, because the proof belongs to the human owner.
+
+What remains: provider accounts, provider credentials, accepted terms, recorded proofs, and any assertion already in a provider's hands until it expires.
+
+Reactivating the agent in the portal restores the same sub-identity and its ledger. Re-registering is the other path: in a new session, `identity_register` with a different `name` creates a new sub-identity, because the resume match is name plus harness. The revoked identity is never reused.
+
+<Aside type="caution" title="Re-register is not a reset">
+A new sub-identity has a new `agent.id` and a new inbox address. Providers that key accounts on the agent id will treat it as a new agent. Providers that key on the human id will resolve to the existing human account. Neither path deletes the old agent's records.
+</Aside>
+
+## States
+
+| State | How it is reached | What works | Next |
+| :--- | :--- | :--- | :--- |
+| No sub-identity | A session with no agent yet | The first call auto-provisions a default | `identity_register` to choose a name |
+| Active, no acceptance | Registered | Register, whoami, inbox | `identity_prove` |
+| Acceptance recorded, no signup | A successful prove | Re-proving reuses the acceptance | Post the assertion to the provider |
+| Signed up, recorded | Signup plus `identity_record_signup` | Whoami shows the proof; the credential is yours | Use the credential |
+| Acceptance recorded, mail failed | A failed ledger dispatch | Re-proving retries the mail only | Retry `identity_prove` with the same inputs |
+| Revoked | Kill switch or abuse report | Nothing for that agent | Reactivate, or register a new identity |
+
+## Next
+
+- [Inbox and verification](/agents/inbox-and-verification/) for the inbox tools.
+- [Credentials and recovery](/agents/credentials-and-recovery/) for what happens after a lost key.
+- [ToS and ledger](/agents/tos-and-ledger/) for the acceptance record itself.

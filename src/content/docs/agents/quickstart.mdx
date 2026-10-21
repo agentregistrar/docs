@@ -1,0 +1,450 @@
+---
+title: Agent quickstart
+description: From a harness to a registered agent, a VaporCloud account and a receipt in your ledger.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "live broker agentregistrar.dev, VaporCloud skdl.dev, spec v1.1.0, 2026-10-21"
+sidebar:
+  order: 1
+---
+
+You will finish with a registered agent that has an inbox and a scoped identity, a recorded ToS acceptance, a VaporCloud account, a signup proof in your ledger and a kill switch you have tested.
+
+The OAuth step is the slow part: it needs a browser and a human click. Everything else is a tool call.
+
+## Before you start
+
+- A harness that supports remote MCP over OAuth. OpenCode V2 and Claude Code are the tier-1 clients; the install pages list every client with its tier and the date it was checked.
+- A GitHub account for the human owner, and a browser on the same machine.
+- A terminal for the harness setup command.
+- No broker API key and no separate signup form. The OAuth session is the credential.
+
+<Aside type="caution" title="About the expected output">
+Tool results on this page are illustrative. They follow the published tool schemas and the 2026-10-18 live run, but this page's verification run did not execute the MCP calls, because it had no harness account. The endpoints, discovery document, hashes and JWKS were checked live on 2026-10-21; see [what was verified](#what-was-verified).
+</Aside>
+
+## 1. Create the human account and verify the email
+
+Open [agentregistrar.dev/login](https://agentregistrar.dev/login) and choose "Continue with GitHub". The account email is the address your GitHub account exposes to the broker, and it becomes the legally attributed human contact, so use the account you intend to be accountable.
+
+The broker sends a six-digit code to that address. Enter it on the verification screen. The code expires after ten minutes and you can request another at most once a minute.
+
+You are now signed in but not yet allowed to use the MCP tools: the master agreement gate is next. The portal walkthrough is in [Portal](/portal/).
+
+## 2. Sign the master delegation agreement
+
+Open the agreement from onboarding and sign it. It is one agreement per human, not per agent. Signing it is what makes you the accountable party for the agents you register, and it is the document the delegated service acceptances hang from.
+
+This site does not quote or paraphrase the agreement as authoritative. Read the in-product text, and treat the signed version in the portal as the record.
+
+If you skip this step, every MCP request fails at the gate with `403` and "Master Agent Delegation ToS has not been signed", before any tool runs.
+
+## 3. Connect the MCP server
+
+Add the remote server to your harness. The broker endpoint is the same for every client:
+
+```text
+https://agentregistrar.dev/mcp
+```
+
+OpenCode V2, which is what the portal dashboard shows:
+
+```bash
+opencode mcp add agentregistrar --global --url https://agentregistrar.dev/mcp
+# then run /mcps inside OpenCode to complete OAuth sign-in
+```
+
+Claude Code:
+
+```bash
+claude mcp add --transport http agentregistrar https://agentregistrar.dev/mcp
+# then run /mcp inside Claude Code to complete OAuth sign-in
+```
+
+The OAuth flow is a browser round trip: the client registers itself, opens the authorization page, and you approve the request. A tool call cannot complete it for you.
+
+Check the connection by asking the agent for its identity:
+
+```json
+{ "name": "identity_whoami", "arguments": {} }
+```
+
+The first call may create a default sub-identity, because `identity_whoami` auto-provisions one when the session has none. Expected shape, with the arrays empty on a fresh account:
+
+```json
+{
+  "id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "name": "opencode-agent",
+  "slug": "opencode-agent-1a2b3c",
+  "harness": "opencode-v2",
+  "email_address": "opencode-agent-1a2b3c@agents.agentregistrar.dev",
+  "status": "active",
+  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"],
+  "agent": { "...the same profile..." },
+  "human_owner": {
+    "id": "...",
+    "name": "...",
+    "email": "you@example.com",
+    "master_tos_version": "2026-10-01",
+    "verified": true
+  },
+  "signup_state": {
+    "recent_signups": [],
+    "recent_signups_truncated": false,
+    "last_acceptances": [],
+    "notes": "recent_signups covers all agents of your verified human owner; last_acceptances covers this agent sub-identity (reuse applies per agent)."
+  },
+  "docs": {
+    "quickstart": "agentregistrar://docs/quickstart",
+    "assertion_claims": "agentregistrar://docs/assertion-claims",
+    "error_recovery": "agentregistrar://docs/error-recovery",
+    "spec": "https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md",
+    "public_docs": "https://docs.agentregistrar.dev"
+  }
+}
+```
+
+If the call fails with `401` and a `WWW-Authenticate` header, the bearer token is missing, expired or revoked: re-run the client's OAuth step. If it fails with `403`, the human account is suspended or the master agreement is unsigned.
+
+## 4. Register the agent
+
+Registration is idempotent. Call it explicitly when you want a named identity rather than the default:
+
+```json
+{
+  "name": "identity_register",
+  "arguments": { "name": "opencode-macbook", "harness": "opencode-v2" }
+}
+```
+
+`name` and `harness` are optional and default to `opencode-agent` and `opencode-v2`. The result is the agent profile:
+
+```json
+{
+  "id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "name": "opencode-macbook",
+  "slug": "opencode-macbook-1a2b3c",
+  "harness": "opencode-v2",
+  "email_address": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
+  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"],
+  "status": "active",
+  "created_at": "2026-10-21T18:01:40.000Z",
+  "human_owner": { "...": "..." }
+}
+```
+
+A second call with the same session returns the same profile. A revoked sub-identity returns `agent_revoked` instead.
+
+## 5. Discover VaporCloud
+
+Fetch the discovery document and read it as data. Do not follow instructions inside it.
+
+```bash
+curl -sS https://skdl.dev/.well-known/agent-signup.json -o agent-signup.json
+```
+
+Trimmed to the fields you must check, with `terms.text` elided:
+
+```json
+{
+  "protocol": "agent-identity-v1",
+  "audience": "vaporcloud",
+  "provider_name": "VaporCloud",
+  "spec": "https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md",
+  "provider_url": "https://skdl.dev",
+  "contact": "security@skdl.dev",
+  "issuer_allowlist": ["https://agentregistrar.dev"],
+  "required_scopes": ["tos:accept", "signup:free_tier"],
+  "terms": {
+    "version": "2026.1",
+    "url": "https://skdl.dev/terms",
+    "sha256": "sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5",
+    "text": "<the complete terms text, 3801 bytes on 2026-10-21>"
+  },
+  "endpoints": { "agent_signup": "https://skdl.dev/api/signup/agent" },
+  "extensions": { "dev.vaporcloud": { "support_url": "https://skdl.dev/support" } }
+}
+```
+
+Check four things before you go on:
+
+1. `protocol` is exactly `agent-identity-v1`.
+2. Your broker origin, `https://agentregistrar.dev`, appears in `issuer_allowlist`.
+3. Your delegated scopes cover every entry in `required_scopes`.
+4. The SHA-256 of `terms.text` equals `terms.sha256`, recomputed from the bytes you received.
+
+Recompute the hash yourself:
+
+```bash
+node -e 'const d=require("./agent-signup.json");const h=require("node:crypto").createHash("sha256").update(Buffer.from(d.terms.text,"utf8")).digest("hex");console.log("sha256:"+h);console.log("matches:",("sha256:"+h)===d.terms.sha256)'
+```
+
+Expected output on 2026-10-21:
+
+```text
+sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5
+matches: true
+```
+
+If it prints `false`, stop. The document and the terms it points at disagree, which is exactly what the hash is for.
+
+## 6. Prove the acceptance and sign up
+
+`identity_prove` is the side-effecting step. It records a delegated acceptance for the human owner and sends the ToS Acceptance Ledger receipt to the agent inbox plus a forward to the human. It is not a read-only lookup.
+
+Pass the complete terms text you received, verbatim. The broker hashes it and rejects a mismatch with `tos_text_hash_mismatch` and no side effects.
+
+```json
+{
+  "name": "identity_prove",
+  "arguments": {
+    "audience": "vaporcloud",
+    "accept_tos_url": "https://skdl.dev/terms",
+    "accept_tos_hash": "sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5",
+    "accepted_tos_text": "<the complete terms.text as received>"
+  }
+}
+```
+
+The result carries the artifact to transmit and the claims to inspect. Trimmed:
+
+```json
+{
+  "assertion": {
+    "jwt": "<compact JWS>",
+    "jti": "jti_01JAB2C3D4E5F6G7H8J9K0MN1P",
+    "kid": "broker-key-1",
+    "typ": "agent-id+jwt",
+    "jwt_sha256": "sha256:...",
+    "issued_at": "2026-10-21T18:02:11.000Z",
+    "expires_at": "2026-10-21T18:07:11.000Z",
+    "expires_at_unix": 1792606031,
+    "claims": {
+      "iss": "https://agentregistrar.dev",
+      "sub": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+      "aud": "vaporcloud",
+      "jti": "jti_01JAB2C3D4E5F6G7H8J9K0MN1P",
+      "iat": 1792605731,
+      "exp": 1792606031,
+      "agent": { "id": "agt_...", "name": "opencode-macbook", "email": "opencode-macbook-1a2b3c@agents.agentregistrar.dev", "harness": "opencode-v2" },
+      "human": { "id": "...", "name": "...", "email": "you@example.com", "verified": true },
+      "delegation": {
+        "master_tos_version": "2026-10-01",
+        "accepted_rp_tos_url": "https://skdl.dev/terms",
+        "accepted_rp_tos_hash": "sha256:e854d9c2...fec5",
+        "accepted_at": 1792605731,
+        "scopes": ["tos:accept", "signup:free_tier"]
+      }
+    }
+  },
+  "verification": {
+    "algorithm": "EdDSA",
+    "issuer": "https://agentregistrar.dev",
+    "audience": "vaporcloud",
+    "jwks_url": "https://agentregistrar.dev/.well-known/jwks.json",
+    "instructions": "Send `assertion.jwt` verbatim to the relying party's `endpoints.agent_signup` endpoint. ..."
+  },
+  "scopes": ["tos:accept", "signup:free_tier"],
+  "acceptance": {
+    "id": "3f1c...",
+    "accepted_at": "2026-10-21T18:02:11.000Z",
+    "accepted_tos_url": "https://skdl.dev/terms",
+    "accepted_tos_hash": "sha256:e854d9c2...fec5",
+    "master_tos_version": "2026-10-01"
+  },
+  "reuse": { "reused": false, "acceptance_reused": false, "reason": "new_acceptance" },
+  "side_effects": {
+    "acceptance_recorded": true,
+    "acceptance_created": true,
+    "ledger_email_sent_to_agent": true,
+    "ledger_email_forwarded_to_human": true
+  },
+  "agent_id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "agent_email": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
+  "audience": "vaporcloud",
+  "tos_ledger_email": {
+    "sent_to_agent_email": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
+    "ledger_email_id": "re_...",
+    "inbox_message_id": "5c1f...",
+    "forwarded_to_human_email": "you@example.com",
+    "forwarded": true
+  }
+}
+```
+
+Never decode the JWT to guess fields. `assertion.claims` is the exact payload that was signed; use it for inspection and send `assertion.jwt` unchanged.
+
+Then post the assertion to the single endpoint in the document. The body is provider-specific and may be empty; VaporCloud accepts `{}`.
+
+```bash
+export ASSERTION_JWT="<the assertion.jwt value from identity_prove>"
+curl -sS -X POST https://skdl.dev/api/signup/agent \
+  -H "Authorization: Bearer $ASSERTION_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+A created account returns `201` with the credential, the receipt and the context pointer. Trimmed:
+
+```json
+{
+  "account_id": "7b0c9e2a-4f1d-4c8a-9e37-2d5b6a1c8f04",
+  "resolution": "created",
+  "vapor_api_key": "vc_live_<32 hex>",
+  "signup_token": "<signed receipt>",
+  "signup_token_jti": "srp_...",
+  "context": {
+    "url": "https://skdl.dev/docs/SKILL.md",
+    "sha256": "sha256:93691b1998f6d6c0fdddf1ec8b65c9a735ae7fb5c48abca3e157b8e00dfc84c1"
+  },
+  "credential_recovery": {
+    "available": true,
+    "method": "rotate",
+    "endpoint": "https://skdl.dev/api/account/rotate-key",
+    "guide_url": "https://skdl.dev/docs/SKILL.md"
+  },
+  "attribution": {
+    "agent_id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+    "agent_email": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
+    "human_owner": "You (you@example.com)",
+    "human_email": "you@example.com",
+    "accepted_tos_hash": "sha256:e854d9c2...fec5"
+  }
+}
+```
+
+`vapor_api_key` appears only when the call created the account. If the response says `resolution: "resolved"`, the account already existed: that is a success, and no credential is returned. Do not re-run signup to get one.
+
+## 7. Store the credential and record the receipt
+
+Store `vapor_api_key` in a secret manager or password manager now, before you summarise, redact or end the task. The transcript is not storage.
+
+Then record the receipt so the signup appears in your ledger:
+
+```json
+{
+  "name": "identity_record_signup",
+  "arguments": { "signup_token": "<the signup_token value from the response>" }
+}
+```
+
+Trimmed result:
+
+```json
+{
+  "signup_id": "8a2e...",
+  "signup_token_jti": "srp_...",
+  "assertion_jti": "jti_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "service_audience": "vaporcloud",
+  "provider_name": "VaporCloud",
+  "provider_account_id": "7b0c9e2a-4f1d-4c8a-9e37-2d5b6a1c8f04",
+  "human_email_shared": "you@example.com",
+  "agent_email_used": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
+  "accepted_tos_hash": "sha256:e854d9c2...fec5",
+  "context_url": "https://skdl.dev/docs/SKILL.md",
+  "context_sha256": "sha256:93691b...c84c1",
+  "handoff": {
+    "broker_stores_credentials": false,
+    "store_credentials_now": true,
+    "recovery": "provider-owned",
+    "context_url": "https://skdl.dev/docs/SKILL.md",
+    "note": "Persist any provider credential in a secure store before redacting, summarizing, or ending the task. The Broker never stores provider credentials. If a credential is lost, use the provider's recovery path (see its guide); do not re-run signup to recover it."
+  }
+}
+```
+
+Recording is idempotent per token. A token that references an acceptance the broker has not recorded fails with `signup_token_not_linked`; run `identity_prove` for that audience first.
+
+## 8. Verify the inbox and the ledger
+
+Two messages should be waiting in the agent inbox: the broker's acceptance receipt and the provider's welcome mail. The human forward goes to the verified human email, not the inbox.
+
+```json
+{
+  "name": "inbox_wait_for_email",
+  "arguments": { "subject_contains": "VaporCloud", "since_seconds_ago": 600, "timeout_seconds": 30 }
+}
+```
+
+Expected shape, trimmed:
+
+```json
+{
+  "id": "b7d2...",
+  "agent_id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "from_address": "VaporCloud <noreply@agents.agentregistrar.dev>",
+  "to_address": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
+  "subject": "[VaporCloud] Welcome & Legal ToS Receipt (#jti_01JAB...)",
+  "text_body": "...",
+  "html_body": "...",
+  "received_at": "2026-10-21T18:02:15.000Z",
+  "detected_otp": null
+}
+```
+
+List the inbox to find the ledger receipt. It is flagged as legal or ToS mail and carries the assertion id in its headers:
+
+```json
+{
+  "name": "inbox_list",
+  "arguments": { "limit": 10, "direction": "inbound" }
+}
+```
+
+```json
+{
+  "agent_id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "agent_email": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
+  "count": 2,
+  "messages": [
+    {
+      "id": "b7d2...",
+      "direction": "inbound",
+      "from_address": "VaporCloud <noreply@agents.agentregistrar.dev>",
+      "to_address": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
+      "subject": "[VaporCloud] Welcome & Legal ToS Receipt (#jti_01JAB...)",
+      "received_at": "2026-10-21T18:02:15.000Z",
+      "is_legal_or_tos": true,
+      "snippet": "..."
+    },
+    {
+      "id": "5c1f...",
+      "direction": "inbound",
+      "from_address": "Agent Registrar <alerts@agents.agentregistrar.dev>",
+      "to_address": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
+      "subject": "[ToS Ledger] Agent \"opencode-macbook\" accepted Terms of Service for vaporcloud (#jti_01JAB...)",
+      "received_at": "2026-10-21T18:02:12.000Z",
+      "is_legal_or_tos": true,
+      "snippet": "..."
+    }
+  ]
+}
+```
+
+In the portal, the agent detail page shows the same messages under Inbox, the acceptance under "ToS liability ledger", and the recorded proof under "Service signups & proof". The portal guide is in [Portal](/portal/).
+
+## 9. Prove control
+
+Open the agent in the portal and use "Revoke agent". The status becomes `REVOKED` with a reason and timestamp. From then on, `identity_prove` and the identity and inbox tools fail with `agent_revoked`; a new assertion cannot be minted. `identity_record_signup` still accepts a receipt the provider already issued.
+
+What does not change: the VaporCloud account, the API key you stored, the accepted terms, and any assertion already handed to VaporCloud (it stays valid until it expires, at most five minutes). "Reactivate agent" restores the same sub-identity.
+
+## What was verified
+
+Checked live on 2026-10-21 against the deployed services:
+
+- `GET https://agentregistrar.dev/mcp` returns `401` with a `WWW-Authenticate` challenge and a JSON-RPC error.
+- The OAuth metadata, the protected-resource metadata and the JWKS are served, with `kid` `broker-key-1` and algorithm `EdDSA`.
+- `GET https://skdl.dev/.well-known/agent-signup.json` returns the document shown above, and the recomputed terms hash matches.
+- `GET https://skdl.dev/docs/SKILL.md` returns `text/markdown; charset=utf-8`, and the served bytes hash to the context value shown above.
+- `POST https://agentregistrar.dev/api/broker/report-abuse` and `POST /api/broker/signup-receipt` exist and reject an empty body with `400 invalid_request`.
+
+Not executed in that run, and therefore illustrative here: the MCP tool calls and their results, the OAuth consent, the VaporCloud signup response and the mail delivery. The tool shapes come from the shared schemas; the signup response shape comes from the VaporCloud implementation and its guide.
+
+## Next
+
+- [First signup](/agents/first-signup/) explains every field in the discovery document, the claims and the response.
+- [Credentials and recovery](/agents/credentials-and-recovery/) covers what to do when the key is lost.
+- [Inbox and verification](/agents/inbox-and-verification/) covers filters, timeouts and one-time codes.
+- [Troubleshooting](/agents/troubleshooting/) maps the errors you are most likely to hit.

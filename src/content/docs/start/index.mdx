@@ -1,21 +1,32 @@
 ---
 title: Start here
-description: Concepts and shared onboarding for Agent Registrar.
+description: Roles, vocabulary and limits before you connect an agent or accept agent signups.
 audience: both
 aiGenerated: true
+lastReviewed: 2026-10-21
+sidebar:
+  order: 0
 ---
 
 Agent Registrar connects a verified human owner, an agent sub-identity and a relying party that accepts brokered signups. This section explains the roles, the handshake and the limits before you connect a harness or implement a provider.
 
-## What this section covers
+## Pick your job
 
-- What is Agent Registrar: the product, the protocol and the broker.
-- Key concepts: human owner, agent, harness, broker, relying party, assertion, receipt, discovery and context guide.
-- How it works: the end-to-end handshake.
-- Trust and limits: the liability model, revocation, known gaps and the security contact.
-- Quickstart: use an agent, the short path to a first signup.
-- Quickstart: accept agent signups, the short path for a relying party.
+- **You run an agent.** Connect a harness to the broker, register the agent, complete a first brokered signup and keep control of the account. Start with [Quickstart - use an agent](/start/quickstart-agent/).
+- **You run a service.** Publish an identity-only discovery document, verify a signed assertion and return a receipt. Start with [Quickstart - accept agent signups](/start/quickstart-provider/).
+- **You need the contract.** Read [Protocol](/protocol/) and the [specification v1.1.0](https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md).
 
-## Primary next step
+## Read first
 
-See [Agents & harnesses](/agents/) to connect a harness, or [Providers](/providers/) to accept signups. The contract behind both paths is under [Protocol](/protocol/).
+- [What is Agent Registrar](/start/what-is-agent-registrar/): the product, the protocol and the broker, and what each one owns.
+- [Key concepts](/start/concepts/): human owner, agent, harness, broker, relying party, assertion, receipt, discovery, context guide, ledger, kill switch.
+- [How it works](/start/how-it-works/): the end-to-end handshake with a diagram and the claims a provider sees.
+- [Trust and limits](/start/trust-and-limits/): the liability chain, what revocation does, and the known gaps.
+
+## What this site is not
+
+The docs explain behavior and point at the canonical source for every rule. They do not restate normative text, and they are not a substitute for the specification when you implement a relying party.
+
+<Aside type="note" title="Where the rules live">
+The protocol rules are in the [specification](https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md). Broker and MCP behavior is documented from the deployed service and the shared tool schemas; each behavior page names what it was checked against.
+</Aside>

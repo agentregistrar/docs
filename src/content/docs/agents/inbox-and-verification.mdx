@@ -1,0 +1,121 @@
+---
+title: Inbox and verification
+description: List, read, wait for and send mail from an agent inbox, and extract a one-time code safely.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "broker monorepo c7ddfa7 and live agentregistrar.dev, 2026-10-21"
+sidebar:
+  order: 4
+---
+
+Every agent sub-identity has its own address: `<agent-slug>@agents.agentregistrar.dev`. The agent reads it through four MCP tools; the human reads the same messages in the portal. The inbox is where acceptance receipts, provider welcome mail and verification codes arrive.
+
+## The address
+
+The slug is derived from the agent name plus a short suffix, so two agents called the same thing still get distinct addresses. The address is stable for the life of the sub-identity and is the `agent.email` claim a provider sees.
+
+Treat it as a monitored channel, not a throwaway: providers may treat notices to that address as delivered, and the broker forwards acceptance receipts to the human as well.
+
+## inbox_list
+
+Lists recent messages, newest first.
+
+| Input | Type | Default | Notes |
+| :--- | :--- | :--- | :--- |
+| `limit` | integer 1-50 | 10 | Maximum messages to return |
+| `direction` | `inbound` or `outbound` | both | Omit to return both directions |
+
+Each message carries `id`, `direction`, `from_address`, `to_address`, `subject`, `received_at`, `is_legal_or_tos` and a 200-character `snippet`. The result also echoes `agent_id`, `agent_email` and `count`.
+
+`is_legal_or_tos` is `true` for acceptance receipts and provider legal mail, which makes it a cheap filter for "what did this agent accept".
+
+## inbox_read
+
+Reads one message by id and returns the full `text_body`, `html_body`, `headers` and `detected_otp`.
+
+`message_id` must be a UUID from `inbox_list` or `inbox_wait_for_email`. An id that belongs to another agent, or no longer exists, returns `message_not_found` with no side effects.
+
+Headers are worth reading on acceptance receipts. The broker's ledger mail carries `x-ledger-type`, `x-assertion-jti`, `x-service-audience`, `x-service-tos-hash` and `x-forwarded-to-human`.
+
+## inbox_wait_for_email
+
+Waits for a matching inbound message and returns the newest match. It checks the database immediately, then waits on a realtime subscription with a polling fallback, and tears both down when it returns or times out.
+
+| Input | Type | Default | Notes |
+| :--- | :--- | :--- | :--- |
+| `from_contains` | string | none | Case-insensitive substring of the sender address |
+| `subject_contains` | string | none | Case-insensitive substring of the subject |
+| `since_seconds_ago` | integer | 60 | Lookback window; older messages are ignored |
+| `timeout_seconds` | integer 1-60 | 30 | Wait budget |
+
+Only inbound messages are considered. If nothing matches within the budget, the tool returns `wait_timeout` with `retryable: true` and a next step, and nothing is consumed or acknowledged.
+
+Two practical notes:
+
+- `since_seconds_ago` is the usual cause of a surprising timeout. If you minted the assertion more than a minute ago, raise the window.
+- Filters are substrings of the raw address and subject. A sender display name such as `VaporCloud <noreply@agents.agentregistrar.dev>` matches `noreply@` or `agents.agentregistrar.dev`, not `skdl.dev`.
+
+## inbox_send
+
+Sends mail from the agent address and records it in the inbox ledger as an outbound message.
+
+| Input | Type | Notes |
+| :--- | :--- | :--- |
+| `to` | email address | One recipient |
+| `subject` | string | Required |
+| `text` | string | Plain-text body, required |
+| `html` | string | Optional HTML alternative; `text` stays the plain-text part |
+
+It is **not** idempotent: a retry sends another email. A send failure returns `send_failed` with side effects that state whether anything left the broker.
+
+Use it for legitimate agent workflows, such as replying to a provider's support thread or sending a summary the human asked for. Do not use it for bulk mail, unsolicited outreach or anything the human owner has not sanctioned: the human is accountable for the account, and the broker can revoke the agent.
+
+## One-time codes
+
+`detected_otp` is the first standalone six-digit number found in the subject, the plain-text body or the HTML body, with tags stripped first so a code split across markup is not glued together. It is `null` when no code is present.
+
+That is a convenience, not a verification protocol. Vendor verification-email flows are the vendor's own: `endpoints.verify_otp` is not part of `agent-identity-v1`, and the current VaporCloud signup does not ask the agent for a code. Older demo flows did send one; if a provider sends a code today, read it, submit it to that provider's own endpoint, and do not treat the code as a broker credential.
+
+This synthetic message shows the shape a code-bearing email takes in the inbox:
+
+```json
+{
+  "name": "inbox_read",
+  "arguments": { "message_id": "5c1f..." }
+}
+```
+
+```json
+{
+  "id": "5c1f...",
+  "agent_id": "agt_01JAB...",
+  "direction": "inbound",
+  "from_address": "VaporCloud <noreply@agents.agentregistrar.dev>",
+  "to_address": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
+  "subject": "[VaporCloud] Your Verification Code: 482910",
+  "text_body": "Your VaporCloud verification code is: 482910. ...",
+  "html_body": "<div>...</div>",
+  "headers": { "x-mailer": "..." },
+  "is_legal_or_tos": false,
+  "received_at": "2026-10-21T18:03:02.000Z",
+  "detected_otp": "482910"
+}
+```
+
+## Forwarding and duplicates
+
+- The acceptance receipt is sent to the agent inbox and forwarded once to the verified human email. Both are tied to the acceptance, not to the tool call.
+- An identical `identity_prove` call while the assertion is unexpired sends no mail. A fresh assertion after expiry also sends no mail; the acceptance already dispatched its receipt.
+- A conformant provider suppresses its welcome and legal mail on a resolve, because nothing about the account changed. A repeated signup therefore does not produce a second welcome.
+- `inbox_send` has no dedupe. If you retry it, the recipient gets two messages.
+
+## Privacy
+
+The human owner can read every message in the agent inbox from the portal. Do not send secrets, credentials or personal data through it, and do not assume a message is private to the agent. Inbound mail is also stored in the broker's inbox ledger, including headers.
+
+## Next
+
+- [Credentials and recovery](/agents/credentials-and-recovery/): why a credential never belongs in the inbox or the transcript.
+- [ToS and ledger](/agents/tos-and-ledger/): what the acceptance receipt records.
+- [Troubleshooting](/agents/troubleshooting/): timeout and filter problems.

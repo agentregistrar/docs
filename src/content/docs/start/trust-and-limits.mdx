@@ -1,0 +1,74 @@
+---
+title: Trust and limits
+description: The liability chain, what revocation does and does not do, the known gaps, and where to report a security issue.
+audience: both
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "live broker agentregistrar.dev, spec v1.1.0, 2026-10-21"
+sidebar:
+  order: 4
+---
+
+The model is simple to state and easy to over-read. A verified human is accountable for an agent; the broker proves that and records what was accepted. It does not make a provider safe, and it does not police what an agent does after signup.
+
+## The liability chain
+
+```text
+verified human owner
+  -> master delegation agreement (one per human)
+  -> delegated ToS acceptance (exact text, hash, timestamp)
+  -> signed assertion (agent, human, acceptance)
+  -> provider account (created or resolved by the provider)
+```
+
+Each link is recorded. The human signs the master agreement once. Every service acceptance is a separate durable event with the terms URL, the terms hash and the master agreement version. The assertion carries the acceptance forward, so the provider does not have to trust a self-declared claim.
+
+What the chain does not do: it does not transfer liability to the broker, and it does not make the provider a party to the master agreement. The provider's own terms govern the provider's account.
+
+## What revocation does
+
+| Revocation affects | Revocation does not affect |
+| :--- | :--- |
+| New `identity_prove` calls for that agent: they fail with `agent_revoked` | An assertion already handed to a provider: it stays valid until it expires, at most 5 minutes |
+| Every identity and inbox tool call for that agent: the gate rejects it with `agent_revoked` | Provider accounts the agent already created |
+| The agent's ability to mint or record anything new | Provider credentials the agent already holds |
+| The agent's status in the portal: it shows `REVOKED` with a reason and timestamp | Terms the human already accepted, in the broker ledger or at the provider |
+
+`identity_record_signup` is the exception: it still records a receipt the provider already issued, because that proof belongs to the human owner, not to the agent's status.
+
+The portal can also reactivate an agent, which restores the same sub-identity. A revoked sub-identity is never silently replaced: in the same MCP session, calls keep failing until the human reactivates it. Registering a new sub-identity needs a new session and a different name, and the revoked identity is not reused.
+
+A provider can report abuse with `POST /api/broker/report-abuse`, which revokes the agent immediately and notifies the human owner (best effort). The broker does not adjudicate the dispute, restore data or issue refunds.
+
+## Known gaps
+
+These are limitations of `agent-identity-v1` and of this broker. They are stated here so no page has to soften them.
+
+1. **No relying-party allowlist in v1.** A malicious provider can publish a discovery document and receive an assertion, which discloses the agent's address, the human's name and email, and the acceptance facts. The protocol has no broker-side list of approved relying parties.
+2. **Discovery conformance is cheap.** The validator checks shape and encoding, not intent, security posture or business legitimacy. A conformant document is not a trustworthy provider.
+3. **Revocation is a broker control, not a provider control.** It cannot delete an account, invalidate a live assertion, or force a provider to stop serving the agent.
+4. **Provider enforcement varies.** A provider may ignore claims it does not like, skip a check, or never call the abuse endpoint. The protocol defines the checks; it cannot make a provider run them.
+5. **The broker is a single point of failure for minting.** If the broker is unavailable, or a human account is suspended, no new assertions can be minted. Providers and the docs site are unaffected.
+6. **Email delivery is in the critical path.** The acceptance receipt, the human forward and provider verification mail all depend on mail delivery. A failed ledger dispatch returns a retryable `ledger_email_failed`; the acceptance is already recorded.
+7. **`human.verified` is verified email, not KYC.** Two broker accounts with different emails are two principals. The broker cannot merge them.
+8. **No credential custody.** The broker cannot recover a provider credential, because it never stores one. Recovery is the provider's path.
+
+## What we do not claim
+
+- No SOC 2, ISO 27001 or equivalent attestation.
+- No uptime SLA or availability target.
+- No adoption, customer-count or revenue figures.
+- No claim that the protocol prevents abuse, enforces revocation at a provider, or makes an agent trustworthy.
+- No legal advice. The master agreement and the provider terms are the legal documents; this site explains mechanics.
+
+## Security and abuse contacts
+
+Report a vulnerability in the broker, the protocol or this documentation to `security@agentregistrar.dev`, the address published in the site footer. Reports are handled on a best-effort basis; there is no bug bounty and no guaranteed response time. Do not include live credentials, JWTs or personal data in a report.
+
+For documentation and specification defects, open an issue on [the specification repository](https://github.com/agentregistrar/spec/issues). For provider-side abuse, use the provider's own contact and, where it supports it, the broker abuse endpoint above.
+
+## Read the contract
+
+- [Security considerations](https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md#14-security-considerations): section 14 of the specification.
+- [Scope boundaries](https://github.com/agentregistrar/spec/blob/v1.1.0/scope-boundaries.md): what the protocol must never absorb.
+- [How it works](/start/how-it-works/): the mechanics these limits apply to.

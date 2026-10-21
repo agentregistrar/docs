@@ -1,0 +1,249 @@
+---
+title: First signup
+description: A VaporCloud signup end to end, with the discovery document, the claims, the response and the mail explained.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "live VaporCloud skdl.dev, spec v1.1.0, 2026-10-21"
+sidebar:
+  order: 2
+---
+
+This is the [quickstart](/agents/quickstart/) told as one story: what the provider publishes, what the broker signs, what the provider returns and what lands in the inbox. Every value below is either a live document or a synthetic identifier in the shape the tools produce.
+
+The relying party is VaporCloud, a mock infrastructure provider at `skdl.dev`. It is a real implementation of `agent-identity-v1` with fictional appliances, which makes it useful for a first run: nothing you do there can cost money.
+
+<Aside type="note" title="Synthetic data">
+Identifiers, JTIs and timestamps in this tutorial are synthetic. The discovery document, the terms hash, the context hash and the error shapes are live, checked on 2026-10-21.
+</Aside>
+
+## The discovery document, field by field
+
+```bash
+curl -sS https://skdl.dev/.well-known/agent-signup.json -o agent-signup.json
+```
+
+| Field | Live value | Why it is there |
+| :--- | :--- | :--- |
+| `protocol` | `agent-identity-v1` | The contract version. Anything else means the service does not support this protocol. |
+| `audience` | `vaporcloud` | The stable service identifier. It becomes the assertion `aud`. |
+| `provider_name` | `VaporCloud` | Human-readable name, for display only. |
+| `spec` | `https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md` | Optional pointer to the exact specification the provider implements. |
+| `provider_url` | `https://skdl.dev` | The provider origin, used to bind the context pointer to the provider's domain. |
+| `contact` | `security@skdl.dev` | Where to report a security issue or abuse. |
+| `issuer_allowlist` | `["https://agentregistrar.dev"]` | The brokers this provider accepts. Exact match, no wildcards. |
+| `required_scopes` | `["tos:accept", "signup:free_tier"]` | The scopes the assertion must carry. Your agent holds both by default. |
+| `terms.version` | `2026.1` | The terms revision, for humans. |
+| `terms.url` | `https://skdl.dev/terms` | The URL the human can read. It becomes `accept_tos_url`. |
+| `terms.sha256` | `sha256:e854d9c2...fec5` | The hash of the exact terms bytes. Recompute it; do not trust it. |
+| `terms.text` | the complete terms | The text the agent passes back to prove it read what it accepted. |
+| `endpoints.agent_signup` | `https://skdl.dev/api/signup/agent` | The only endpoint in the protocol. |
+| `extensions.dev.vaporcloud` | `{ "support_url": "..." }` | Namespaced vendor metadata. Not a capability field. |
+
+What is absent matters as much: no SKU list, no provisioning endpoint, no pricing, no quota, no API documentation. Those belong in the post-signup guide, because a discovery document is fetched before any account exists and must not advertise capability.
+
+Recompute the terms hash from the bytes you received:
+
+```bash
+node -e 'const d=require("./agent-signup.json");const h=require("node:crypto").createHash("sha256").update(Buffer.from(d.terms.text,"utf8")).digest("hex");console.log("sha256:"+h);console.log("matches:",("sha256:"+h)===d.terms.sha256)'
+```
+
+```text
+sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5
+matches: true
+```
+
+## What the broker signs
+
+The request is the discovery values, plus the complete terms text:
+
+```json
+{
+  "audience": "vaporcloud",
+  "accept_tos_url": "https://skdl.dev/terms",
+  "accept_tos_hash": "sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5",
+  "accepted_tos_text": "<the complete terms.text as received>",
+  "requested_scopes": ["tos:accept", "signup:free_tier"]
+}
+```
+
+`requested_scopes` is optional and defaults to `["tos:accept", "signup:free_tier"]`; every entry must already be delegated to the agent. `force_new` is optional and creates a second consent event for the same terms, which is rarely what you want.
+
+The returned claims are the exact payload that was signed:
+
+```json
+{
+  "iss": "https://agentregistrar.dev",
+  "sub": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "aud": "vaporcloud",
+  "jti": "jti_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "iat": 1792605731,
+  "exp": 1792606031,
+  "agent": {
+    "id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+    "name": "opencode-macbook",
+    "email": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
+    "harness": "opencode-v2"
+  },
+  "human": {
+    "id": "6d0f...",
+    "name": "You",
+    "email": "you@example.com",
+    "verified": true
+  },
+  "delegation": {
+    "master_tos_version": "2026-10-01",
+    "master_tos_hash": "sha256:...",
+    "accepted_rp_tos_url": "https://skdl.dev/terms",
+    "accepted_rp_tos_hash": "sha256:e854d9c2...fec5",
+    "accepted_at": 1792605731,
+    "scopes": ["tos:accept", "signup:free_tier"]
+  }
+}
+```
+
+Three details are easy to get wrong.
+
+- The scopes are at `delegation.scopes`. There is no top-level `scope` or `scopes` claim. The tool also returns a flat `scopes` array so you never have to reach into the claims for the common case.
+- `delegation.accepted_at` is the consent time, not the mint time. A fresh assertion minted later against the same acceptance keeps the original timestamp.
+- `exp` is five minutes after `iat`. An assertion is a short-lived bearer token, so treat it like a password for those five minutes.
+
+The result also contains `assertion.jwt`, which is the only thing you transmit, and `assertion.jwt_sha256`, which is useful for correlating logs without logging the token.
+
+## What the provider does with it
+
+```bash
+export ASSERTION_JWT="<assertion.jwt from identity_prove>"
+curl -sS -X POST https://skdl.dev/api/signup/agent \
+  -H "Authorization: Bearer $ASSERTION_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+VaporCloud verifies the signature against `https://agentregistrar.dev/.well-known/jwks.json`, checks `iss` against its allowlist, `aud`, `exp`, the scopes, `human.verified` and the accepted terms hash. Then it creates or resolves the account.
+
+A created account returns `201`:
+
+```json
+{
+  "account_id": "7b0c9e2a-4f1d-4c8a-9e37-2d5b6a1c8f04",
+  "resolution": "created",
+  "vapor_api_key": "vc_live_<32 hex>",
+  "signup_token": "<signed receipt>",
+  "signup_token_jti": "srp_01jab...",
+  "context": {
+    "url": "https://skdl.dev/docs/SKILL.md",
+    "sha256": "sha256:93691b1998f6d6c0fdddf1ec8b65c9a735ae7fb5c48abca3e157b8e00dfc84c1"
+  },
+  "credential_recovery": {
+    "available": true,
+    "method": "rotate",
+    "endpoint": "https://skdl.dev/api/account/rotate-key",
+    "guide_url": "https://skdl.dev/docs/SKILL.md"
+  },
+  "attribution": {
+    "agent_id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+    "agent_email": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
+    "human_owner": "You (you@example.com)",
+    "human_email": "you@example.com",
+    "accepted_tos_hash": "sha256:e854d9c2...fec5"
+  }
+}
+```
+
+The `attribution` block is the provider echoing back what it verified. It is useful for a human reading a receipt; it is not a second proof.
+
+## Created versus resolved
+
+`resolution` is the provider telling you which path ran.
+
+- `"created"`: a new account. The response carries the show-once credential.
+- `"resolved"`: an account already existed for this agent and service. No credential is returned, and the provider suppresses the welcome and legal mail because nothing changed.
+
+A resolve is a success. It is the correct outcome for a dropped-response retry, for a second run after a crash, and for an agent that forgot whether it had signed up. What it is not is a credential channel: if you lost the key, a resolve will not give it back.
+
+The broker treats the repeated signup the same way: `identity_record_signup` refreshes the existing proof row for the same agent, service and account instead of inserting a second one.
+
+## The receipt and the context pointer
+
+`signup_token` is the provider's signed receipt. Send it to `identity_record_signup` and the broker verifies it, links it to the acceptance and stores the proof. The result repeats the context pointer and adds the handoff reminder:
+
+```json
+{
+  "context_url": "https://skdl.dev/docs/SKILL.md",
+  "context_sha256": "sha256:93691b1998f6d6c0fdddf1ec8b65c9a735ae7fb5c48abca3e157b8e00dfc84c1",
+  "handoff": {
+    "broker_stores_credentials": false,
+    "store_credentials_now": true,
+    "recovery": "provider-owned",
+    "context_url": "https://skdl.dev/docs/SKILL.md",
+    "note": "Persist any provider credential in a secure store before redacting, summarizing, or ending the task. The Broker never stores provider credentials. If a credential is lost, use the provider's recovery path (see its guide); do not re-run signup to recover it."
+  }
+}
+```
+
+Verify the guide before you act on it. The context URL must stay on the provider's domain, use HTTPS, and hash to the value in the response:
+
+```bash
+curl -sS https://skdl.dev/docs/SKILL.md -o SKILL.md
+sha256sum SKILL.md
+```
+
+```text
+93691b1998f6d6c0fdddf1ec8b65c9a735ae7fb5c48abca3e157b8e00dfc84c1  SKILL.md
+```
+
+If the digest differs, do not follow the guide. Re-fetch, and if it still differs, stop and ask the human: the guide is hash-pinned precisely because it is vendor-authored data.
+
+The guide is where the vendor's capabilities live. VaporCloud documents a provisioning call there, which is a vendor API and not part of the protocol:
+
+```bash
+export VAPOR_API_KEY="<the vapor_api_key you stored>"
+curl -sS -X POST https://skdl.dev/api/provision \
+  -H "Authorization: Bearer $VAPOR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"sku": "quantum-toaster-x1", "name": "holiday-bagel-rig"}'
+```
+
+A successful call returns `201` with an instance in `READY`, including an `endpoint_url` and a `specs` block. That response is VaporCloud's, and it can change without the protocol changing. The broker never sees it and never records it.
+
+## What lands in the inbox
+
+Four messages can arrive, from two senders, and they mean different things.
+
+| Message | Sender | Flagged legal | What it is |
+| :--- | :--- | :--- | :--- |
+| `[ToS Ledger] Agent "<name>" accepted Terms of Service for vaporcloud (#<jti>)` | `Agent Registrar <alerts@agents.agentregistrar.dev>` | yes | The broker's acceptance receipt. Headers carry `x-ledger-type`, `x-assertion-jti`, `x-service-audience`, `x-service-tos-hash` and `x-forwarded-to-human`. |
+| `[Fwd: Agent ToS Ledger] ...` | `Agent Registrar <alerts@...>` | yes | The same receipt forwarded to the verified human email. It does not appear in the agent inbox. |
+| `[VaporCloud] Welcome & Legal ToS Receipt (#<jti>)` | `VaporCloud <noreply@agents.agentregistrar.dev>` | yes | The provider's welcome and legal receipt, sent only when the account was created. |
+| `[VaporCloud] Instance Ready: <name> (<sku>)` | `VaporCloud <noreply@...>` | no | Provisioning confirmation, sent after a vendor provisioning call, not after signup. |
+
+Read the acceptance receipt to confirm what was recorded:
+
+```json
+{ "name": "inbox_read", "arguments": { "message_id": "5c1f..." } }
+```
+
+The body is a fixed ledger receipt: assertion JTI, timestamp, target service, accepted ToS URL and hash, master agreement version. It is the human-readable copy of the ledger row; the portal is the system of record.
+
+## What went wrong in the first live run
+
+The first end-to-end run on 2026-10-18 worked at the protocol level and still produced three mints, two signup posts and one provision. The failures were interface failures, and each one now has a specific defense.
+
+**The orphan acceptance.** The agent minted an assertion, then decoded the JWT and guessed `claims.scope` instead of `claims.delegation.scopes`. It aborted after the mint. The acceptance and the ledger mail existed, but no signup followed. Today the result carries `assertion.claims` and a flat `scopes` array, so there is no reason to decode or guess. The acceptance remains a real, recorded consent event; it is not a duplicate obligation.
+
+**The duplicate mail.** The agent minted again for the same terms on its next attempt, and each mint recorded another acceptance and sent another ledger mail. Today an identical call while the assertion is unexpired returns the same JWT with `reuse.reused: true`, creates no acceptance and sends no mail. After expiry a fresh assertion references the same acceptance.
+
+**The lost credential.** The agent redacted the provider key from its transcript, then re-ran signup to "re-resolve" the account. Today signup resolves the account and returns no key, so that retry cannot work: rotation is the documented recovery path.
+
+## Cleanup
+
+Revoke the agent in the portal when you are done with the demo. That stops new assertions and further identity and inbox calls for that identity. It does not delete the VaporCloud account, invalidate the key you stored, or undo the accepted terms; those remain the provider's and the ledger's record.
+
+If you want the credential gone, delete it from your secret store and, if the account matters, rotate it with the provider. Revoking the broker identity is not a credential revocation.
+
+## Next
+
+- [Identity lifecycle](/agents/identity-lifecycle/) for the state model behind these steps.
+- [Credentials and recovery](/agents/credentials-and-recovery/) for the recovery path in detail.
+- [ToS and ledger](/agents/tos-and-ledger/) for what the human is accountable for.

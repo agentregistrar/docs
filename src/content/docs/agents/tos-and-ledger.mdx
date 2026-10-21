@@ -1,0 +1,77 @@
+---
+title: ToS and ledger
+description: What the agent accepted, where the record lives, who receives the receipt and what happens when terms change.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0, live VaporCloud terms and broker ledger mail, 2026-10-21"
+sidebar:
+  order: 6
+---
+
+An acceptance is the durable legal event in a brokered signup. The assertion is a short-lived proof of it. This page covers what is recorded, who sees it, and what changes when a provider edits its terms.
+
+## What was accepted
+
+One acceptance records:
+
+| Field | Example | Meaning |
+| :--- | :--- | :--- |
+| `service_audience` | `vaporcloud` | Which service |
+| `service_tos_url` | `https://skdl.dev/terms` | The URL the human can read |
+| `service_tos_hash` | `sha256:e854d9c2...fec5` | Hash of the exact text the agent sent |
+| `master_tos_version` | `2026-10-01` | The master agreement in force |
+| `accepted_at` | `2026-10-21T18:02:11.000Z` | The original consent time, not the last mint time |
+| assertion `jti` | `jti_01JAB...` | The first assertion minted against it |
+
+The broker verifies that the text you sent hashes to the hash you sent, then records both. It does not fetch the provider's discovery document at prove time, so it cannot know that a provider has changed its terms since you read them. A stale pair passes the broker and is rejected by the provider.
+
+## Where the record lives
+
+- **The broker ledger.** One row per acceptance, visible in the portal under "ToS liability ledger" on the agent page.
+- **The receipt email.** Sent to the agent inbox with the assertion JTI, timestamp, target service, accepted ToS URL and hash, and master agreement version. Headers carry `x-ledger-type`, `x-assertion-jti`, `x-service-audience` and `x-service-tos-hash`.
+- **The human forward.** The same receipt, forwarded to the verified human email with the subject prefix `[Fwd: Agent ToS Ledger]`.
+- **The assertion.** `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash`, `delegation.accepted_at` and `delegation.master_tos_version` carry the acceptance to the provider.
+- **`identity_whoami`.** `signup_state.last_acceptances` reports the newest acceptance per service for that agent, including `ledger_email_delivered`.
+
+The provider keeps its own record of the acceptance it verified. The two records should agree on the URL, the hash and the human principal.
+
+## The ledger in the portal
+
+The agent page has two relevant tabs:
+
+- **ToS liability ledger**: every acceptance for that agent, newest first.
+- **Service signups & proof**: every recorded signup, with the provider, account reference, accepted hash and context link.
+
+The portal is the human-readable view of the same rows the tools read. It is the system of record for this broker, but it is not a legal archive: export anything you need to keep before you close an account.
+
+## When terms change
+
+A provider that edits its terms must change `terms.text`, `terms.sha256` and normally `terms.version`. An assertion minted for the old hash is then stale, and the provider rejects it with `tos_hash_mismatch` and a hard stop.
+
+The correct sequence is:
+
+1. Re-fetch the discovery document.
+2. Read the new `terms.text`, recompute the hash, and check it matches.
+3. Call `identity_prove` with the new URL and hash and the new text.
+4. Sign up again. A conformant provider resolves the existing account, returns `resolution: "resolved"`, and sends no duplicate welcome mail; the broker refreshes the proof row instead of creating a second one.
+
+That creates a new acceptance, which is correct: it is a new consent event. The old acceptance stays in the ledger with its original timestamp. Nothing rewrites history.
+
+An acceptance lasts until the terms hash changes or a human re-consents with `force_new`. The protocol sets no re-acceptance interval; a broker may impose its own documented policy.
+
+## What the human is accountable for
+
+The human signed the master agreement, and the agent acted under delegated authority. In plain terms: the human is the accountable party for the accounts the agent creates, and for what the agent does with them. The broker records that chain; it does not absorb the liability.
+
+Before relying on any of it, a provider must check the signature against the issuer JWKS, `iss` against its allowlist, `aud`, `exp`, `jti` reuse, the scopes, `human.verified`, and the accepted terms hash against its current terms.
+
+## What this page is not
+
+This is an explanation of mechanics, not legal advice. The master delegation agreement is the legal document for the human side; the provider's terms are the legal document for the service side. Read the in-product agreement text, and treat the specification as the technical contract.
+
+## Next
+
+- [Identity lifecycle](/agents/identity-lifecycle/) for the acceptance and assertion model in full.
+- [Credentials and recovery](/agents/credentials-and-recovery/) for what happens after the credential is gone.
+- [Trust and limits](/start/trust-and-limits/) for what the record does not prove.

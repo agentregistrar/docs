@@ -1,0 +1,123 @@
+---
+/**
+ * Hand-authored diagram of the brokered signup handshake.
+ *
+ * Terminal rules: ASCII labels, 1px geometry, no icons, no gradients, no
+ * shadows, no radius, tokens only. The vertical stack keeps the labels legible
+ * at 375px without horizontal scrolling, so there is one layout rather than a
+ * separate mobile variant. The viewBox matches the narrowest rendered width
+ * (about 318px), so text is never scaled below its authored size on a phone.
+ *
+ * Not normative. The contract is `agent-identity-v1` in the specification; this
+ * figure is an orientation aid and repeats the numbered legend on the page.
+ */
+---
+
+<figure class="my-6 border border-line bg-surface px-3 py-4">
+  <svg
+    viewBox="0 0 318 520"
+    role="img"
+    aria-labelledby="handshake-diagram-title"
+    aria-describedby="handshake-diagram-desc"
+    class="mx-auto block h-auto w-full"
+    style="max-width: 24rem;"
+  >
+    <title id="handshake-diagram-title">Brokered signup handshake between the human owner, the agent, the broker and the provider</title>
+    <desc id="handshake-diagram-desc">
+      Numbered eight-step flow. Step 1, human: sign in with GitHub, verify the
+      email address and sign the master delegation agreement. Step 2, agent:
+      connect the harness to the broker MCP endpoint and complete OAuth in the
+      browser. Step 3, broker: identity_register returns the agent sub-identity,
+      the inbox address and the delegated scopes. Step 4, agent: fetch the
+      provider discovery document and recompute the terms hash. Step 5, broker:
+      identity_prove records the ToS acceptance and mints the assertion, a JWT
+      plus the same claims for inspection. Step 6, agent: POST assertion.jwt to
+      the provider agent_signup endpoint as an Authorization Bearer token. Step
+      7, provider: verify the assertion, create or resolve the account, return
+      the signed receipt and the context pointer. Step 8, broker:
+      identity_record_signup records the proof and the ledger receipt goes to
+      the agent inbox and to the human owner. Three trust boundaries are marked:
+      human consent after step 1, broker minting after step 5, and provider
+      verification after step 7.
+    </desc>
+
+    <g fill="var(--color-foreground)">
+      <!-- 1 -->
+      <rect x="2" y="8" width="314" height="48" fill="none" stroke="var(--color-line)" />
+      <text x="6" y="23" font-size="8" letter-spacing="0.5" fill="var(--color-muted)">HUMAN</text>
+      <text x="6" y="44" font-size="9" fill="var(--color-accent)">1</text>
+      <text x="52" y="26" font-size="11">sign in with GitHub, verify your email,</text>
+      <text x="52" y="42" font-size="11">sign the master agreement</text>
+
+      <!-- boundary: human consent -->
+      <text x="2" y="70" font-size="8" letter-spacing="0.5" fill="var(--color-warn)">TRUST BOUNDARY - HUMAN CONSENT</text>
+      <line x1="2" y1="76" x2="316" y2="76" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
+
+      <!-- 2 -->
+      <rect x="2" y="80" width="314" height="48" fill="none" stroke="var(--color-line)" />
+      <text x="6" y="95" font-size="8" letter-spacing="0.5" fill="var(--color-muted)">AGENT</text>
+      <text x="6" y="116" font-size="9" fill="var(--color-accent)">2</text>
+      <text x="52" y="98" font-size="11">connect the harness to the MCP endpoint</text>
+      <text x="52" y="114" font-size="11">and complete OAuth in the browser</text>
+
+      <!-- 3 -->
+      <rect x="2" y="136" width="314" height="48" fill="none" stroke="var(--color-line)" />
+      <text x="6" y="151" font-size="8" letter-spacing="0.5" fill="var(--color-muted)">BROKER</text>
+      <text x="6" y="172" font-size="9" fill="var(--color-accent)">3</text>
+      <text x="52" y="154" font-size="11">identity_register: sub-identity, inbox</text>
+      <text x="52" y="170" font-size="11">address and delegated scopes</text>
+
+      <!-- 4 -->
+      <rect x="2" y="192" width="314" height="48" fill="none" stroke="var(--color-line)" />
+      <text x="6" y="207" font-size="8" letter-spacing="0.5" fill="var(--color-muted)">AGENT</text>
+      <text x="6" y="228" font-size="9" fill="var(--color-accent)">4</text>
+      <text x="52" y="210" font-size="11">fetch the provider discovery document</text>
+      <text x="52" y="226" font-size="11">and recompute the terms hash</text>
+
+      <!-- 5 -->
+      <rect x="2" y="248" width="314" height="48" fill="none" stroke="var(--color-line)" />
+      <text x="6" y="263" font-size="8" letter-spacing="0.5" fill="var(--color-muted)">BROKER</text>
+      <text x="6" y="284" font-size="9" fill="var(--color-accent)">5</text>
+      <text x="52" y="266" font-size="11">identity_prove records the acceptance,</text>
+      <text x="52" y="282" font-size="11">mints the assertion (JWT + claims)</text>
+
+      <!-- boundary: broker minting -->
+      <text x="2" y="318" font-size="8" letter-spacing="0.5" fill="var(--color-warn)">TRUST BOUNDARY - BROKER MINTING</text>
+      <line x1="2" y1="324" x2="316" y2="324" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
+
+      <!-- 6 -->
+      <rect x="2" y="328" width="314" height="48" fill="none" stroke="var(--color-line)" />
+      <text x="6" y="343" font-size="8" letter-spacing="0.5" fill="var(--color-muted)">AGENT</text>
+      <text x="6" y="364" font-size="9" fill="var(--color-accent)">6</text>
+      <text x="52" y="346" font-size="11">POST assertion.jwt to agent_signup</text>
+      <text x="52" y="362" font-size="11">as Authorization: Bearer</text>
+
+      <!-- 7 -->
+      <rect x="2" y="384" width="314" height="48" fill="none" stroke="var(--color-line)" />
+      <text x="6" y="399" font-size="8" letter-spacing="0.5" fill="var(--color-muted)">PROVIDER</text>
+      <text x="6" y="420" font-size="9" fill="var(--color-accent)">7</text>
+      <text x="52" y="402" font-size="11">verify the assertion, create or resolve</text>
+      <text x="52" y="418" font-size="11">the account, return receipt + context</text>
+
+      <!-- boundary: provider verification -->
+      <text x="2" y="454" font-size="8" letter-spacing="0.5" fill="var(--color-warn)">TRUST BOUNDARY - PROVIDER VERIFICATION</text>
+      <line x1="2" y1="460" x2="316" y2="460" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
+
+      <!-- 8 -->
+      <rect x="2" y="464" width="314" height="48" fill="none" stroke="var(--color-line)" />
+      <text x="6" y="479" font-size="8" letter-spacing="0.5" fill="var(--color-muted)">BROKER</text>
+      <text x="6" y="500" font-size="9" fill="var(--color-accent)">8</text>
+      <text x="52" y="482" font-size="11">identity_record_signup records the</text>
+      <text x="52" y="498" font-size="11">proof; ledger receipt to agent + human</text>
+    </g>
+  </svg>
+  <figcaption class="mt-3 text-xs text-faint">
+    Hand-authored, not normative. The contract is the specification; this figure is an orientation aid.
+  </figcaption>
+</figure>
+
+<style>
+  svg text {
+    font-family: var(--font-mono);
+  }
+</style>
