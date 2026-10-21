@@ -255,7 +255,7 @@ CORS headers on every `/mcp` response, including errors:
 
 ### GET and DELETE /mcp
 
-The route exports `GET` and `DELETE`, but the transport is stateless, so there is no stream to resume and no session to terminate. `DELETE` returns `200` with an empty body. Both statuses below require a valid bearer token; an unauthenticated request fails at the auth gate with `401` code `-32001` before the transport runs. `GET` without `Accept: text/event-stream` returns `406`; with that header the deployed broker returned a Cloudflare `500` error page on 2026-10-21. Use `POST` for every request. The `500` is recorded as a defect against the broker's D10 transport; this page will be corrected when it is fixed.
+The route exports `GET` and `DELETE`, but the transport is stateless, so there is no stream to resume and no session to terminate. `DELETE` returns `200` with an empty body. Both statuses below require a valid bearer token; an unauthenticated request fails at the auth gate with `401` code `-32001` before the transport runs. `GET` without `Accept: text/event-stream` returns `406`; with that header the deployed broker returned a Cloudflare `500` error page on 2026-10-21. Use `POST` for every request. The `500` is recorded as a defect against the broker's streamable-HTTP transport; this page will be corrected when it is fixed.
 
 ## Broker APIs
 
