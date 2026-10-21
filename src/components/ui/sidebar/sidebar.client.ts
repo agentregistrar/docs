@@ -2,7 +2,7 @@
  *
  * Groups are native `<details data-nb-sidebar-group>`: open state is the
  * element's own `open` property, and changes arrive as `toggle` events
- * (captured on the root — `toggle` doesn't bubble). No click simulation.
+ * (captured on the root - `toggle` doesn't bubble). No click simulation.
  */
 
 import { mount } from "@cloudflare/nimbus-docs/client";
@@ -43,7 +43,7 @@ function initSidebar(root: HTMLElement): () => void {
 function initFilter(root: HTMLElement): (() => void) | null {
   const input = root.querySelector<HTMLInputElement>("[data-nb-sidebar-filter-input]");
   // SidebarFilter is rendered *next to* Sidebar (sibling), so also look in
-  // the parent — preserves the existing layout where filter sits above.
+  // the parent - preserves the existing layout where filter sits above.
   const inputElement =
     input ?? root.parentElement?.querySelector<HTMLInputElement>("[data-nb-sidebar-filter-input]") ?? null;
   if (!inputElement) return null;
@@ -227,7 +227,7 @@ function initPersistence(root: HTMLElement): (() => void) | null {
 }
 
 // ---------------------------------------------------------------------------
-// Global `/` shortcut — bound once at module load
+// Global `/` shortcut - bound once at module load
 // ---------------------------------------------------------------------------
 
 (function bindFilterShortcut() {

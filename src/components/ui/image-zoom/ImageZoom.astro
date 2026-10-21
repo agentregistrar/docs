@@ -1,17 +1,7 @@
----
-/**
- * ImageZoom — one native <dialog> that shows a content image at full size.
- * Render it once in the docs layout; the client wraps each content image
- * that would get meaningfully bigger in a button that opens it.
- *
- * Opt an image out with `data-nb-zoom="off"` on it or on a wrapper.
- */
----
-
 <dialog data-nb-image-zoom aria-label="Enlarged image" class="nb-zoom">
   <img alt="" class="nb-zoom-img" />
   <button type="button" data-nb-zoom-close aria-label="Close" class="nb-zoom-close">
-    Close
+    close
   </button>
 </dialog>
 
@@ -24,10 +14,9 @@
     all: unset;
     max-width: 100%;
     cursor: zoom-in;
-    border-radius: 0.25rem;
   }
   [data-nb-zoom-trigger]:focus-visible {
-    outline: 2px solid var(--color-ring);
+    outline: 1px solid var(--color-accent);
     outline-offset: 2px;
   }
   /* A Frame with an aspect ratio fills its box with the image; the button
@@ -41,7 +30,6 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: 0.5rem;
   }
 
   /* Global: the dialog shows a clone of the page's image or <picture>. */
@@ -61,8 +49,7 @@
     place-items: center;
   }
   .nb-zoom::backdrop {
-    background: color-mix(in oklch, var(--nb-background) 85%, transparent);
-    backdrop-filter: blur(4px);
+    background: var(--color-background);
   }
   .nb-zoom picture {
     display: contents;
@@ -78,25 +65,18 @@
     inset-inline-end: 1rem;
     display: grid;
     place-items: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: 0.5rem;
-    border: 1px solid var(--nb-border);
-    background: var(--nb-card);
-    color: var(--nb-foreground);
+    min-width: 2.75rem;
+    height: 2.75rem;
+    padding: 0 0.5rem;
+    border: 1px solid var(--color-line-strong);
+    background: var(--color-surface);
+    color: var(--color-foreground);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
     cursor: pointer;
   }
   .nb-zoom-close:focus-visible {
-    outline: 2px solid var(--color-ring);
+    outline: 1px solid var(--color-accent);
     outline-offset: 2px;
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    .nb-zoom[open] .nb-zoom-img {
-      transition: opacity 150ms ease-out, transform 150ms ease-out;
-      @starting-style {
-        opacity: 0;
-        transform: scale(0.96);
-      }
-    }
   }
 </style>

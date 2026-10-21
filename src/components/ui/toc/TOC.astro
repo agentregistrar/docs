@@ -1,8 +1,11 @@
 ---
 /**
- * TOC — on-this-page nav with scroll-spy. Static rail rendered inline
- * (border-l + S-curve SVGs at indent changes); animated active indicator
- * lives in toc.client.ts.
+ * TOC - on-this-page nav with scroll-spy.
+ *
+ * The two rails are plain 1px borders (active heading = accent) and the
+ * per-heading depth is padding, not an S-curve. Nimbus's client still owns the
+ * scroll-spy and sets `aria-current` on the active link; its SVG rail stays in
+ * the DOM for the client contract but is not rendered (see globals.css).
  */
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
@@ -17,75 +20,26 @@ const { headings, class: className, ...attrs } = Astro.props;
 
 {headings.length > 0 && (
   <div data-nb-toc class={cn("toc-container", className)} {...attrs}>
-    <h2 class="mb-2 text-sm font-semibold text-foreground">On this page</h2>
+    <h2 class="mb-2 text-xs font-medium uppercase tracking-wider text-faint">on this page</h2>
     <nav aria-label="Table of contents" class="relative">
-      <svg
-        data-nb-toc-rail
-        aria-hidden="true"
-        class="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-        fill="none"
-      >
-        <path
-          data-nb-toc-rail-active
-          class="stroke-primary opacity-0 transition-[stroke-dasharray,stroke-dashoffset,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] data-[ready=true]:opacity-100 data-[initial=true]:transition-opacity motion-reduce:transition-opacity"
-          stroke-width="2"
-          stroke-linecap="round"
-        />
+      <svg data-nb-toc-rail aria-hidden="true" class="hidden" fill="none">
+        <path data-nb-toc-rail-active stroke="currentColor" stroke-width="2" />
       </svg>
 
-      <ul class="flex list-none flex-col m-0 p-0">
-        {headings.map((h, i) => {
-          const prevDepth = i > 0 ? headings[i - 1].depth : h.depth;
-          const nextDepth = i < headings.length - 1 ? headings[i + 1].depth : h.depth;
-          const indent = h.depth - 2;
-          const goingDeeper = h.depth > prevDepth;
-          const goingShallower = nextDepth < h.depth;
-
-          return (
-            <li>
-              {goingDeeper && (
-                <svg
-                  aria-hidden="true"
-                  class="block h-2 text-border"
-                  style={`margin-left: calc(${prevDepth - 2}rem - 0.0625rem); width: ${h.depth - prevDepth}rem;`}
-                  viewBox="0 0 1 1"
-                  preserveAspectRatio="none"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  overflow="visible"
-                >
-                  <path d="M 0 0 C 0 0.5, 1 0.5, 1 1" vector-effect="non-scaling-stroke" />
-                </svg>
-              )}
-              <a
-                href={`#${h.slug}`}
-                data-nb-toc-link
-                data-nb-slug={h.slug}
-                class="grid grid-cols-1 border-l-2 border-border pl-5 py-1.5 text-[0.8125rem] leading-snug text-muted-foreground no-underline transition-colors duration-150 hover:border-foreground/20 hover:text-foreground aria-[current=true]:font-medium aria-[current=true]:text-foreground"
-                style={`margin-left: calc(${indent}rem - 0.125rem);`}
-              >
-                <span class="col-start-1 row-start-1">{h.text}</span>
-                <span aria-hidden="true" class="col-start-1 row-start-1 invisible font-medium">{h.text}</span>
-              </a>
-              {goingShallower && (
-                <svg
-                  aria-hidden="true"
-                  class="block h-2 text-border"
-                  style={`margin-left: calc(${nextDepth - 2}rem - 0.0625rem); width: ${h.depth - nextDepth}rem;`}
-                  viewBox="0 0 1 1"
-                  preserveAspectRatio="none"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  overflow="visible"
-                >
-                  <path d="M 1 0 C 1 0.5, 0 0.5, 0 1" vector-effect="non-scaling-stroke" />
-                </svg>
-              )}
-            </li>
-          );
-        })}
+      <ul class="m-0 flex list-none flex-col p-0">
+        {headings.map((h) => (
+          <li>
+            <a
+              href={`#${h.slug}`}
+              data-nb-toc-link
+              data-nb-slug={h.slug}
+              class="block border-l-2 border-line py-1.5 pr-2 text-xs leading-snug text-muted no-underline transition-colors duration-100 hover:border-line-strong hover:text-foreground aria-[current=true]:border-accent aria-[current=true]:font-medium aria-[current=true]:text-foreground"
+              style={`padding-left: calc(0.625rem + ${Math.max(0, h.depth - 2)}rem);`}
+            >
+              {h.text}
+            </a>
+          </li>
+        ))}
       </ul>
     </nav>
   </div>

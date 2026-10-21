@@ -1,360 +1,334 @@
 @import "tailwindcss";
 
 /* ============================================================
- * Nimbus Theme — THE file you edit to customize your site.
+ * Agent Registrar Docs - Terminal theme
  *
- * Architecture:
- *   1. CSS custom properties (--nb-*) define the design tokens
- *   2. `@theme` block exposes them to Tailwind so utilities like
- *      `bg-card`, `text-foreground`, `border-border` work
- *   3. Dark-only: the Terminal identity has no light mode or theme toggle
- *   4. All colors use oklch for perceptual uniformity
+ * Values are the Deliverable 8 (Wave 5) token table, verbatim.
+ * The docs site is a consumer of the brand, not a fork:
+ *   docs/08-visual-identity/design-tokens.md
+ *   docs/08-visual-identity/visual-identity.md
  *
- * Naming convention:
- *   - Surfaces paired with foregrounds: `card` / `card-foreground`
- *   - Functional names: `primary` (action), `accent` (hover surface),
- *     `muted` (de-emphasized), not visual relationships
- *   - Reserved Tailwind keywords avoided (no `text-base`, `font-sans`,
- *     `shadow-lg`, etc. as color names — they collide with built-ins)
+ * Rules:
+ *   - dark only; no theme toggle, no OS color-scheme branch
+ *   - one family: IBM Plex Mono (self-hosted via @fontsource)
+ *   - square geometry: radius + shadow scales removed
+ *   - color is signal: grayscale UI plus green / amber / red
+ *   - rendered text is ASCII
+ *
+ * Nimbus reads a `--nb-*` layer and exposes utilities through
+ * `@theme`. Both layers resolve to the same values below; components
+ * use the semantic utilities (`bg-surface`, `border-line`, ...).
  * ============================================================ */
 
-/* ---- Dark-only token set (neutral base; Issue 03 replaces it) ---- */
+@theme {
+	/* Typeface - one family, applied globally. */
+	--font-mono:
+		"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+		"Liberation Mono", "Courier New", monospace;
+	/* Safety net: any stray sans or serif utility still resolves to mono. */
+	--font-sans: var(--font-mono);
+
+	/* Type scale (terminal sizes - text-base is 13px by design). */
+	--text-xs: 11px;
+	--text-xs--line-height: 16px;
+	--text-sm: 12px;
+	--text-sm--line-height: 18px;
+	--text-base: 13px;
+	--text-base--line-height: 20px;
+	--text-md: 14px;
+	--text-md--line-height: 22px;
+	--text-lg: 16px;
+	--text-lg--line-height: 24px;
+	--text-xl: 20px;
+	--text-xl--line-height: 28px;
+	--text-2xl: 26px;
+	--text-2xl--line-height: 32px;
+	--text-3xl: 34px;
+	--text-3xl--line-height: 40px;
+
+	/* Color - semantic tokens only. */
+	--color-background: #0a0a0a;
+	--color-surface: #111111;
+	--color-well: #050505;
+	--color-hover: #161616;
+	--color-line: #242424;
+	--color-line-strong: #616161;
+	--color-foreground: #e8e8e8;
+	--color-foreground-strong: #ffffff;
+	--color-muted: #9a9a9a;
+	--color-faint: #7c7c7c;
+	--color-ghost: #555555;
+	--color-accent: #3fb950;
+	--color-warn: #d29922;
+	--color-danger: #f85149;
+
+	/* Nimbus compatibility aliases. Same values, functional names. */
+	--color-card: var(--color-surface);
+	--color-card-foreground: var(--color-foreground);
+	--color-border: var(--color-line);
+	--color-border-strong: var(--color-line-strong);
+	--color-muted-foreground: var(--color-muted);
+	--color-primary: var(--color-accent);
+	--color-primary-foreground: var(--color-background);
+	--color-primary-hover: var(--color-foreground-strong);
+	--color-selected: var(--color-hover);
+	--color-ring: var(--color-accent);
+	--color-info: var(--color-muted);
+	--color-info-foreground: var(--color-muted);
+	--color-info-muted: var(--color-surface);
+	--color-success: var(--color-accent);
+	--color-success-foreground: var(--color-accent);
+	--color-success-muted: var(--color-surface);
+	--color-warning: var(--color-warn);
+	--color-warning-foreground: var(--color-warn);
+	--color-warning-muted: var(--color-surface);
+	--color-danger-foreground: var(--color-danger);
+	--color-danger-muted: var(--color-surface);
+
+	/* Square geometry: delete the radius and shadow scales outright. */
+	--radius-*: initial;
+	--shadow-*: initial;
+
+	/* Layout, not new brand values. */
+	--width-docs: 80rem;
+	--width-docs-article: 44rem;
+	--width-docs-sidebar: 15rem;
+	--width-docs-toc: 12rem;
+}
+
+/* Nimbus-owned raw variables, remapped to the same values. */
 :root {
 	color-scheme: dark;
 
-	--nb-background: oklch(0.085 0 0);
-	--nb-foreground: oklch(0.97 0 0);
+	--nb-background: var(--color-background);
+	--nb-foreground: var(--color-foreground);
+	--nb-card: var(--color-surface);
+	--nb-card-foreground: var(--color-foreground);
+	--nb-muted: var(--color-hover);
+	--nb-muted-foreground: var(--color-muted);
+	--nb-accent: var(--color-hover);
+	--nb-accent-foreground: var(--color-foreground);
+	--nb-primary: var(--color-accent);
+	--nb-primary-foreground: var(--color-background);
+	--nb-primary-hover: var(--color-foreground-strong);
+	--nb-border: var(--color-line);
+	--nb-border-strong: var(--color-line-strong);
+	--nb-selected: var(--color-hover);
+	--nb-ring: var(--color-accent);
+	--nb-info: var(--color-muted);
+	--nb-info-muted: transparent;
+	--nb-success: var(--color-accent);
+	--nb-success-muted: transparent;
+	--nb-warning: var(--color-warn);
+	--nb-warning-muted: transparent;
+	--nb-danger: var(--color-danger);
+	--nb-danger-muted: transparent;
 
-	--nb-card: #0F0F0F;
-	--nb-card-foreground: var(--nb-foreground);
+	--nb-font-sans: var(--font-mono);
+	--nb-font-mono: var(--font-mono);
 
-	--nb-muted: #060606;
-	--nb-muted-foreground: oklch(0.708 0 0);
+	/* Layout tokens used by the Nimbus docs layout. */
+	--nb-sidebar-width: var(--width-docs-sidebar);
+	--nb-toc-width: var(--width-docs-toc);
+	--nb-content-max: var(--width-docs-article);
 
-	--nb-accent: oklch(0.269 0 0);
-	--nb-accent-foreground: var(--nb-foreground);
-
-	--nb-primary: oklch(0.9 0 0);
-	--nb-primary-foreground: oklch(0.085 0 0);
-	--nb-primary-hover: oklch(0.7 0 0);
-
-	--nb-border: oklch(0.269 0 0);
-	--nb-border-strong: oklch(0.371 0 0);
-	--nb-selected: oklch(0.371 0 0);
-	--nb-ring: oklch(0.9 0 0 / 0.35);
-
-	--nb-info: oklch(0.707 0.165 254.624);
-	--nb-info-foreground: oklch(0.707 0.165 254.624);
-	--nb-info-muted: oklch(0.38 0.145 265.5 / 0.22);
-
-	--nb-success: oklch(0.905 0.093 164.15);
-	--nb-success-foreground: oklch(0.905 0.093 164.15);
-	--nb-success-muted: oklch(0.393 0.096 152.3 / 0.2);
-
-	--nb-warning: oklch(0.75 0.183 55.934);
-	--nb-warning-foreground: oklch(0.75 0.183 55.934);
-	--nb-warning-muted: oklch(0.353 0.079 65 / 0.37);
-
-	--nb-danger: oklch(0.704 0.191 22.216);
-	--nb-danger-foreground: oklch(0.704 0.191 22.216);
-	--nb-danger-muted: oklch(0.429 0.176 28.7 / 0.17);
-
-	/* API method palette — dark lines; text and tint follow the status tokens. */
-	--nb-m-get-line: oklch(0.765 0.177 163.223 / 0.25);
-	--nb-m-put-line: oklch(0.645 0.168 50 / 0.25);
-	--nb-m-delete-line: oklch(0.577 0.245 27.325 / 0.25);
-
-	--nb-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.2);
-	--nb-shadow: 0 1px 3px oklch(0 0 0 / 0.3), 0 1px 2px oklch(0 0 0 / 0.2);
-	--nb-shadow-lg: 0 4px 12px oklch(0 0 0 / 0.4), 0 2px 4px oklch(0 0 0 / 0.2);
+	/* Heading scale (D8: 26/32 for h1, 20/28 h2, 16/24 h3, 14/22 h4). */
+	--nb-h1-size: var(--text-2xl);
+	--nb-h1-weight: 600;
+	--nb-h1-tracking: 0;
+	--nb-h2-size: var(--text-xl);
+	--nb-h2-weight: 600;
+	--nb-h2-tracking: 0;
+	--nb-h3-size: var(--text-lg);
+	--nb-h3-weight: 600;
+	--nb-h3-tracking: 0;
+	--nb-h4-size: var(--text-md);
+	--nb-h4-weight: 600;
 }
 
-/* Wider content area on large displays (e.g. MacBook Pro 16″) */
-@media (min-width: 1536px) {
-	:root {
-		--nb-content-max: 52rem;
-	}
-}
-
-/* ---- Tailwind theme mapping ----
- * These generate Tailwind utility classes:
- *   bg-card, text-foreground, border-border, ring-ring, etc.
- */
-@theme {
-	--color-background: var(--nb-background);
-	--color-foreground: var(--nb-foreground);
-
-	--color-card: var(--nb-card);
-	--color-card-foreground: var(--nb-card-foreground);
-
-	--color-muted: var(--nb-muted);
-	--color-muted-foreground: var(--nb-muted-foreground);
-
-	--color-accent: var(--nb-accent);
-	--color-accent-foreground: var(--nb-accent-foreground);
-
-	--color-primary: var(--nb-primary);
-	--color-primary-foreground: var(--nb-primary-foreground);
-	--color-primary-hover: var(--nb-primary-hover);
-
-	--color-border: var(--nb-border);
-	--color-border-strong: var(--nb-border-strong);
-	--color-selected: var(--nb-selected);
-	--color-ring: var(--nb-ring);
-
-	--color-info: var(--nb-info);
-	--color-info-foreground: var(--nb-info-foreground);
-	--color-info-muted: var(--nb-info-muted);
-
-	--color-success: var(--nb-success);
-	--color-success-foreground: var(--nb-success-foreground);
-	--color-success-muted: var(--nb-success-muted);
-
-	--color-warning: var(--nb-warning);
-	--color-warning-foreground: var(--nb-warning-foreground);
-	--color-warning-muted: var(--nb-warning-muted);
-
-	--color-danger: var(--nb-danger);
-	--color-danger-foreground: var(--nb-danger-foreground);
-	--color-danger-muted: var(--nb-danger-muted);
-
-	--font-sans: var(--nb-font-sans);
-	--font-mono: var(--nb-font-mono);
-
-	--shadow-sm: var(--nb-shadow-sm);
-	--shadow-default: var(--nb-shadow);
-	--shadow-lg: var(--nb-shadow-lg);
-}
-
-/* ---- Minimal overrides the plugin doesn't cover ---- */
-html {
-	font-family: var(--nb-font-sans);
-	font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-}
-
-body {
-	opacity: 1;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-	html:focus-within {
-		scroll-behavior: smooth;
-	}
-}
-
-::selection {
-	background: color-mix(in oklch, var(--nb-primary) 10%, transparent);
-	color: var(--nb-foreground);
-}
-
-/* ---- Focus indicators ---- */
 @layer base {
-	/* Default the outline to the focus ring's resting values so turning the
-	   ring on (outline-style: none → solid) changes nothing a transition can
-	   animate — no color/width/offset flash under transition-colors/-all. */
-	*,
-	::before,
-	::after {
-		outline-color: var(--nb-ring);
-		outline-width: 2px;
-		outline-offset: 2px;
+	html {
+		font-family: var(--font-mono);
+		background-color: var(--color-background);
+		accent-color: var(--color-accent);
+		caret-color: var(--color-accent);
+		scrollbar-color: var(--color-line-strong) var(--color-background);
+		-webkit-font-smoothing: antialiased;
 	}
+
+	body {
+		background-color: var(--color-background);
+		color: var(--color-foreground);
+		font-size: var(--text-base);
+		line-height: var(--text-base--line-height);
+	}
+
+	::selection {
+		background-color: var(--color-accent);
+		color: var(--color-background);
+	}
+
 	:focus-visible {
-		outline: 2px solid var(--nb-ring);
+		outline: 1px solid var(--color-accent);
 		outline-offset: 2px;
 	}
-}
 
-/* ---- Reduced motion ---- */
-@media (prefers-reduced-motion: reduce) {
-	*,
-	*::before,
-	*::after {
-		animation-duration: 0.01ms !important;
-		animation-iteration-count: 1 !important;
-		transition-duration: 0.01ms !important;
-		scroll-behavior: auto !important;
+	/* Controls get the same square boundary; no hand-rolled rings. */
+	input,
+	select,
+	textarea,
+	button {
+		border-radius: 0;
+	}
+
+	code,
+	kbd,
+	pre,
+	samp {
+		font-family: var(--font-mono);
 	}
 }
 
-/* ---- Scroll lock (used by native <dialog> overlays) ---- */
-[data-scroll-locked] {
-	overflow: hidden;
-}
-
-/* ---- Scrollbar ---- */
+/* ---- Scrollbar - no radius, no overlay ---- */
 ::-webkit-scrollbar {
 	width: 6px;
 	height: 6px;
 }
 ::-webkit-scrollbar-track {
-	background: transparent;
+	background: var(--color-background);
 }
 ::-webkit-scrollbar-thumb {
-	background: color-mix(in oklch, var(--nb-foreground) 20%, transparent);
-	border-radius: 3px;
+	background: var(--color-line-strong);
 }
 ::-webkit-scrollbar-thumb:hover {
-	background: var(--nb-muted-foreground);
+	background: var(--color-muted);
 }
 
-/* ---- Shiki code-block styling + copy button ---- */
-
-pre.astro-code {
-	position: relative;
-	margin: 1rem 0;
-	padding: 0.75rem 1rem;
-	border-radius: 0.5rem;
-	border: 1px solid var(--nb-border);
-	background-color: var(--nb-card);
-	overflow-x: auto;
-	font-family: var(--nb-font-mono);
-	font-size: 0.875rem;
-	line-height: 1.625;
-}
-pre.astro-code > code {
-	background: transparent;
-}
-
-/* Classed Shiki tokens set --shiki-light/--shiki-dark once in _nimbus/shiki.css. */
-pre.astro-code span {
-	color: var(--shiki-light, inherit);
-}
-:root pre.astro-code span {
-	color: var(--shiki-dark, inherit);
-}
-
-/* Copy button injected by initCodeCopy. */
-.nb-code-copy {
-	position: absolute;
-	top: 0.5rem;
-	right: 0.5rem;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: auto;
-	height: 1.75rem;
-	margin: 0;
-	padding: 0 0.5rem;
-	font-family: var(--nb-font-mono);
-	font-size: 0.75rem;
-	line-height: 1;
-	border: 1px solid var(--nb-border);
-	border-radius: 0.375rem;
-	background: var(--nb-card);
-	color: var(--nb-muted-foreground);
-	cursor: pointer;
-	opacity: 0;
-	transition:
-		opacity 0.15s ease,
-		color 0.15s ease,
-		background 0.15s ease;
-	z-index: 2;
-}
-.nb-code-figure:hover .nb-code-copy,
-.nb-code-copy:focus-visible {
-	opacity: 1;
-}
-.nb-code-copy:hover {
-	color: var(--nb-foreground);
-	background: var(--nb-muted);
-}
-.nb-code-copy svg {
-	width: 0.875rem;
-	height: 0.875rem;
-}
-.nb-code-copy[data-state="copied"] {
-	color: var(--nb-success);
-}
-
-/* ---- Premium code chrome ---- */
-
-/* Every Shiki block is wrapped in a .nb-code-figure (titled or not).
-   Chrome lives on the figure so the language badge + copy button can sit
-   on a non-scrolling ancestor — iOS Safari slides absolutely-positioned
-   children of overflow:auto containers. */
-.nb-code-figure {
-	position: relative;
-	margin: 1rem 0;
-	border: 1px solid var(--nb-border);
-	border-radius: 0.5rem;
-	background-color: var(--nb-card);
+/* ---- Scroll lock (native <dialog> overlays) ---- */
+[data-scroll-locked] {
 	overflow: hidden;
 }
-.nb-code-figure > pre.astro-code {
-	margin: 0;
-	border: 0;
-	border-radius: 0;
-	background-color: transparent;
+
+/* ---- Code blocks - well + 1px line + header row ---- */
+
+.nb-code-figure {
+	position: relative;
+	margin: 1.5rem 0;
+	border: 1px solid var(--color-line);
+	background-color: var(--color-well);
+	overflow: hidden;
 }
+
+.nb-code-figure pre,
+pre.astro-code {
+	margin: 0;
+	padding: 0.75rem 1rem;
+	border: 0;
+	background-color: var(--color-well);
+	overflow-x: auto;
+	font-family: var(--font-mono);
+	font-size: var(--text-sm);
+	line-height: var(--text-sm--line-height);
+}
+
+/* Untitled blocks have no Nimbus header; the copy script inserts this bar. */
+.nb-code-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	padding: 0.375rem 0.75rem;
+	border-bottom: 1px solid var(--color-line);
+	background-color: var(--color-surface);
+	font-size: var(--text-xs);
+	line-height: var(--text-xs--line-height);
+}
+
+.nb-code-bar-label {
+	color: var(--color-faint);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+
+/* Nimbus's auto language badge: keep a label, but as the bar text. */
+.nb-code-figure[data-nb-lang]:not(.nb-code-figure-titled)::before {
+	display: none;
+}
+
 .nb-code-title {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	gap: 0.75rem;
-	padding: 0.5rem 0.875rem;
-	border-bottom: 1px solid var(--nb-border);
-	background: color-mix(in oklch, var(--nb-muted) 50%, transparent);
-	font-family: var(--nb-font-mono);
-	font-size: 0.75rem;
-	line-height: 1.4;
+	padding: 0.375rem 0.75rem;
+	border-bottom: 1px solid var(--color-line);
+	background-color: var(--color-surface);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	line-height: var(--text-xs--line-height);
 }
+
 .nb-code-title-name {
-	color: var(--nb-foreground);
+	color: var(--color-foreground);
 	font-weight: 500;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+
 .nb-code-title-lang {
 	flex-shrink: 0;
-	padding: 0.0625rem 0.375rem;
-	border-radius: 0.25rem;
-	background: var(--nb-muted);
-	color: var(--nb-muted-foreground);
-	font-size: 0.6875rem;
-	letter-spacing: 0.02em;
+	padding: 0 0.25rem;
+	border: 1px solid var(--color-line);
+	color: var(--color-faint);
+	font-size: var(--text-xs);
+	letter-spacing: 0.08em;
 	text-transform: uppercase;
 }
 
-/* Language badge — pinned to the figure (which doesn't scroll), so it
-   stays at top-right even when the pre overflows horizontally. Hidden
-   when a figcaption is already showing the language (titled blocks). */
-.nb-code-figure[data-nb-lang]:not(.nb-code-figure-titled)::before {
-	content: attr(data-nb-lang);
-	position: absolute;
-	top: 0.5rem;
-	right: 0.625rem;
-	padding: 0.0625rem 0.375rem;
-	border-radius: 0.25rem;
-	background: var(--nb-muted);
-	color: var(--nb-muted-foreground);
-	font-family: var(--nb-font-mono);
-	font-size: 0.6875rem;
-	letter-spacing: 0.02em;
-	text-transform: uppercase;
-	pointer-events: none;
-	opacity: 0.75;
-	transition: opacity 0.15s ease;
-	z-index: 1;
-}
-.nb-code-figure:hover::before {
-	opacity: 0;
-}
-/* Hide plaintext/text "language" — it's noise. */
-.nb-code-figure[data-nb-lang="text"]::before,
-.nb-code-figure[data-nb-lang="plaintext"]::before,
-.nb-code-figure[data-nb-lang="plain"]::before,
-.nb-code-figure[data-nb-lang="txt"]::before {
-	display: none;
+/* Copy button: text, square, always visible. */
+.nb-code-copy {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: auto;
+	height: 1.5rem;
+	margin: 0;
+	padding: 0 0.5rem;
+	border: 1px solid var(--color-line-strong);
+	background: transparent;
+	color: var(--color-muted);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	line-height: 1;
+	cursor: pointer;
+	transition: color 100ms;
 }
 
-/* Block-level lines so tints + gutters paint across the full row. */
+.nb-code-bar .nb-code-copy,
+.nb-code-title .nb-code-copy {
+	position: static;
+	height: 1.25rem;
+	border-color: var(--color-line);
+}
+
+.nb-code-copy:hover,
+.nb-code-copy:focus-visible {
+	color: var(--color-foreground);
+	border-color: var(--color-line-strong);
+}
+
+.nb-code-copy[data-state="copied"] {
+	color: var(--color-accent);
+}
+
+/* Line notations: neutral rules, signal only for add/remove. */
 pre.astro-code code {
 	display: block;
 	width: max-content;
 	min-width: 100%;
 }
+
 pre.astro-code .line {
 	display: inline-block;
 	width: 100%;
@@ -363,74 +337,57 @@ pre.astro-code .line {
 	box-sizing: content-box;
 }
 
-/* Highlighted lines (`{1,3-5}` meta or `// [!code highlight]`). */
 pre.astro-code .line.highlighted {
-	background: color-mix(in oklch, var(--nb-info) 12%, transparent);
-	box-shadow: inset 2px 0 0 var(--nb-info);
+	background: var(--color-hover);
+	border-left: 2px solid var(--color-line-strong);
 }
 
-/* Diff lines (`// [!code ++]` / `// [!code --]`). */
-pre.astro-code .line.diff {
-	position: relative;
-}
 pre.astro-code .line.diff.add {
-	background: color-mix(in oklch, var(--nb-success) 10%, transparent);
-	box-shadow: inset 2px 0 0 var(--nb-success);
+	background: var(--color-hover);
+	border-left: 2px solid var(--color-accent);
 }
+
 pre.astro-code .line.diff.remove {
-	background: color-mix(in oklch, var(--nb-danger) 10%, transparent);
-	box-shadow: inset 2px 0 0 var(--nb-danger);
+	background: var(--color-hover);
+	border-left: 2px solid var(--color-danger);
 }
+
 pre.astro-code .line.diff.add::before,
 pre.astro-code .line.diff.remove::before {
 	position: absolute;
 	left: 0.25rem;
-	color: var(--nb-muted-foreground);
+	color: var(--color-faint);
 	font-weight: 600;
 }
+
 pre.astro-code .line.diff.add::before {
 	content: "+";
-	color: var(--nb-success);
+	color: var(--color-accent);
 }
+
 pre.astro-code .line.diff.remove::before {
-	content: "−";
-	color: var(--nb-danger);
+	content: "-";
+	color: var(--color-danger);
 }
 
-/* Focus mode — dim non-focused lines; clears on hover. */
-pre.astro-code.has-focused .line:not(.focused) {
-	opacity: 0.45;
-	filter: blur(0.25px);
-	transition: opacity 0.2s ease, filter 0.2s ease;
-}
-pre.astro-code.has-focused:hover .line:not(.focused) {
-	opacity: 1;
-	filter: none;
-}
-
-/* Error / warning lines — use muted tokens for theme-tuned tints. */
 pre.astro-code .line.highlighted.error {
-	background: var(--nb-danger-muted);
-	box-shadow: inset 2px 0 0 var(--nb-danger);
-}
-pre.astro-code .line.highlighted.warning {
-	background: var(--nb-warning-muted);
-	box-shadow: inset 2px 0 0 var(--nb-warning);
+	background: var(--color-hover);
+	border-left: 2px solid var(--color-danger);
 }
 
-/* Word highlight (`// [!code word:foo]` and meta `/foo/`). */
+pre.astro-code .line.highlighted.warning {
+	background: var(--color-hover);
+	border-left: 2px solid var(--color-warn);
+}
+
 pre.astro-code .highlighted-word {
-	padding: 0.0625rem 0.25rem;
-	margin: -0.0625rem -0.125rem;
-	border-radius: 0.25rem;
-	background: color-mix(in oklch, var(--nb-info) 18%, transparent);
-	box-shadow: 0 0 0 1px color-mix(in oklch, var(--nb-info) 30%, transparent);
+	padding: 0 0.125rem;
+	border: 1px solid var(--color-line-strong);
+	background: transparent;
 }
 
 /* ---- Sidebar rows ---- */
 
-/* One class per row type, shared by the docs and API sidebars. In the
-   components layer so Tailwind utilities on a row (a `px-1`) still win. */
 @layer components {
 	.nb-sidebar-link,
 	.nb-sidebar-row {
@@ -438,12 +395,14 @@ pre.astro-code .highlighted-word {
 		min-height: 2rem;
 		align-items: center;
 		gap: 0.5rem;
-		border-radius: 0.5rem;
-		padding: 0.25rem 0.75rem;
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--nb-muted-foreground);
+		border-left: 2px solid transparent;
+		padding: 0.25rem 0.625rem;
+		font-size: 13px;
+		font-weight: 400;
+		line-height: 20px;
+		color: var(--color-muted);
 		overflow-wrap: break-word;
+		transition: color 100ms;
 	}
 	.nb-sidebar-link {
 		text-decoration: none;
@@ -457,36 +416,34 @@ pre.astro-code .highlighted-word {
 		display: none;
 	}
 	.nb-sidebar-link:hover,
-	.nb-sidebar-link[aria-current="page"],
 	.nb-sidebar-row:hover {
-		background-color: var(--nb-accent);
-		color: var(--nb-foreground);
+		background-color: var(--color-hover);
+		color: var(--color-foreground);
+	}
+	.nb-sidebar-link[aria-current="page"] {
+		border-left-color: var(--color-accent);
+		background-color: transparent;
+		color: var(--color-foreground);
+		font-weight: 500;
 	}
 	.nb-sidebar-link:focus-visible,
 	.nb-sidebar-row:focus-visible {
 		outline-offset: -2px;
 	}
-	/* The group holds the current page. */
 	.nb-sidebar-row[data-nb-active] {
-		color: var(--nb-foreground);
+		color: var(--color-foreground);
 	}
-	/* The caret, drawn once as a mask instead of an inline SVG per group. */
+	/* ASCII group marker, not an icon. */
 	.nb-sidebar-row::after {
-		content: "";
+		content: "+";
 		flex-shrink: 0;
-		width: 1rem;
-		height: 1rem;
-		margin-inline: auto -1px;
-		background-color: currentColor;
-		opacity: 0.4;
-		mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M96 48l80 80-80 80' fill='none' stroke='black' stroke-width='24' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
-			no-repeat center / contain;
-	}
-	.nb-sidebar-row:hover::after {
-		opacity: 1;
+		margin-inline-start: auto;
+		color: var(--color-faint);
+		font-size: var(--text-sm);
+		font-weight: 500;
 	}
 	details[open] > .nb-sidebar-row::after {
-		rotate: 90deg;
+		content: "-";
 	}
 	.nb-sidebar-list {
 		display: flex;
@@ -494,57 +451,59 @@ pre.astro-code .highlighted-word {
 		gap: 1px;
 		margin: 0.125rem 0 0;
 		margin-inline-start: 0.75rem;
-		border-inline-start: 1px solid var(--nb-border);
+		border-inline-start: 1px solid var(--color-line);
 		padding: 0;
-		padding-inline-start: 0.5rem;
+		padding-inline-start: 0.25rem;
 		list-style: none;
 	}
-	/* Safari still lays out closed <details> content in large trees. */
 	details[data-nb-sidebar-group]:not([open]) > .nb-sidebar-list {
 		display: none;
 	}
 }
 
-/* ---- Mobile sidebar toggle ---- */
+/* ---- TOC rail ---- */
+[data-nb-toc-link] {
+	border-left: 2px solid var(--color-line);
+	color: var(--color-muted);
+	text-decoration: none;
+	transition: color 100ms;
+}
+[data-nb-toc-link]:hover {
+	border-left-color: var(--color-line-strong);
+	color: var(--color-foreground);
+}
+[data-nb-toc-link][aria-current="true"] {
+	border-left-color: var(--color-accent);
+	color: var(--color-foreground);
+	font-weight: 500;
+}
+[data-nb-toc-rail] {
+	display: none;
+}
 
-/* Hide hamburger on pages without a sidebar dialog. */
+/* ---- Search results ---- */
+[data-search-results] [role="option"] {
+	border-left: 2px solid transparent;
+}
+[data-search-results] [role="option"]:hover,
+[data-search-results] [role="option"][data-highlighted] {
+	background-color: var(--color-hover);
+	border-left-color: var(--color-accent);
+}
+
+/* ---- Mobile sidebar dialog ---- */
 body:not(:has([data-mobile-sidebar])) [data-menu-btn] {
 	display: none;
 }
 
-/* ---- View transitions ---- */
-
-/* Scoped to <main transition:name="nb-content"> only — chrome snap-swaps
-   via the root rule below so the visual field doesn't shift on nav. */
-@media (prefers-reduced-motion: no-preference) {
-	::view-transition-old(nb-content) {
-		animation: nb-content-out 100ms cubic-bezier(0.32, 0.72, 0, 1) both;
-	}
-	::view-transition-new(nb-content) {
-		animation: nb-content-in 100ms cubic-bezier(0.32, 0.72, 0, 1) both;
-	}
-
-	::view-transition-old(root),
-	::view-transition-new(root) {
-		animation: none;
-	}
-
-	@keyframes nb-content-out {
-		from { opacity: 1; }
-		to   { opacity: 0; }
-	}
-
-	@keyframes nb-content-in {
-		from { opacity: 0; transform: translateY(4px); }
-		to   { opacity: 1; transform: translateY(0); }
-	}
-}
-
+/* ---- Reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
-	::view-transition-old(nb-content),
-	::view-transition-new(nb-content),
-	::view-transition-old(root),
-	::view-transition-new(root) {
-		animation: none;
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
 	}
 }

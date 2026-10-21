@@ -1,0 +1,125 @@
+---
+/**
+ * CodeGroup - tabbed group of code blocks.
+ *
+ *   <CodeGroup titles={["JavaScript", "TypeScript"]}>
+ *     <Code code="..." lang="js" />
+ *     <Code code="..." lang="ts" />
+ *   </CodeGroup>
+ *
+ * Terminal style: text tabs with an accent underline, a text `copy` button,
+ * 1px boundaries. Tab and copy behavior stay with Nimbus's client.
+ */
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+import { LayerCard, LayerCardHeader } from "../layer-card";
+
+interface Props extends HTMLAttributes<"div"> {
+  /** Tab labels. Falls back to "Tab N" when omitted. */
+  titles?: string[];
+}
+
+const { titles, class: className, ...attrs } = Astro.props;
+const titlesAttr = titles ? JSON.stringify(titles) : undefined;
+---
+
+<div data-cg data-titles={titlesAttr} class={cn("my-4 w-full", className)} {...attrs}>
+  <LayerCard>
+    <LayerCardHeader role="tablist" aria-label="Code variants" data-cg-tablist />
+
+    <div data-cg-panels-raw hidden>
+      <slot />
+    </div>
+
+    <div data-cg-panels></div>
+  </LayerCard>
+</div>
+
+<script>
+  import "./code-group.client";
+</script>
+
+<style is:global>
+  [data-cg-row] {
+    display: flex;
+    align-items: stretch;
+    position: relative;
+  }
+
+  /* Framework's code-copy may race CodeGroup's reparenting and inject its own
+     button on the same pre. Hide that fallback - CodeGroup ships one per panel. */
+  [data-cg-panel] .nb-code-copy {
+    display: none;
+  }
+
+  /* Language badge pinned to the row, out of the scrolling pre. */
+  [data-cg-row][data-nb-lang]::before {
+    content: attr(data-nb-lang);
+    position: absolute;
+    top: 0.5rem;
+    right: 3.5rem;
+    padding: 0 0.25rem;
+    border: 1px solid var(--color-line);
+    background: var(--color-surface);
+    color: var(--color-faint);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  [data-cg-panel] pre.astro-code[data-cg-pre][data-nb-lang]::before {
+    display: none;
+  }
+
+  [data-cg-row][data-nb-lang="text"]::before,
+  [data-cg-row][data-nb-lang="plaintext"]::before,
+  [data-cg-row][data-nb-lang="plain"]::before,
+  [data-cg-row][data-nb-lang="txt"]::before {
+    display: none;
+  }
+
+  /* Reparented <pre>: fit the row, keep the well, scroll inside. */
+  [data-cg-panel] pre.astro-code[data-cg-pre] {
+    display: block;
+    flex: 1 1 0%;
+    min-width: 0;
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border: 0;
+    overflow-x: auto;
+    white-space: pre;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    background: transparent;
+  }
+  [data-cg-panel] pre.astro-code[data-cg-pre] > code {
+    background: transparent;
+  }
+
+  [data-cg-copy] {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0 0.75rem;
+    border: 0;
+    border-left: 1px solid var(--color-line);
+    background: transparent;
+    cursor: pointer;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    transition: color 100ms;
+  }
+  [data-cg-copy]:hover {
+    color: var(--color-foreground);
+  }
+  [data-cg-copy][data-state="copied"] {
+    color: var(--color-accent);
+  }
+</style>

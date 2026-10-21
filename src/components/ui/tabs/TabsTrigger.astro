@@ -1,7 +1,8 @@
 ---
 /**
- * TabsTrigger — individual tab button within a TabsList.
+ * TabsTrigger - individual tab button within a TabsList.
  * Use `value` to match with a TabsContent of the same value.
+ * Active = foreground text + the 2px accent underline (TabsList indicator).
  */
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
@@ -20,9 +21,9 @@ const { value, class: className, ...attrs } = Astro.props;
   data-nb-tabs-trigger
   data-nb-value={value}
   class={cn(
-    "shrink-0 cursor-pointer px-4 py-2 text-sm font-medium leading-6 whitespace-nowrap text-muted-foreground transition-colors",
-    "hover:text-foreground aria-selected:text-primary",
-    "focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]",
+    "shrink-0 cursor-pointer whitespace-nowrap px-3 py-2 text-sm font-medium leading-6 text-muted transition-colors duration-100",
+    "hover:text-foreground aria-selected:text-foreground",
+    "focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-2px]",
     className,
   )}
   {...attrs}

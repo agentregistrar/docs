@@ -1,4 +1,9 @@
 ---
+/**
+ * PageActions - text-only page utilities: updated timestamp, copy markdown,
+ * view markdown. Issue 05 appends the `awaiting review` provenance label to
+ * the same row (data-nb-review-status); this issue ships the styled surface.
+ */
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
@@ -14,10 +19,10 @@ const resolvedMarkdownUrl = markdownUrl
   : undefined;
 
 const baseBtn =
-  "inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-transparent px-2 py-1 text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2";
+  "inline-flex cursor-pointer items-center gap-1.5 border-0 bg-transparent px-0 py-0.5 text-muted no-underline transition-colors duration-100 hover:text-foreground focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-2";
 
 const formattedDate = lastUpdated
-  ? new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric" }).format(lastUpdated)
+  ? new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(lastUpdated)
   : null;
 ---
 
@@ -26,26 +31,26 @@ const formattedDate = lastUpdated
     data-nb-page-actions
     data-pagefind-ignore
     data-md-url={resolvedMarkdownUrl}
-    class={cn("not-prose -ml-2 flex flex-wrap items-center gap-y-1 text-[0.8125rem]", className)}
+    class={cn("not-prose flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted", className)}
     {...attrs}
   >
     {lastUpdated && (
-      <span class="inline-flex items-center gap-1.5 px-2 py-1 text-muted-foreground">
-        Updated <time datetime={lastUpdated.toISOString()}>{formattedDate}</time>
+      <span class="inline-flex items-center gap-1.5 py-0.5 text-faint">
+        updated <time datetime={lastUpdated.toISOString()}>{formattedDate}</time>
       </span>
     )}
 
     {resolvedMarkdownUrl && lastUpdated && (
-      <span aria-hidden="true" class="select-none text-muted-foreground/40">|</span>
+      <span aria-hidden="true" class="select-none text-ghost">|</span>
     )}
 
     {resolvedMarkdownUrl && (
       <>
         <button type="button" data-nb-page-actions-copy class={baseBtn}>
-          <span data-nb-page-actions-label aria-live="polite">Copy page</span>
+          <span data-nb-page-actions-label aria-live="polite">copy markdown</span>
         </button>
 
-        <span aria-hidden="true" class="select-none text-muted-foreground/40">|</span>
+        <span aria-hidden="true" class="select-none text-ghost">|</span>
 
         <a
           href={resolvedMarkdownUrl}
@@ -53,7 +58,7 @@ const formattedDate = lastUpdated
           rel="noopener noreferrer"
           class={baseBtn}
         >
-          View as Markdown
+          view markdown -&gt;
         </a>
       </>
     )}

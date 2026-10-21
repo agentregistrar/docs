@@ -12,9 +12,9 @@ function initPageActions(root: HTMLElement): () => void {
   function showState(text: string) {
     label!.textContent = text;
     if (resetTimer) window.clearTimeout(resetTimer);
-    if (text !== "Copy page") {
+    if (text !== "copy markdown") {
       resetTimer = window.setTimeout(() => {
-        label!.textContent = "Copy page";
+        label!.textContent = "copy markdown";
       }, 1500);
     }
   }
@@ -33,9 +33,9 @@ function initPageActions(root: HTMLElement): () => void {
       } else {
         await navigator.clipboard.writeText(await (await markdown).text());
       }
-      showState("Copied");
+      showState("copied");
     } catch {
-      showState("Couldn't copy");
+      showState("copy failed");
     }
   }
 

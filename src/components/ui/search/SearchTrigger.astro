@@ -1,16 +1,16 @@
 ---
-/** Button that opens the search dialog. Cmd+K on macOS, Ctrl+K elsewhere. */
+/** Button that opens the search dialog. Ctrl+K on macOS, Ctrl+K elsewhere. */
 ---
 
 <button
   data-search-trigger
   type="button"
-  class="flex items-center gap-2 rounded-md border border-border bg-card text-sm text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground px-2.5 py-1.5"
+  class="flex h-11 items-center gap-2 border border-line bg-background px-2 text-sm text-muted transition-colors duration-100 hover:border-line-strong hover:text-foreground md:h-8"
   aria-label="Search documentation"
   aria-keyshortcuts="Control+K"
 >
-  <span>Search</span>
-  <kbd class="hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 text-[0.625rem] font-medium text-muted-foreground">
+  <span>search</span>
+  <kbd class="hidden items-center gap-0.5 border border-line bg-well px-1 py-0.5 text-[10px] font-medium text-faint sm:inline-flex">
     <span data-shortcut-key>Ctrl</span>K
   </kbd>
 </button>

@@ -1,4 +1,8 @@
 ---
+/**
+ * Badge - outline only: 1px signal border + signal text, uppercase 11px.
+ * No fill, no pill radius. Status is carried by the word as well as color.
+ */
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 
@@ -11,29 +15,29 @@ interface Props extends HTMLAttributes<"span"> {
 
 const { text, variant = "default", size = "small", class: className, ...attrs } = Astro.props;
 
-// note→info, tip→success, caution→warning: variant aliases
+// note->info, tip->success, caution->warning: variant aliases.
 const variantClass: Record<string, string> = {
-  default: "bg-accent text-muted-foreground",
-  info:    "bg-info-muted text-info",
-  note:    "bg-info-muted text-info",
-  success: "bg-success-muted text-success",
-  tip:     "bg-success-muted text-success",
-  warning: "bg-warning-muted text-warning",
-  caution: "bg-warning-muted text-warning",
-  danger:  "bg-danger-muted text-danger",
-  outline: "border border-border bg-card text-foreground",
+  default: "border-line text-muted",
+  info: "border-line text-muted",
+  note: "border-line text-muted",
+  success: "border-accent text-accent",
+  tip: "border-accent text-accent",
+  warning: "border-warn text-warn",
+  caution: "border-warn text-warn",
+  danger: "border-danger text-danger",
+  outline: "border-line text-foreground",
 };
 
 const sizeClass: Record<string, string> = {
-  small:  "px-2 py-0.5 text-xs",
-  medium: "px-2.5 py-0.5 text-[0.8125rem]",
-  large:  "px-3 py-1 text-sm",
+  small: "px-1.5 py-0.5 text-xs",
+  medium: "px-2 py-0.5 text-xs",
+  large: "px-2 py-1 text-sm",
 };
 ---
 
 <span
   class={cn(
-    "inline-flex items-center rounded-full font-medium whitespace-nowrap leading-none",
+    "inline-flex items-center whitespace-nowrap border bg-transparent font-medium uppercase leading-none tracking-wider",
     variantClass[variant] ?? variantClass.default,
     sizeClass[size] ?? sizeClass.small,
     className,

@@ -3,7 +3,7 @@
 import { mount, initTabs } from "@cloudflare/nimbus-docs/client";
 
 const TRIGGER_CLASS =
-  "shrink-0 cursor-pointer px-4 py-2 text-sm font-medium leading-6 whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground aria-selected:text-primary focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]";
+  "shrink-0 cursor-pointer px-3 py-2 text-sm font-medium leading-6 whitespace-nowrap text-muted transition-colors duration-100 hover:text-foreground aria-selected:text-foreground focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-2px]";
 
 let counter = 0;
 
@@ -21,7 +21,7 @@ function initTabContainer(container: HTMLElement): () => void {
   const synthesize = existingTriggers.length === 0;
 
   if (synthesize && tablist) {
-    // Only this container's own panels — exclude a nested <Tabs>'s panels,
+    // Only this container's own panels - exclude a nested <Tabs>'s panels,
     // whose nearest [data-nb-tabs] ancestor is the inner container.
     const panels = Array.from(
       container.querySelectorAll<HTMLElement>("[data-nb-tabs-content]"),
@@ -59,8 +59,8 @@ function initTabContainer(container: HTMLElement): () => void {
     indicator,
     sync: syncKey ? { key: `ui-synced-tabs__${syncKey}` } : undefined,
     // Keep the active tab within the horizontally-scrollable (scrollbar-hidden)
-    // strip's visible range. Fires on every activate() — including the initial
-    // paint and a synced/restored selection — so a right-edge active tab can't
+    // strip's visible range. Fires on every activate() - including the initial
+    // paint and a synced/restored selection - so a right-edge active tab can't
     // render off-screen with no affordance. scrollLeft directly (not
     // scrollIntoView, which would also scroll the page vertically).
     onActivate: (index) => {

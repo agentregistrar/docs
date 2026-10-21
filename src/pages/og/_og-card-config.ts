@@ -1,38 +1,37 @@
 /**
  * Shared visual config for build-time OG cards.
  *
- * Edit this file to retune generated card colors, spacing, and fonts. Both
- * the per-page endpoint (`og/[...slug].ts`) and the homepage fallback
- * (`og.png.ts`) spread this object into `astro-og-canvas`.
+ * Terminal only: solid #0a0a0a, 1px #242424 inline-start rule, IBM Plex Mono,
+ * no gradient, no shadow, no illustration. Both the per-page endpoint
+ * (`og/[...slug].ts`) and the homepage fallback (`og.png.ts`) use this.
  *
- * Leading underscore tells Astro to skip routing for this file — it sits
- * inside `src/pages/` to be next to its consumers, but it's not a route.
+ * Leading underscore tells Astro to skip routing for this file.
  */
 
 import type { OGImageOptions } from "astro-og-canvas";
 
 export const ogCardConfig = {
-  bgGradient: [
-    [11, 11, 12],
-    [26, 26, 28],
+  bgGradient: [[10, 10, 10]],
+  border: { color: [36, 36, 36], width: 1, side: "inline-start" },
+  padding: 72,
+  fonts: [
+    "./public/fonts/IBMPlexMono-Regular.ttf",
+    "./public/fonts/IBMPlexMono-SemiBold.ttf",
   ],
-  border: { color: [39, 39, 42], width: 2, side: "inline-start" },
-  padding: 96,
-  fonts: ["./public/fonts/Inter-Bold.ttf"],
   font: {
     title: {
-      color: [250, 250, 250],
-      size: 64,
-      weight: "Bold",
-      families: ["Inter"],
-      lineHeight: 1.1,
+      color: [232, 232, 232],
+      size: 52,
+      weight: "SemiBold",
+      families: ["IBM Plex Mono"],
+      lineHeight: 1.2,
     },
     description: {
-      color: [161, 161, 170],
-      size: 32,
-      weight: "Bold",
-      families: ["Inter"],
-      lineHeight: 1.3,
+      color: [154, 154, 154],
+      size: 24,
+      weight: "Normal",
+      families: ["IBM Plex Mono"],
+      lineHeight: 1.4,
     },
   },
   format: "PNG",

@@ -1,6 +1,6 @@
 ---
 /**
- * SidebarGroupHeader — a sidebar group's `<summary>` row: label, optional
+ * SidebarGroupHeader - a sidebar group's `<summary>` row: label, optional
  * badge, and a caret drawn by CSS (`nb-sidebar-row`'s `::after`
  * mask, rotated by `details[open]`). The caller renders it as the first child
  * of a `<details data-nb-sidebar-group>`.
@@ -18,7 +18,7 @@ import type { SidebarBadge } from "@cloudflare/nimbus-docs/types";
 
 interface Props {
   label: string;
-  /** True when this group is on the active trail — emphasizes the label. */
+  /** True when this group is on the active trail - emphasizes the label. */
   hasActive?: boolean;
   badge?: SidebarBadge;
   /** Strike the label through for deprecated sections. */

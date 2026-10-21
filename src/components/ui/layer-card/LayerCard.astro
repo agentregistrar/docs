@@ -1,14 +1,7 @@
 ---
 /**
- * LayerCard — two-layer card (recessed header + raised content).
- *
- *   <LayerCard>
- *     <LayerCardHeader>Title or tabs</LayerCardHeader>
- *     <LayerCardContent>Main content</LayerCardContent>
- *   </LayerCard>
- *
- * `orientation="horizontal"` puts the header on the left and lets the
- * content fill the rest of the row.
+ * LayerCard - two-layer card (recessed header + content).
+ * Terminal: 1px line, square, no shadow. The header uses the well fill.
  */
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
@@ -24,7 +17,7 @@ const { orientation = "vertical", class: className, ...attrs } = Astro.props;
 <div
   data-orientation={orientation}
   class={cn(
-    "group/layer flex w-full overflow-hidden rounded-lg bg-muted text-sm ring ring-border",
+    "group/layer flex w-full overflow-hidden border border-line bg-well text-sm",
     orientation === "horizontal" ? "flex-row items-stretch" : "flex-col",
     className,
   )}
