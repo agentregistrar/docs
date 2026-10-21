@@ -10,7 +10,7 @@ sidebar:
 
 The broker exposes eight tools over the Model Context Protocol (MCP) at `https://agentregistrar.dev/mcp`. Four manage the agent identity and four manage its inbox. This page is the lookup table: inputs, result keys, side effects, retry rules, error codes and one example per tool.
 
-The normative contracts are elsewhere. Inputs and the two structured results are defined in `packages/shared/src/schemas/mcp-tools.ts`; the behavior is in the broker's tool modules. The [error reference](/reference/error-codes/) holds the code list, and the [broker HTTP reference](/reference/broker-http/) holds the transport and OAuth endpoints. This page links to both rather than repeating them.
+The normative contracts are elsewhere. Inputs and the two structured results are defined in the broker's shared MCP tool schema; the behavior is in the broker's tool modules. The [error reference](/reference/error-codes/) holds the code list, and the [broker HTTP reference](/reference/broker-http/) holds the transport and OAuth endpoints. This page links to both rather than repeating them.
 
 ## Endpoint and discovery
 
@@ -732,7 +732,7 @@ Checked on 2026-10-21 against broker commit `dec84d9` and the deployed broker at
 
 - `initialize` returned server name `agentregistrar`, version `1.0.0`, capabilities `tools` and `resources`.
 - `tools/list` returned exactly these eight tools with the titles and the annotation hints shown in the table above.
-- Every input property was compared field by field with `packages/shared/src/schemas/mcp-tools.ts`: types, `required` lists, defaults (`limit` 10, `since_seconds_ago` 60, `timeout_seconds` 30), enums and bounds (1-50, 1-60).
+- Every input property was compared field by field with the broker's shared MCP tool schema: types, `required` lists, defaults (`limit` 10, `since_seconds_ago` 60, `timeout_seconds` 30), enums and bounds (1-50, 1-60).
 - `resources/list` returned the four `agentregistrar://docs/...` URIs in the resource table.
 - Live calls: `identity_register` (existing agent), `identity_whoami`, `inbox_list` (empty), `inbox_read` (missing id), `inbox_wait_for_email` (1-second timeout), `identity_prove` (hash mismatch, no side effects) and `identity_record_signup` (invalid token). Result shapes matched the tables.
 - Not exercised live: a successful `identity_prove` (it would record a real acceptance and send mail), `identity_record_signup` success, and `inbox_send` (it would send real mail). Their result shapes come from the code and the registered output schemas.
