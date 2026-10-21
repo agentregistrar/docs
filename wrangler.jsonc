@@ -1,9 +1,28 @@
 {
+  // Static-assets-only Worker for the public docs. There is no Worker script:
+  // Cloudflare serves `dist/` directly and the custom domain below is the
+  // production origin. See README.md, "Deployment".
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "agentregistrar-docs",
-  "compatibility_date": "2026-10-19",
+  "compatibility_date": "2026-10-21",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "404-page"
+    // Serve the Nimbus 404 page for unknown paths instead of a Worker error.
+    // Nimbus emits per-page directories, so the default auto-trailing-slash
+    // handling keeps `/start/` canonical and 307s `/start` to it.
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  },
+  // The production origin. Cloudflare creates the DNS record for the custom
+  // domain; do not add a separate CNAME for it.
+  "routes": [
+    { "pattern": "docs.agentregistrar.dev", "custom_domain": true }
+  ],
+  "workers_dev": true,
+  // `<version>-agentregistrar-docs.<subdomain>.workers.dev` for a version
+  // upload; used to verify a build before it takes the custom domain.
+  "preview_urls": true,
+  "observability": {
+    "enabled": true
   }
 }

@@ -137,19 +137,46 @@ sync:spec` is a placeholder today.
 
 ## Deployment
 
-The site is live at `https://docs.agentregistrar.dev`, served by the existing
-Cloudflare Pages project `agentregistrar-docs`, which is Git-connected to this
-repository and builds the production branch `main` on push.
+The site is live at `https://docs.agentregistrar.dev`, served by the Cloudflare
+Worker `agentregistrar-docs` as static assets (no Worker script). The build is
+static and `wrangler.jsonc` points `assets.directory` at `dist`, serves the
+Nimbus 404 page for unknown paths, keeps trailing slashes canonical and attaches
+the custom domain `docs.agentregistrar.dev`.
 
-The Workers cutover is still pending (Issue 04). The build is static and
-`wrangler.jsonc` targets Cloudflare Workers static assets; the Worker, the
-redirects and headers policy, the host-header policy, the DNS change and the
-final topology are unprovisioned from this repository today.
+Workers Builds is the deploy path: it is connected to this repository
+(production branch `main`) and runs `pnpm build` then `pnpm exec wrangler deploy`
+on push to `main`; non-main branches build Previews with
+`pnpm exec wrangler versions upload`. The connection was created after the Issue
+04 cutover and immediately produced a first production build from `main`
+(`d519e753-1033-4bc2-8006-fedacfa4af2e`, commit `57974ba`, outcome `success`),
+which deployed the pre-cutover `main` config. The cutover itself was deployed
+manually from the Issue 04 branch (version `9656afd3-b5f6-4c14-8876-8fd1513c661d`),
+and the first push to `main` after the merge rebuilds and deploys the merged
+config. There is no GitHub Actions deploy workflow by design.
+
+Manual deploy (the fallback, and what the cutover used):
 
 ```bash
+pnpm install --frozen-lockfile
 pnpm build
-pnpm deploy     # wrangler deploy, once the Workers cutover lands
+pnpm deploy     # wrangler deploy; needs CLOUDFLARE_API_TOKEN or cf OAuth
 ```
+
+The Worker hostname `https://agentregistrar-docs.sdairs.workers.dev` is enabled
+for verification. `_headers` in `public/` is copied to `dist/_headers` and
+applied by Workers static assets: it sets the Markdown/llms/discovery content
+types, cache policy, CORS for agent artifacts and baseline security headers. The
+JSON Schema content-type/CORS rule is deferred to Issue 06: until
+`public/agent-identity/v1/agent-signup.schema.json` exists, that path is a plain
+`text/html` 404 rather than HTML cached under a schema media type.
+
+The former Cloudflare Pages project `agentregistrar-docs` is a frozen rollback
+snapshot: no custom domain and, since 2026-10-21, no Git source, so pushes no
+longer rebuild it. Its last build (deployment `0fdbc143`, commit `57974ba`)
+still serves at `https://agentregistrar-docs.pages.dev`; it is deleted only
+after the release verification and operator approval. Rollback order (detach the
+Worker domain before reattaching Pages) and the recorded domain/DNS IDs are in
+the monorepo's `docs/deployment.md` §8.
 
 ## License
 

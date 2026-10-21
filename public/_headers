@@ -20,11 +20,22 @@
 # Policy: the site is a static build, so there is no Accept negotiation and no
 # Vary: Accept to emit. Content types are declared per path. CORS is applied
 # where a browser or a browser-based agent fetches an artifact cross-origin
-# (discovery JSON, Agent Skills, JSON Schema). Markdown and llms.txt do not need
+# (discovery JSON, Agent Skills, and JSON Schema once Issue 06 publishes it).
+# Markdown and llms.txt do not need
 # it for non-browser clients.
 #
 # Issue 04 finalizes the Cloudflare static-asset and security-header policy; it
 # edits this file, it does not replace the generated blocks.
+
+# Baseline security headers for every response. These are the Workers static
+# assets equivalent of the headers the Pages project emitted. No CSP is set:
+# the site ships inline JSON-LD and framework inline scripts, and a CSP has not
+# been tested against them. HSTS stays off: it is off at the zone
+# (`security_header`), and enabling zone-wide HSTS is out of scope for the docs
+# origin. Cache policy is not set here, so each path keeps its own rule.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
 
 # Authored MDX source of each page. Not linked from reader UI; served so an
 # agent can see components and imports when the clean Markdown is not enough.
@@ -57,11 +68,16 @@
 /robots.txt
   Cache-Control: public, max-age=300
 
-# JSON Schema assets: agent-identity-v1 discovery schema and future versions.
-/*.schema.json
-  Content-Type: application/schema+json; charset=utf-8
-  Access-Control-Allow-Origin: *
-  Cache-Control: public, max-age=3600
+# JSON Schema assets are deliberately untyped until Issue 06 publishes
+# public/agent-identity/v1/agent-signup.schema.json. Workers static assets apply
+# _headers to 404 responses too, so a `/*.schema.json` rule would serve the
+# Nimbus HTML 404 body as `application/schema+json` with a one-hour cache.
+# Issue 06 adds the rule back in the same change that publishes the file:
+#
+# /*.schema.json
+#   Content-Type: application/schema+json; charset=utf-8
+#   Access-Control-Allow-Origin: *
+#   Cache-Control: public, max-age=3600
 
 # Published API citation manifest.
 /nimbus-api/coordinates.json
