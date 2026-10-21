@@ -15,13 +15,13 @@ import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
           aria-controls="search-listbox"
           type="text"
           placeholder="search documentation..."
-          class="min-w-0 flex-1 border-0 bg-transparent text-md text-foreground placeholder:text-ghost focus:outline-none"
+          class="min-h-11 min-w-0 flex-1 border-0 bg-transparent text-md text-foreground placeholder:text-ghost focus:outline-none"
           autocomplete="off"
           spellcheck="false"
           autocorrect="off"
           autocapitalize="none"
         />
-        <DialogClose class="h-6 border border-line bg-transparent px-1.5 text-xs text-muted transition-colors duration-100 hover:border-line-strong hover:text-foreground">
+        <DialogClose class="inline-flex min-h-11 min-w-11 items-center justify-center border border-line bg-transparent px-1.5 text-xs text-muted transition-colors duration-100 hover:border-line-strong hover:text-foreground md:min-h-6 md:min-w-6">
           esc
         </DialogClose>
       </div>

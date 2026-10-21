@@ -20,6 +20,13 @@ Agent Registrar is an agent identity and brokerage service. A verified human sig
   </a>
 </div>
 
+Add the broker endpoint to a harness:
+
+```bash
+$ opencode mcp add agentregistrar --global --url https://agentregistrar.dev/mcp
+# then run /mcps to complete oauth sign-in
+```
+
 ## What this is
 
 `agent-identity-v1` is the relying-party discovery contract (`GET /.well-known/agent-signup.json`), the brokered signup handshake, and the optional signed receipt. It proves identity, human accountability and hash-pinned ToS acceptance. It does not provision resources or carry vendor capability.

@@ -82,9 +82,11 @@ Enforcement, verbatim from D8:
   `h4` 14/22 600; sentence case, no letter-spacing. `text-3xl` remains reserved
   for the public landing hero.
 - **Prose measure:** `.docs-content` is 14/22 inside the 44rem column with
-  `px-6` at `md+`, so the rendered line box is 656px. IBM Plex Mono advance is
-  0.6em (8.4px at 14px): **78 characters per full line**, inside the 70-82
-  target. The column is the container; prose never runs full width.
+  `px-6` at `md+`, so at >=1280px the rendered line box is 656px. IBM Plex
+  Mono advance is 0.6em (8.4px at 14px): **78 characters per full line**,
+  inside the 70-82 target. Between 1024 and 1279 the TOC rail shares the
+  width and the line box narrows to as little as 529px (63 characters); the
+  article column is the container, and prose never runs full width.
 - **UI text:** sidebar 13/20, TOC 12/18, breadcrumbs 11/16, table headers
   11/16 uppercase with 0.08em tracking, table cells 13/20, code 12/18.
 - **Eyebrows/table headers:** uppercase, `text-xs`, `tracking-wider`, `text-faint`.
@@ -129,7 +131,10 @@ Enforcement, verbatim from D8:
 - Article column 44rem, centered in the remaining track; breadcrumbs sit above
   the grid, `docs / section / page` in 11px `text-faint`.
 - TOC 12rem, `border-l border-line`, 12px, `on this page`. The active heading
-  gets a 2px accent left rail and foreground text. Hidden when empty.
+  gets a 2px accent left rail and foreground text. Hidden when empty. The rail
+  is visible from 1024px; between 1024 and 1279 it shares the width with the
+  article (the line box narrows to 529px / 63 characters at the 1024 floor)
+  instead of dropping the on-page map.
 - Footer: 1px top border, one wrapping link row (`spec`, `registry`, `validator`,
   `security`, `license`, `agentregistrar.dev`), copyright
   `(c) 2026 Agent Registrar`.
@@ -137,10 +142,10 @@ Enforcement, verbatim from D8:
 
 ### Tablet (768-1023px)
 
-Sidebar collapses; the header exposes a text `sections` disclosure. Article and
-TOC share the width; the TOC column is hidden below 1280px and replaced by the
-`on this page` select under the page title. Header stays 48px. No horizontal
-page scroll.
+Sidebar collapses; the header exposes a text `sections` disclosure. Below
+1024px the TOC column is hidden and replaced by the `on this page` select under
+the page title; from 1024px the rail returns beside the article. Header stays
+48px. No horizontal page scroll.
 
 ### Mobile (<= 767px)
 
@@ -150,7 +155,12 @@ page scroll.
   trigger. The backdrop is opaque `background` (no translucency).
 - Article full width with `px-4`; prose 14/22. Code and tables scroll inside
   their own containers only.
-- Tap targets are at least 44px for search, sections, close and nav rows.
+- Tap targets: 44px minimum for every interactive control at 375px - measured
+  sidebar rows 44px, filter input 44px, `on this page` select 44px,
+  page-action buttons 44px, edit/report links 44px, pagination 44px, header
+  wordmark/nav/actions 44px, footer links 44px, search input/results/`esc`
+  44px. Pointer-only desktop chrome stays compact at the WCAG 2.5.8 floor
+  (page actions and footer links 24px, breadcrumbs 24px, TOC rows 30px).
 - No horizontal page scroll at 375px (verified: `body.scrollWidth === 375`).
 
 ---
@@ -166,10 +176,10 @@ Recipes are implemented in `src/components/**`; Nimbus behavior is kept.
 | Wordmark | `Wordmark.astro`: `agentregistrar` 600 + accent `_`, static (no blink) |
 | Sidebar | `ui/sidebar/**`: 13px rows, accent current rail, ASCII +/- group markers, `bg-hover` hover, Nimbus session state intact |
 | TOC | `ui/toc/**`: 12px, `on this page`, accent active rail, scroll-spy and `aria-current` intact; Nimbus's animated SVG rail is in the DOM but not painted |
-| Search | `ui/search/**`: Pagefind modal, square input on `bg-well`, `esc`, `up/down navigate`, `no results.`, keyboard behavior unchanged |
+| Search | `ui/search/**`: Pagefind modal, square input on `bg-well`, results grouped by top-level section (lowercase text, uppercase eyebrow), `esc`, `up/down navigate`, `no results.`, keyboard behavior unchanged. Pagefind `<mark>` highlights use `bg-well` + `text-foreground` + a 1px accent underline inside and outside `.docs-content`; no browser-default yellow. |
 | Breadcrumbs | `ui/breadcrumbs/**`: 11px faint, `/` separators, ASCII `...` collapse |
 | Pagination | `ui/pagination/**`: `<- previous` / `next ->`, 1px top rule |
-| Prose | `src/styles/prose.css`: 14/22, 78-char measure, ASCII list dashes, accent links, 1px tables, square figures |
+| Prose | `src/styles/prose.css`: 14/22, 78-char measure at >=1280 (63-72 chars in the 1024-1279 TOC band), ASCII list dashes, accent links, 1px tables, square figures |
 | Code | Shiki + `.nb-code-figure`: well, 1px line, header row with language and text `Copy`; `Copy` -> `Copied` for 1500ms; clipboard failure leaves `Copy` |
 | Callouts | `ui/aside/Aside.astro`: 1px line + 2px signal left bar, `[NOTE]` muted, `[OK]` accent, `[CAUTION]` warn, `[ERROR]` danger; no tint |
 | Banner | `ui/banner/Banner.astro`: same signal bar, text `x` dismiss, persistence unchanged |
@@ -180,7 +190,7 @@ Recipes are implemented in `src/components/**`; Nimbus behavior is kept.
 | Code groups | `ui/code-group/**`: text tabs + accent underline, per-panel text `copy`; copy behavior preserved |
 | Tables | `prose.css`: 1px container, uppercase 11px faint headers, 13px cells, row `border-b line`, `bg-hover` hover, `.nb-table-scroll` horizontal scroll, no zebra |
 | Badges | `ui/badge/Badge.astro`: outline only, uppercase 11px, signal border/text |
-| Page actions | `ui/page-actions/PageActions.astro`: `updated`, `copy markdown`, `view markdown ->` at 12px muted; `data-nb-review-status` is the styled `awaiting review` surface, hidden until Issue 05 wires provenance |
+| Page actions | `ui/page-actions/PageActions.astro`: `updated`, `copy markdown`, `view markdown ->` at 12px muted; the `awaiting review` surface lives in `src/layouts/DocsLayout.astro` (`data-nb-review-status`), hidden until Issue 05 wires provenance |
 | Edit/report | `DocsLayout`: `edit page -> github`, `report issue` |
 | 404 | `src/pages/404.astro`: shell, `not found.`, one line, home/quickstarts/reference links |
 | Diagram frame | `prose.css` figure: 1px line, `bg-surface`, faint caption; SVGs are hand-authored, no shadows/gradients |
@@ -213,8 +223,9 @@ Each is intentional. None changes a D8 value.
    default). Reason: every docs page needs a title card. Nimbus's OG page type
    does not expose the sidebar section, so cards use the page title plus
    `docs.agentregistrar.dev`; recorded as a known limitation, not a new design.
-6. **`awaiting review` provenance label.** The surface is styled in
-   `PageActions` but hidden; Issue 05 supplies the data and the visible state.
+6. **`awaiting review` provenance label.** The surface lives in `DocsLayout`
+   (`data-nb-review-status`) and uses the page-action tokens; it is hidden
+   until Issue 05 supplies the data and the visible state.
 7. **Docs `h1` is 26/32** rather than the public landing's 34/40 bold hero.
    Reason: D8 reserves `text-3xl` for landing only; docs pages are working
    surfaces, not marketing pages.
@@ -234,6 +245,11 @@ Each is intentional. None changes a D8 value.
 12. **Sidebar group markers and TOC are ASCII/CSS, not Nimbus chevrons or the
     animated SVG rail.** Reason: no icons and no motion beyond color. The
     scroll-spy client contract is unchanged.
+13. **Section-landing eyebrows and card lists are deferred to Issues 06-11.**
+    The docs home ships the section 4.5 path cards and the static terminal MCP
+    snippet; each section landing renders H1 + description + ASCII child list +
+    one next step through the same shell. Reason: landing copy and child-page
+    IA are owned by the content issues; the theme must not pre-empt them.
 
 Conflict record: D8 values and D11 treatment agree. D11's header has no `/ docs`
 label; D12 section 4.4 requires the docs lockup, and D8's wordmark rules allow a
@@ -274,9 +290,16 @@ git diff --check
 
 `check-theme.mjs` scans `src/` and `public/` and fails on:
 
-- `rounded-*`, `border-radius` (other than `0`), radius tokens;
-- `shadow-*`, `box-shadow`, `drop-shadow`, `text-shadow`;
-- gradients, blur, `backdrop-filter`, translucent surface utilities, `rgba()`;
+- `rounded`/`rounded-*` (bare forms included), `border-radius` (other than
+  `0`), radius tokens;
+- `shadow`/`shadow-*` (bare forms included), `box-shadow`, `drop-shadow`,
+  `text-shadow`;
+- gradients, gradient-stop utilities (`from-*`, `via-*`, `to-*`,
+  `bg-linear-*`, `bg-radial-*`, `bg-conic-*`), `blur`/`blur-*` (bare forms
+  included), `backdrop-blur-*`, `backdrop-filter`;
+- translucent surface utilities (including `divide`, `outline`, `fill`,
+  `stroke` and gradient stops with `/50` or `/[0.5]`), `rgba()`, `hsla()`;
+- motion utilities (`animate-*`, except `animate-none`);
 - light-theme branches, `dark:` variants, theme toggles, `data-mode`;
 - icon libraries/components (`lucide`, `@iconify`, `astro-icon`, `ph:*`);
 - off-palette Tailwind colors and `bg-white`/`text-black`;
@@ -284,8 +307,11 @@ git diff --check
 - non-ASCII bytes anywhere in the scanned source;
 - hex values outside the D8 token table.
 
-It is intentionally a static gate: it does not measure contrast or runtime
-behavior. Those stay in the review checklist below.
+Block and whole-line `//` comments are masked before matching, so a comment
+that documents a ban ("no shadow, no radius") is not a violation. The gate is
+intentionally static: it does not measure contrast or runtime DOM. The Pagefind
+`<mark>` rule is runtime DOM, so it is checked by the manual search pass below
+(it was the one surface the first gate run could not see).
 
 ### Manual review checklist
 
@@ -305,6 +331,10 @@ behavior. Those stay in the review checklist below.
    `/og/docs-default.png` or the page card.
 7. **No drift:** `git diff` only touches theme/assets/components; no IA, route
    or copy changes. Do not copy a token into a component.
+8. **Search surface:** build the Pagefind index, query `agent`, and confirm
+   results are grouped by section, labels are lowercase, and every `<mark>`
+   computes `background-color` `#050505` / `color` `#e8e8e8` with a 1px accent
+   underline - never the UA yellow. Repeat at 375 and 1280.
 
 ### Measured contrast (WCAG 2.1, D8 values)
 

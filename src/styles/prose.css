@@ -3,9 +3,9 @@
  * Scope: `.docs-content` only. Component-owned markup keeps its own
  * classes; plain Markdown elements are styled here.
  *
- * Measure: 14/22 at 43rem (688px). IBM Plex Mono advance is 0.6em,
- * so a full line is 688 / 8.4 = 81.9 characters - inside the 70-82
- * character target recorded in THEME.md.
+ * Measure: 14/22 in the 44rem column with `px-6` (656px line box). IBM Plex
+ * Mono advance is 0.6em, so a full line is 656 / 8.4 = 78.1 characters -
+ * inside the 70-82 character target recorded in THEME.md.
  */
 
 .docs-content {

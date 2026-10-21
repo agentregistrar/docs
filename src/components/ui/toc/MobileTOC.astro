@@ -29,7 +29,7 @@ const hasHeadings = headings.length > 0;
         id="mobile-toc-select"
         data-nb-mobile-toc-select
         aria-label="Jump to section"
-        class="w-full border border-line-strong bg-well px-2 py-2 text-sm text-foreground transition-colors duration-100 focus-visible:border-accent focus-visible:outline-none"
+        class="min-h-11 w-full border border-line-strong bg-well px-2 py-2 text-sm text-foreground transition-colors duration-100 focus-visible:border-accent focus-visible:outline-none"
       >
         <option value="_top">top</option>
         {headings.filter((heading) => heading.slug).map((heading) => (

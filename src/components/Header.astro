@@ -44,19 +44,19 @@ const isActive = (href: string): boolean => {
   <div class="mx-auto flex h-12 w-full max-w-(--width-docs) items-center justify-between gap-3 px-4 lg:px-6">
     <div class="flex min-w-0 items-center gap-3">
       <slot name="brand">
-        <a href={homeHref} class="shrink-0 no-underline" aria-label="Agent Registrar docs home">
+        <a href={homeHref} class="inline-flex min-h-11 shrink-0 items-center no-underline" aria-label="Agent Registrar docs home">
           <Wordmark />
           <span class="ml-2 text-sm text-faint" aria-hidden="true">/ docs</span>
         </a>
       </slot>
 
-      <nav aria-label="Primary" class="ml-2 hidden h-6 items-center gap-4 border-l border-line pl-4 lg:flex">
+      <nav aria-label="Primary" class="ml-2 hidden items-center gap-4 border-l border-line pl-4 lg:flex">
         {primaryNav.map((item) => (
           <a
             href={resolveSectionHref(item.href)}
             aria-current={isActive(item.href) ? "page" : undefined}
             class:list={[
-              "whitespace-nowrap text-sm no-underline transition-colors duration-100",
+              "inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap text-sm no-underline transition-colors duration-100",
               isActive(item.href)
                 ? "text-foreground"
                 : "text-muted hover:text-foreground",
@@ -76,14 +76,14 @@ const isActive = (href: string): boolean => {
           href={config.github}
           target="_blank"
           rel="noopener"
-          class="hidden px-2 py-1 text-sm text-muted no-underline transition-colors duration-100 hover:text-foreground sm:inline-flex"
+          class="hidden min-h-11 items-center px-2 text-sm text-muted no-underline transition-colors duration-100 hover:text-foreground sm:inline-flex"
         >
           github
         </a>
       )}
       <a
         href="https://agentregistrar.dev"
-        class="hidden px-2 py-1 text-sm text-muted no-underline transition-colors duration-100 hover:text-foreground md:inline-flex"
+        class="hidden min-h-11 items-center px-2 text-sm text-muted no-underline transition-colors duration-100 hover:text-foreground md:inline-flex"
       >
         agentregistrar.dev
       </a>

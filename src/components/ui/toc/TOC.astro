@@ -33,7 +33,7 @@ const { headings, class: className, ...attrs } = Astro.props;
               href={`#${h.slug}`}
               data-nb-toc-link
               data-nb-slug={h.slug}
-              class="block border-l-2 border-line py-1.5 pr-2 text-xs leading-snug text-muted no-underline transition-colors duration-100 hover:border-line-strong hover:text-foreground aria-[current=true]:border-accent aria-[current=true]:font-medium aria-[current=true]:text-foreground"
+              class="block border-l-2 border-line py-1.5 pr-2 text-sm text-muted no-underline transition-colors duration-100 hover:border-line-strong hover:text-foreground aria-[current=true]:border-accent aria-[current=true]:font-medium aria-[current=true]:text-foreground"
               style={`padding-left: calc(0.625rem + ${Math.max(0, h.depth - 2)}rem);`}
             >
               {h.text}

@@ -52,31 +52,38 @@ const TOKEN_HEX = new Set([
 const RULES = [
   {
     id: "radius",
-    re: /\brounded-[a-z0-9[\]/.]+|border-radius\s*:|--radius-(?!\*:\s*initial)/g,
+    re: /\brounded(?:-[a-z0-9[\]/.%]+)?(?![\w-])|border-radius\s*:|--radius-(?!\*:\s*initial)/g,
     message: "radius is removed by D8 (square geometry)",
     allow: (line) =>
       /--radius-\*:\s*initial/.test(line) || /border-radius:\s*0/.test(line),
   },
   {
     id: "shadow",
-    re: /\bshadow-[a-z0-9[\]/.]+|box-shadow\s*:|drop-shadow\s*\(|text-shadow\s*:/g,
+    re: /\bshadow(?:-[a-z0-9[\]/.%]+)?(?![\w-])|box-shadow\s*:|drop-shadow\s*\(|text-shadow\s*:/g,
     message: "shadows are removed by D8 (1px borders only)",
     allow: (line) => /--shadow-\*:\s*initial/.test(line),
   },
   {
     id: "gradient",
-    re: /gradient\s*\(|bg-gradient|linear-gradient|radial-gradient/gi,
-    message: "gradients are forbidden",
+    re: /gradient\s*\(|\bbg-(?:gradient|linear|radial|conic)(?:-[a-z0-9[\]/.%-]+)?|\b(?:from|via|to)-(?:transparent|current|black|white|\[[^\]]+\]|(?:background|surface|well|hover|line|line-strong|foreground|foreground-strong|muted|faint|ghost|accent|warn|danger)(?:\/\d{1,3})?|[a-z]+-\d{2,3})(?![\w-])/gi,
+    message: "gradients and gradient-stop utilities are forbidden",
   },
   {
     id: "blur",
-    re: /\bblur-\d|blur\(\s*\d|backdrop-filter/g,
+    re: /\b(?:backdrop-)?blur(?:-[a-z0-9[\]/.%]+)?(?![\w-])|blur\(\s*\d|backdrop-filter/g,
     message: "blur/backdrop-filter is forbidden",
+    // DOM `.blur()` (focus release) is not a visual filter.
+    allow: (line) => /\.blur\(\)/.test(line),
   },
   {
     id: "translucency",
-    re: /\b(?:bg|border|text|ring)-[a-z-]+\/\d{1,3}\b|\brgba?\(|\bhsla?\(/g,
+    re: /\b(?:bg|border|text|ring|divide|outline|fill|stroke|from|via|to|shadow|caret|decoration|placeholder)-[a-z0-9-]+(?:\/\[[^\]]+\]|\/\d{1,3})(?![\w-])|\brgba?\(|\bhsla?\(/g,
     message: "translucent surfaces are forbidden (opaque tokens only)",
+  },
+  {
+    id: "motion",
+    re: /\banimate-(?!none\b)[a-z0-9[\]-]+/g,
+    message: "no motion beyond color (D8)",
   },
   {
     id: "light-theme",
@@ -136,6 +143,43 @@ function walk(dir, out = []) {
   return out;
 }
 
+/**
+ * Blank out block comments and whole-line `//` comments before matching.
+ * Comments document the bans ("no shadow, no radius"), so matching raw text
+ * would flag the documentation instead of the code. Line numbers are kept.
+ */
+function maskComments(lines) {
+  let inBlock = false;
+  let inHtml = false;
+  return lines.map((line) => {
+    let out = "";
+    for (let i = 0; i < line.length; i += 1) {
+      if (!inBlock && !inHtml && line.startsWith("/*", i)) {
+        inBlock = true;
+        i += 1;
+        continue;
+      }
+      if (inBlock && line.startsWith("*/", i)) {
+        inBlock = false;
+        i += 1;
+        continue;
+      }
+      if (!inBlock && !inHtml && line.startsWith("<!--", i)) {
+        inHtml = true;
+        i += 3;
+        continue;
+      }
+      if (inHtml && line.startsWith("-->", i)) {
+        inHtml = false;
+        i += 2;
+        continue;
+      }
+      if (!inBlock && !inHtml) out += line[i];
+    }
+    return out.trimStart().startsWith("//") ? "" : out;
+  });
+}
+
 const violations = [];
 
 for (const scanRoot of SCAN_ROOTS) {
@@ -143,10 +187,12 @@ for (const scanRoot of SCAN_ROOTS) {
   for (const file of walk(abs)) {
     const text = readFileSync(file, "utf8");
     const lines = text.split("\n");
+    const masked = maskComments(lines);
     for (const [index, line] of lines.entries()) {
+      const target = masked[index];
       for (const rule of RULES) {
         rule.re.lastIndex = 0;
-        for (const match of line.matchAll(rule.re)) {
+        for (const match of target.matchAll(rule.re)) {
           if (rule.allow?.(line, match[0])) continue;
           violations.push({
             file: relative(ROOT, file),
@@ -169,5 +215,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log("theme qa: clean - no radius, shadow, gradient, blur, light-theme,");
-console.log("icon, non-ASCII or off-token value in src/ or public/.");
+console.log("theme qa: clean - no radius, shadow, gradient, blur, motion,");
+console.log("translucency, light-theme, icon, non-ASCII or off-token value");
+console.log("in src/ or public/.");

@@ -168,6 +168,17 @@
 		color: var(--color-background);
 	}
 
+	/* Pagefind wraps the matched term in <mark>. The search dialog is outside
+	   .docs-content, so without this the UA yellow would render on every
+	   result. Signal only: well fill, foreground text, accent rule. */
+	mark {
+		background-color: var(--color-well);
+		color: var(--color-foreground);
+		border-bottom: 1px solid var(--color-accent);
+		-webkit-box-decoration-break: clone;
+		box-decoration-break: clone;
+	}
+
 	:focus-visible {
 		outline: 1px solid var(--color-accent);
 		outline-offset: 2px;
@@ -494,6 +505,21 @@ pre.astro-code .highlighted-word {
 /* ---- Mobile sidebar dialog ---- */
 body:not(:has([data-mobile-sidebar])) [data-menu-btn] {
 	display: none;
+}
+
+/* ---- Mobile tap targets - 44px minimum ---- */
+/* The drawer and the mobile shell are pointer/touch surfaces; keep rows and
+   the code header control at the 44px WCAG target on small screens. */
+@media (max-width: 63.9375rem) {
+	.nb-sidebar-link,
+	.nb-sidebar-row {
+		min-height: 2.75rem;
+	}
+	.nb-code-bar .nb-code-copy,
+	.nb-code-title .nb-code-copy {
+		min-height: 2.75rem;
+		min-width: 2.75rem;
+	}
 }
 
 /* ---- Reduced motion ---- */
