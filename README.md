@@ -102,9 +102,12 @@ Current pages:
 - `/404.html` - not-found page
 
 Redirects are declared in `astro.config.ts` and emitted to `dist/_redirects` at
-build time. Only redirects whose destination page exists are active. `/spec`,
-`/specification` and `/agent-identity/v1/agent-signup` are active with the
-protocol pages.
+build time. Every destination page exists, so all eight shortcuts are active,
+each registered with and without a trailing slash: `/docs` to `/`, `/spec` and
+`/specification` to the rendered specification, `/implement` to the provider
+quickstart, `/quickstart` to the agent quickstart, `/mcp` to the MCP tool
+reference, `/registry` to the validate-and-register guide, and the optional
+`spec` field's placeholder path to the v1 landing.
 
 ## Authoring
 
@@ -131,9 +134,9 @@ Markdown for agents. The surface is:
 
 - `/llms.txt` and `/llms-full.txt` - the index and the whole site in one
   document.
-- `/<section>/llms.txt` - per-section index, emitted once a section has more
-  than one page; every section is a single landing today, so only the root
-  `/llms.txt` exists.
+- `/<section>/llms.txt` - per-section index; each of the seven sections
+  (`/agent-identity/`, `/agents/`, `/contribute/`, `/portal/`, `/providers/`,
+  `/reference/`, `/start/`) emits one alongside the root `/llms.txt`.
 - `/<slug>/index.md` - the page as clean Markdown; `/<slug>/index.mdx` - the
   authored source.
 - `/.well-known/ard.json` and `/.well-known/ai-catalog.json` - discovery
@@ -185,10 +188,13 @@ Generated files:
 - `public/agent-identity/v1/agent-signup.schema.json`
 
 Allowed transforms are frontmatter, relative-to-absolute link rewriting, and the
-generated banner. Nothing else. To bump the spec version, edit `tag` in
-`spec.lock.json`, run `pnpm sync:spec`, review the normative diff, update the
-hand-authored pages and cross-links, and commit the lock with the generated
-pages. For a commit pin, run
+generated banner. Nothing else. To bump the spec version, run
+`node scripts/sync-spec.mjs --write --tag <tag>`; never edit `tag` in
+`spec.lock.json` and run `pnpm sync:spec`, because the lock still carries the old
+`ref`/`commit` and the sync would only relabel it. Review the normative diff,
+update the hand-authored pages and cross-links, and commit the lock with the
+generated pages. For a docs-only refresh after the tag (a branch that is not
+itself tagged), pin the commit with
 `node scripts/sync-spec.mjs --write --commit <sha> --ref main --tag <tag>`.
 The full runbook is in [`MAINTENANCE.md`](./MAINTENANCE.md) section 2 and
 [`AGENT.md`](./AGENT.md) section 11.

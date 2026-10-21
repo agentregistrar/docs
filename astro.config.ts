@@ -168,13 +168,22 @@ export default defineConfig({
       status: 308,
       destination: "/agent-identity/v1/",
     },
+    // The provider, agent, reference and registry shortcuts. Their target pages
+    // landed in Issues 07, 08 and 10; the release verification issue activates
+    // the shortcuts and re-checks every entry against the deployed host.
+    "/implement": { status: 308, destination: "/providers/quickstart/" },
+    "/implement/": { status: 308, destination: "/providers/quickstart/" },
+    "/quickstart": { status: 308, destination: "/start/quickstart-agent/" },
+    "/quickstart/": { status: 308, destination: "/start/quickstart-agent/" },
+    "/mcp": { status: 308, destination: "/reference/mcp-tools/" },
+    "/mcp/": { status: 308, destination: "/reference/mcp-tools/" },
+    "/registry": {
+      status: 308,
+      destination: "/providers/guides/validate-and-register/",
+    },
+    "/registry/": {
+      status: 308,
+      destination: "/providers/guides/validate-and-register/",
+    },
   },
-  // Staged redirects (target page not in this build yet; do not activate early):
-  //   /implement -> /providers/quickstart/
-  //   /registry -> /providers/guides/validate-and-register/
-  //     activated with the provider pages
-  //   /quickstart -> /start/quickstart-agent/
-  //     activated with the start pages
-  //   /mcp -> /reference/mcp-tools/
-  //     activated with the reference pages
 });
