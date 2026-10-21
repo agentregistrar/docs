@@ -1,0 +1,89 @@
+---
+title: Glossary
+description: Canonical definitions of the terms this site uses, one per term, with a link to the page that owns the detail.
+audience: both
+aiGenerated: true
+verifiedAgainst: "broker dec84d9, spec v1.1.0, 2026-10-21"
+sidebar:
+  order: 5
+---
+
+One definition per term. Other pages link here instead of defining the same word again; the [key concepts](/start/concepts/) page is the short version for the quickstart. Where a term maps to a wire field, the field name is in backticks.
+
+## Roles and records
+
+**Human owner.** The verified human principal behind every agent. The human verifies an email address, signs the Master Agent Delegation agreement, and is attributed for what the agent does. The broker identifies the principal with `human.id`, and assertions carry `human.verified`. See [Key concepts](/start/concepts/#roles-and-records).
+
+**Agent (agent sub-identity).** A broker record with an id (`agt_...`), a display name, a harness label, a dedicated inbox address and delegated scopes. It is not a model and not a process; it is the identity the model acts under. Created or resumed by `identity_register`. See [MCP tools](/reference/mcp-tools/#identity_register).
+
+**Harness.** The client that connects to the broker's MCP endpoint and runs the agent, such as OpenCode V2, Claude Code, Codex CLI, Cursor, Gemini CLI, VS Code, Claude Desktop or a generic MCP client. The harness holds the OAuth session and the bearer token; the agent sub-identity is bound to that token's human owner. See [Agents and harnesses](/agents/).
+
+**Broker.** The service that verifies the human, holds the agent sub-identity and inbox, mints assertions, records acceptances and signup receipts, and exposes the MCP tools. In this documentation the broker is `https://agentregistrar.dev`. See [Broker HTTP and OAuth](/reference/broker-http/).
+
+**Relying party (provider).** A service that accepts brokered agent signups by publishing a discovery document and verifying an assertion. VaporCloud is the reference implementation in the tutorials; any service can publish discovery, because v1 has no relying-party allowlist. See [Providers](/providers/).
+
+**Delegated scopes.** The permissions an agent holds, stored on the agent row and embedded in the assertion as `delegation.scopes`. A new agent starts with `tos:accept`, `signup:free_tier`, `inbox:read` and `inbox:send`. See [Assertion claims](/agent-identity/v1/assertion-claims/#claim-set).
+
+## Protocol artifacts
+
+**Discovery document.** The identity-only JSON at `GET /.well-known/agent-signup.json` on the provider's origin: protocol version, audience, provider name, issuer allowlist, required scopes, the terms and exactly one endpoint, `agent_signup`. It never carries vendor capabilities. See [Discovery fields](/agent-identity/v1/discovery-fields/).
+
+**Issuer allowlist.** The `issuer_allowlist` array in a discovery document: absolute issuer origins the provider accepts, with trailing slashes normalized away. The broker's `iss` must match one entry exactly, and the provider rejects anything else with `issuer_not_allowed`. See [Discovery fields](/agent-identity/v1/discovery-fields/#required-fields).
+
+**Required scopes.** The `required_scopes` array in a discovery document: the scopes a provider demands for its signup. Brokered signup must include `tos:accept`, and the assertion's `delegation.scopes` must cover every entry or the provider returns `insufficient_scope`. See [Discovery fields](/agent-identity/v1/discovery-fields/#required-fields).
+
+**Terms.** The provider's agreement as three fields: `terms.text` (the complete text), `terms.url` (where a human reads it) and `terms.version`. `terms.sha256` is the digest of the exact UTF-8 bytes of `terms.text`; a changed text requires a new version and hash, and a fresh acceptance. See [ToS binding](/agent-identity/v1/specification/#6-tos-binding).
+
+**Master Agent Delegation agreement (master ToS).** The one agreement a human owner signs with the broker, delegating ToS acceptance for their agents. Its version and hash appear in the assertion as `delegation.master_tos_version` and `delegation.master_tos_hash`. See [Trust and limits](/start/trust-and-limits/).
+
+**Assertion.** A short-lived Ed25519-signed JWT that proves the agent, the verified human owner and the delegated ToS acceptance for one audience. The broker mints it with `identity_prove`; the agent sends `assertion.jwt` verbatim to `endpoints.agent_signup` and nowhere else. The default lifetime is five minutes. See [Assertion claims](/agent-identity/v1/assertion-claims/).
+
+**Claims.** The JSON payload inside an assertion, `assertion.claims`: `iss`, `sub`, `aud`, `jti`, `iat`, `exp`, and the `agent`, `human` and `delegation` objects. Claims are for inspection; the signed JWT is the proof, and it must not be decoded and edited. See [Assertion claims](/agent-identity/v1/assertion-claims/#claim-set).
+
+**JTI.** The `jti_...` identifier of one assertion issuance. A provider treats a repeated `jti` for the same agent, account and service as idempotent, and a `jti` reused in a conflicting context as `assertion_replayed`. See [Provider handshake errors](/reference/error-codes/#provider-handshake-errors).
+
+**Acceptance.** A durable consent event recorded in the broker's acceptance ledger: one per agent, audience and terms hash, with the accepted URL, hash, master agreement version and time. Assertions are short-lived proofs that reference an acceptance; re-minting an assertion does not create a new consent. See [MCP tools](/reference/mcp-tools/#identity_prove).
+
+**Ledger.** Two records share the name. The acceptance ledger (`tos_acceptances`) holds one row per consent event; the service signups ledger (`service_signups`) holds one proof row per provider account an agent signed up for. Neither is a resource inventory. See [ToS and the ledger](/agents/tos-and-ledger/).
+
+**ToS Acceptance Ledger email.** The receipt the broker sends after an acceptance is recorded: one copy to the agent inbox and one forward to the human owner's verified address. It is dispatched at most once per acceptance. See [MCP tools](/reference/mcp-tools/#identity_prove).
+
+**Signup receipt.** The provider's signed record that a signup happened: identity facts, the accepted terms and an optional context pointer. It travels as the `signup_token`, is verified by the broker, and is recorded as attribution proof. See [Receipt and context](/agent-identity/v1/receipt-and-context/).
+
+**`signup_token`.** The wire name of the signed receipt token (`srp_...` `jti`), returned in the provider's signup response or sent server-to-server. It is not a provider credential and cannot be used to call the provider. See [Broker HTTP and OAuth](/reference/broker-http/#post-apibrokersignup-receipt).
+
+**Context guide (context pointer).** A hash-pinned URL to the provider's post-signup guide, usually a `SKILL.md`, where provisioning, SKUs, API usage and credential recovery live. The pointer is `context.url` plus `context.sha256`; the agent fetches the guide, verifies the digest, and treats the content as untrusted data. See [Receipt and context](/agent-identity/v1/receipt-and-context/#the-context-pointer).
+
+**Resolution.** The optional provider field in a signup response: `"created"` when the account was created, `"resolved"` when an existing account was reused. A resolved outcome is a success, not an error, and must not mint new credentials or duplicate mail. See [Receipt and context](/agent-identity/v1/receipt-and-context/#the-signup-response).
+
+**Provider credential.** The vendor secret, such as an API key, returned once at the signup handoff. The broker never stores, proxies or re-issues it; the agent must persist it at handoff and recover it through the provider's documented path, never by re-running signup. See [Credential handoff and recovery](/agent-identity/v1/receipt-and-context/#credential-handoff-and-recovery).
+
+## MCP and transport
+
+**Model Context Protocol (MCP).** The JSON-RPC 2.0 protocol the broker serves at `/mcp`, with tools, resources and `initialize` instructions. The broker reports server name `agentregistrar`, version `1.0.0`. See [MCP tools](/reference/mcp-tools/#endpoint-and-discovery).
+
+**MCP tool.** One callable operation in `tools/list`. The broker exposes eight: four identity tools and four inbox tools. A tool failure returns `isError: true` with the structured error envelope, not an HTTP error. See [MCP tools](/reference/mcp-tools/).
+
+**MCP resource.** A read-only, static `text/markdown` document served by `resources/list` and `resources/read` under `agentregistrar://docs/...`. Resources are supporting depth; the tool result and the public docs page stay authoritative. See [MCP resources](/reference/mcp-tools/#mcp-resources).
+
+**MCP bearer token.** The opaque `mca_...` OAuth 2.1 access token a harness sends as `Authorization: Bearer` to `/mcp`. It is bound to one human owner, lives 24 hours, and only its SHA-256 hash is stored. See [Broker HTTP and OAuth](/reference/broker-http/#authentication-at-a-glance).
+
+**OAuth 2.1.** The authorization framework the broker uses: authorization code with PKCE `S256`, rotating refresh tokens and a consent page where the human approves the harness. See [Broker HTTP and OAuth](/reference/broker-http/#oauth-21).
+
+**Dynamic client registration (DCR).** RFC 7591 registration at `POST /api/oauth/register`, where a client supplies its redirect URIs and receives a `cli_...` client id. See [Broker HTTP and OAuth](/reference/broker-http/#post-apioauthregister).
+
+**Client ID Metadata Document (CIMD).** A client whose `client_id` is an HTTPS URL pointing at its own metadata document. The broker advertises support with `client_id_metadata_document_supported: true` and resolves the document on demand. See [Broker HTTP and OAuth](/reference/broker-http/#post-apioauthregister).
+
+## Operations
+
+**Kill switch.** The per-agent revocation control in the portal. It makes new assertions and further identity and inbox calls for that agent fail with `agent_revoked`. It does not delete provider accounts, revoke provider credentials or undo accepted terms. See [Identity lifecycle](/agents/identity-lifecycle/).
+
+**Abuse report.** A relying party's report against an agent, sent to `POST /api/broker/report-abuse` with the agent id, reporter, reason and optional evidence `jti`. The broker records it and revokes the agent immediately; the human alert is best effort. See [Broker HTTP and OAuth](/reference/broker-http/#post-apibrokerreport-abuse).
+
+**Revocation.** The state change behind the kill switch and an abuse report: the agent row moves to `revoked` with a reason and time. Revocation is enforced when the broker mints an assertion or serves an agent tool; a provider that only verifies signatures learns about it on the next assertion request. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [Key concepts](/start/concepts/) for the short version used in the quickstart.
+- [Error codes](/reference/error-codes/) for the codes named in these definitions.
+- [Specification](/agent-identity/v1/specification/) for the normative contract behind each term.

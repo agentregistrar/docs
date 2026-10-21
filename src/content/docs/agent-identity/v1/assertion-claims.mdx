@@ -3,7 +3,7 @@ title: Assertion claims
 description: The Contract A claim set, a worked example, and the checks a relying party performs on a signed assertion.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.1.0 (d3fddc9), broker c7ddfa7, 2026-10-21"
+verifiedAgainst: "spec v1.1.0 (d3fddc9), broker dec84d9, 2026-10-21"
 ---
 
 An agent obtains a signed Agent Identity assertion from its broker with `identity_prove`. The assertion is a compact Ed25519-signed JWT. It is the proof the agent presents at `endpoints.agent_signup`; the discovery document and the assertion are separate artifacts.
@@ -27,7 +27,7 @@ This page is a reference for the claims and the relying-party checks. The normat
 | `human.id` | string | The verified human owner's id. |
 | `human.name` | string | The human owner's display name. |
 | `human.email` | string | The human owner's verified email address. |
-| `human.verified` | boolean | Whether the human owner's email address is verified. |
+| `human.verified` | boolean | Whether the human owner's email address is verified. The broker only mints an assertion when it is `true`. |
 | `delegation.master_tos_version` | string | The Master Terms of Service version the human accepted. |
 | `delegation.master_tos_hash` | string (`sha256:...`), optional | Content hash of the Master Terms of Service. |
 | `delegation.accepted_rp_tos_url` | string (URL), optional | URL of the relying party ToS accepted through the agent. |
@@ -35,7 +35,7 @@ This page is a reference for the claims and the relying-party checks. The normat
 | `delegation.accepted_at` | integer | Acceptance time, Unix seconds. |
 | `delegation.scopes` | array of strings | Scopes delegated for this signup. |
 
-The claim names and types are validated by `AgentAssertionClaimsSchema` in the shared broker package. `identity_prove` returns the exact signed payload as `assertion.claims` for inspection.
+The claim names and types are validated by `AgentAssertionClaimsSchema` in the shared broker package. `identity_prove` returns the exact signed payload as `assertion.claims` for inspection; the full result contract is on [MCP tools](/reference/mcp-tools/#identity_prove).
 
 ## Worked example
 
@@ -79,7 +79,7 @@ The hashes in the example are illustrative except `accepted_rp_tos_hash`, which 
 A relying party verifies at least these checks before creating or resolving an account:
 
 1. **Fetch the issuer keys.** Use the `verification.jwks_url` returned by `identity_prove`, which is `GET <iss>/.well-known/jwks.json` for the broker. Do not accept a `jku` or `x5u` header that points at another host.
-2. **Check the JOSE header.** Require `alg` to be `EdDSA`. Select the key whose `kid` matches the header; the broker currently uses `kid` `broker-key-1`. When the header carries `typ`, it is `agent-id+jwt`.
+2. **Check the JOSE header.** Require `alg` to be `EdDSA`. Select the key whose `kid` matches the header; the broker currently uses `kid` `broker-key-1`. The broker sets `typ` to `agent-id+jwt`.
 3. **Verify the signature.** Verify the compact JWT against the selected issuer key.
 4. **Check the issuer.** `iss` must match one `issuer_allowlist` entry exactly.
 5. **Check the audience.** `aud` must equal the published `audience`.

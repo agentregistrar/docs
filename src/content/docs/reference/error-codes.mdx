@@ -1,0 +1,178 @@
+---
+title: Error codes
+description: Broker, MCP, OAuth, provider and inbox errors with status, retryability and the next action.
+audience: both
+aiGenerated: true
+verifiedAgainst: "broker dec84d9, spec v1.1.0, 2026-10-21; live error responses from agentregistrar.dev, 2026-10-21"
+sidebar:
+  order: 4
+---
+
+Errors come from four layers, and each has its own envelope. Read the layer first, then the code. `error_description` and `message` are for humans and may change; `error`, `code` and `retryable` are the control-flow fields.
+
+| Layer | Where it appears | Shape |
+| :--- | :--- | :--- |
+| Discovery validation | The conformance validator, not an agent call | Exit code plus `errors` and `warnings` arrays |
+| MCP transport | `POST /mcp` before a tool runs | HTTP status plus a JSON-RPC `error` object |
+| MCP tools | Inside a tool result | HTTP `200` with `isError: true` and the tool error envelope |
+| Provider handshake | The provider's `agent_signup` response | `error`, optional `error_description`, optional `retryable` |
+| Broker APIs and OAuth | `/api/broker/*`, `/api/oauth/*` | HTTP status plus `error` and `error_description` |
+
+The tool error envelope, returned as text content with `isError: true`:
+
+```json
+{
+  "error": {
+    "code": "ledger_email_failed",
+    "message": "Delegated ToS acceptance 7c1e0a52-... was recorded (jti jti_...) and the ToS Acceptance Ledger email was sent to the agent, but the dispatch did not complete: ...",
+    "retryable": true,
+    "side_effects": {
+      "acceptance_recorded": true,
+      "acceptance_created": true,
+      "ledger_email_sent_to_agent": true,
+      "ledger_email_forwarded_to_human": false,
+      "assertion_minted": true
+    },
+    "next_step": "Retry identity_prove with the same inputs; the acceptance is reused and only the ledger email is retried. Do not treat this as a new signup or create a new acceptance.",
+    "docs": "agentregistrar://docs/error-recovery"
+  }
+}
+```
+
+`side_effects` reports what the failed call actually did. It is the difference between "retry safely" and "retry and duplicate a legal event", so read it before retrying anything with a side effect.
+
+## Discovery and validation
+
+The validator is a producer tool, not an agent-facing error surface. Its outcomes are exit codes:
+
+| Exit | Meaning | Next action |
+| :--- | :--- | :--- |
+| `0` | Valid conformant document. Warnings do not change the code. | Publish. |
+| `1` | A document was parsed but failed conformance: schema, hash, forbidden vendor fields, invalid fields, or a failed opt-in probe. | Read the `errors` array and fix the document. |
+| `2` | No usable document: unreadable file, network or timeout failure, redirect limit, non-`200`, wrong content type, size cap, or invalid JSON. | Fix the hosting or the URL, then re-run. |
+
+Each `errors[]` and `warnings[]` entry is a string `"<check id>: <message>"`. The check ids are stable; the messages are not. See the [validator guide](/agent-identity/v1/validator/) for the JSON output and the probe rules.
+
+An agent that cannot fetch a usable document treats the service as unsupported. That is a discovery outcome, not an error code from this page.
+
+## MCP transport and gate errors
+
+These arrive with a non-`200` HTTP status from `POST /mcp`, before any tool runs. The JSON-RPC `id` is `null`.
+
+| Code | HTTP | Retryable | Meaning | Next action |
+| :--- | :-: | :-: | :--- | :--- |
+| `-32001` | `401` | no | Bearer token missing, invalid, expired or revoked. The response carries `WWW-Authenticate` with `resource_metadata` and `scope`. | Re-run the harness OAuth step, then retry. Do not retry the same token. |
+| `-32003` | `403` | no | Human owner suspended, or the Master Agent Delegation agreement is unsigned. | The human fixes the account in the portal. Retrying cannot succeed. |
+| `-32000` | `406` | no | The request did not accept `text/event-stream` (a `GET` without an SSE `Accept` header). | Use `POST` with `Accept: application/json, text/event-stream`. |
+
+The three codes are broker implementation details, not part of `agent-identity-v1`. The stable part is the HTTP status and the `WWW-Authenticate` challenge. See [Broker HTTP and OAuth](/reference/broker-http/#mcp-transport).
+
+## MCP tool errors
+
+A tool failure is a successful JSON-RPC call: HTTP `200`, a result object with `isError: true`, and the envelope above. Every tool uses the same code set. `retryable` and `next_step` are part of the envelope; the table repeats them for lookup.
+
+| Code | Tools | Retryable | Meaning | Next action |
+| :--- | :--- | :-: | :--- | :--- |
+| `human_suspended` | `identity_prove` | no | Human owner account is suspended. | The human reactivates the account in the portal. |
+| `human_email_unverified` | `identity_prove` | no | Human owner email is not verified. | The human verifies the email, then retry. |
+| `master_tos_unsigned` | `identity_prove` | no | The Master Agent Delegation agreement is unsigned. | The human completes onboarding and signs it. |
+| `agent_revoked` | identity and inbox tools | no | The agent is revoked by the kill switch or an abuse report. | The human reviews it in the portal, or the session registers another agent. Do not retry. |
+| `scope_not_granted` | identity and inbox tools | no | The agent lacks the required scope: `tos:accept`, `inbox:read` or `inbox:send`, or one entry of `requested_scopes`. | Check `identity_whoami`; request only delegated scopes. |
+| `tos_text_hash_mismatch` | `identity_prove` | no | `accepted_tos_text` does not hash to `accept_tos_hash`. No side effect occurred. | Re-fetch `terms.text`, recompute the hash, send the exact text. |
+| `ledger_email_failed` | `identity_prove` | yes | The acceptance is recorded; the ledger email dispatch did not finish. | Retry the same call. Only the mail is retried; no new acceptance is created. |
+| `signup_token_invalid` | `identity_record_signup` | no | The receipt failed signature, `typ`, audience or claim verification. | Obtain a valid token from the provider. Do not retry the rejected token. |
+| `signup_token_not_linked` | `identity_record_signup` | no | The receipt references an acceptance this broker has not recorded for that audience. | Call `identity_prove` for the audience first, then retry. |
+| `signup_token_ownership_mismatch` | `identity_record_signup` | no | The receipt belongs to another human owner. | Stop. Use the token issued for the authenticated account. |
+| `message_not_found` | `inbox_read` | no | No message with that id for this agent. | Use an id from `inbox_list` or `inbox_wait_for_email`. |
+| `wait_timeout` | `inbox_wait_for_email` | yes | Nothing matched within the wait budget. | Call `inbox_list`, widen the lookback, or wait again with a longer budget. Do not poll tightly. |
+| `send_failed` | `inbox_send` | yes | The mail provider rejected or did not accept the message. Nothing was sent or recorded. | Retry; the call is safe because nothing left the broker. |
+| `internal_error` | all tools | yes | Unexpected broker, database or issuance failure. | Retry with the same inputs, after reading `side_effects`. For `inbox_send`, check `email_sent` before resending. |
+
+Per-tool behavior and examples are on [MCP tools](/reference/mcp-tools/). The code list is additive; a shipped code is not renamed.
+
+### Reading `side_effects`
+
+| Tool | Keys |
+| :--- | :--- |
+| `identity_prove` | `acceptance_recorded`, `acceptance_created`, `ledger_email_sent_to_agent`, `ledger_email_forwarded_to_human`, `assertion_minted` |
+| `identity_register`, `identity_whoami` | `{}` (nothing happened) |
+| `identity_record_signup` | `{}` |
+| `inbox_read`, `inbox_list`, `inbox_wait_for_email` | `{}` |
+| `inbox_send` | `email_sent`, `message_recorded` |
+
+`identity_prove` reports all five keys on its gate, ledger-dispatch and issuance failures, so an all-false block is positive evidence that no acceptance was written. An unexpected catch-all `internal_error` reports `{}`. A successful call reports the same four success keys without `assertion_minted`.
+
+## Inbox errors
+
+The three inbox-specific codes are in the tool table above; this section adds the operational detail.
+
+| Code | Retryable | What to check | Do not |
+| :--- | :-: | :--- | :--- |
+| `message_not_found` | no | The id belongs to this agent, and the message still exists. | Reuse an id from another agent's inbox. |
+| `wait_timeout` | yes | `from_contains`, `subject_contains`, `since_seconds_ago`, and whether the sender used the agent address at all. | Poll in a tight loop, or assume the mail will never arrive. |
+| `send_failed` | yes | The mail provider status in `message`. Nothing was sent. | Resend blindly after a success response; `inbox_send` is not idempotent. |
+
+`inbox_send` also reports `internal_error` when the email left the broker but the ledger insert failed; `side_effects.email_sent` is `true` there. Check `inbox_list` before sending again.
+
+## Provider handshake errors
+
+The provider returns these from `POST endpoints.agent_signup`. The envelope is `error`, optional `error_description`, optional `retryable`; the mapping is fixed for v1. When `retryable` is absent, infer it from the code.
+
+| Code | HTTP | Retryable | Meaning | Next action |
+| :--- | :-: | :-: | :--- | :--- |
+| `invalid_request` | `400` | no | Malformed headers or body. | Fix the request; do not retry blindly. |
+| `invalid_assertion` | `401` | no | Signature or shape verification failed. | Mint a new assertion with `identity_prove`. |
+| `issuer_not_allowed` | `403` | no | `iss` is not in the provider's `issuer_allowlist`. | Stop. This broker is not accepted by that provider. |
+| `audience_mismatch` | `403` | no | `aud` does not equal the provider's `audience`. | Re-discover and mint for the correct audience. |
+| `assertion_expired` | `401` | no | `exp` passed beyond the allowed clock skew. | Mint a new assertion. Do not reuse the JWT. |
+| `assertion_replayed` | `409` | no | The `jti` was used in a conflicting context (different agent, account or service). | Mint a new assertion. |
+| `tos_hash_mismatch` | `409` | no | The accepted terms hash is stale or wrong. | Hard stop: re-discover, re-read, re-accept, re-prove. |
+| `insufficient_scope` | `403` | no | `delegation.scopes` misses a `required_scopes` entry. | Ask the human to re-delegate; do not proceed. |
+| `human_unverified` | `403` | no | `human.verified` is not `true`. | Complete human verification. |
+| `rate_limited` | `429` | yes | The caller is throttled. | Back off for the advertised delay, then retry. |
+
+A `jti` repeated for the **same** agent, account and service is not a replay. The provider resolves it idempotently, usually with `resolution: "resolved"`. `assertion_replayed` is reserved for a conflicting context. The normative table is [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes).
+
+## OAuth, DCR and broker API errors
+
+These use the RFC 6749 `error` field or a broker-specific one. They are HTTP-level failures, not tool results.
+
+| Code | HTTP | Endpoint | Meaning | Next action |
+| :--- | :-: | :--- | :--- | :--- |
+| `invalid_client_metadata` | `400` | `/api/oauth/register` | Invalid JSON or client metadata. | Fix the registration body. |
+| `invalid_redirect_uri` | `400` | `/api/oauth/register`, `/api/oauth/authorize/decision` | A redirect URI is not loopback HTTP or HTTPS, or does not match the client. | Register the exact loopback or HTTPS URI you use. |
+| `invalid_client` | `400` | `/oauth/authorize` (error card), `/api/oauth/authorize/decision` | The `client_id` cannot be resolved. | Register the client, or fix the id. |
+| `unsupported_response_type` | `400` | `/oauth/authorize` (error card) | `response_type` is not `code`. | Use `response_type=code`. |
+| `invalid_request` | `400` | authorize, decision, token, broker APIs, webhook | Malformed request, missing parameter, or a body that fails its schema. | Fix the request. |
+| `unauthorized` | `401` | `/api/oauth/authorize/decision` | No human session. | Sign in, then approve. |
+| `access_denied` | `403` | `/api/oauth/authorize/decision` | The human account is suspended, or the human denied the request (as a redirect `error`). | Do not retry; the human decides. |
+| `email_verification_required` | `403` | `/api/oauth/authorize/decision` | `accept_master_tos` was set but the email is unverified. | Verify the email first. |
+| `master_tos_required` | `400` | `/api/oauth/authorize/decision` | The Master ToS is unsigned and was not accepted in the decision. | Sign it in onboarding or in the consent card. |
+| `invalid_grant` | `400` | `/api/oauth/token` | Code unknown, expired or used; PKCE mismatch; refresh token unknown or revoked; human not active or unsigned. | Restart the authorization flow. |
+| `unsupported_grant_type` | `400` | `/api/oauth/token` | Grant type is not `authorization_code` or `refresh_token`. | Fix the request. |
+| `server_error` | `500` | OAuth endpoints | The broker could not persist the client, code or token. | Retry later; do not loop. |
+| `agent_not_found` | `404` | `/api/broker/report-abuse` | No agent with that id. | Check the id. |
+| `invalid_signup_token` | `401` | `/api/broker/signup-receipt` | The receipt failed verification or is inconsistent with broker state. | Obtain a valid token. The response is deliberately sanitized. |
+| `invalid_webhook_signature` | `401` | `/api/webhooks/resend` | Missing or invalid provider webhook signature. | Operator only; fix the webhook secret. |
+
+`agent_not_found`, `invalid_signup_token` and `invalid_webhook_signature` are broker implementation codes, not protocol codes. The endpoint details are in [Broker HTTP and OAuth](/reference/broker-http/).
+
+## Decision table
+
+| Situation | Do not | Do |
+| :--- | :--- | :--- |
+| `tos_hash_mismatch` or `tos_text_hash_mismatch` | Retry the same assertion or the same text | Re-discover, re-read `terms.text`, re-accept, re-prove |
+| `human_unverified` or `human_email_unverified` | Loop | Complete human email verification, then retry |
+| `master_tos_unsigned` | Retry | The human signs the Master Agent Delegation agreement |
+| `assertion_expired` | Reuse the JWT | Mint a new assertion |
+| `assertion_replayed` | Retry blindly | Confirm the same-context idempotent path; otherwise mint a new assertion |
+| `ledger_email_failed` | Assume the acceptance was lost | Retry; the acceptance is recorded and only mail re-sends |
+| Inbox `wait_timeout` | Poll in a tight loop | Use a longer timeout or narrower filter, or check `inbox_list` |
+| `inbox_send` retry after `internal_error` | Resend without checking | Read `side_effects.email_sent`; check `inbox_list` first |
+| Lost provider credential | Re-run signup | Use the provider recovery path in the context guide |
+| `agent_revoked` | Retry or register a replacement silently | Tell the human; they review the agent in the portal |
+| `-32001` on `/mcp` | Retry the same token | Re-run the harness OAuth step |
+
+## Verification record
+
+On 2026-10-21 the following error bodies were produced by the deployed broker and matched the tables: `tos_text_hash_mismatch` (with all-false `side_effects`), `message_not_found`, `wait_timeout`, `signup_token_invalid`, the `/mcp` `401`/`-32001` challenge, `invalid_redirect_uri`, `unsupported_grant_type`, `invalid_grant`, `unauthorized`, `agent_not_found`, `invalid_signup_token` and `invalid_webhook_signature`. The codes and retryability were then compared with `packages/shared/src/schemas/mcp-tools.ts`, the tool modules and the OAuth and broker handlers at broker commit `dec84d9`. Codes not triggered live (`human_suspended`, `human_email_unverified`, `master_tos_unsigned`, `agent_revoked`, `scope_not_granted`, `ledger_email_failed`, `signup_token_not_linked`, `signup_token_ownership_mismatch`, `send_failed`) come from those handlers and are marked retryable or not by the same code that builds the envelope.

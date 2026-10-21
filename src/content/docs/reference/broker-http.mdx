@@ -1,0 +1,353 @@
+---
+title: Broker HTTP and OAuth
+description: The broker's metadata, JWKS, MCP transport, OAuth, abuse-report and signup-receipt endpoints with methods, auth and responses.
+audience: both
+aiGenerated: true
+verifiedAgainst: "broker dec84d9, 2026-10-21; live requests to agentregistrar.dev on 2026-10-21"
+sidebar:
+  order: 3
+---
+
+This page is the endpoint reference for the broker at `https://agentregistrar.dev`: what exists, who may call it, what it returns, and which errors it returns. It is not a tutorial. For the client flow, start at the [harness install guide](/agents/); for tool behavior, use [MCP tools](/reference/mcp-tools/); for the code list, use [Error codes](/reference/error-codes/).
+
+All examples use synthetic values. No endpoint needs an API key in a query string, and no example contains a real token.
+
+## Authentication at a glance
+
+| Endpoint group | Caller | Authentication |
+| :--- | :--- | :--- |
+| `/.well-known/*` | Anyone | None (public metadata) |
+| `POST /mcp` | Agent harness | `Authorization: Bearer mca_...` OAuth 2.1 access token |
+| `GET /oauth/authorize` | Human, in a browser | Human login session (anonymous requests are redirected to `/login`) |
+| `POST /api/oauth/authorize/decision` | Human, in the consent page | Human login session cookie, same-origin JSON |
+| `POST /api/oauth/register` | MCP client | None (RFC 7591 dynamic registration) |
+| `POST /api/oauth/token` | MCP client | None beyond the one-time code or refresh token; PKCE `S256` is enforced |
+| `POST /api/broker/report-abuse` | Relying party | None at the HTTP layer; the body names the agent and the reporter |
+| `POST /api/broker/signup-receipt` | Relying party server | A provider-signed `signup_token` in the body |
+| `POST /api/webhooks/resend` | Mail provider only | Provider webhook signature (operator surface) |
+
+## Discovery and metadata
+
+| Method | Path | Status | Content type | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/.well-known/oauth-protected-resource` | `200` | `application/json` | RFC 9728 protected resource metadata for `/mcp`. |
+| `GET` | `/.well-known/oauth-authorization-server` | `200` | `application/json` | RFC 8414 authorization server metadata. |
+| `GET` | `/.well-known/jwks.json` | `200` | `application/json` | Public Ed25519 keys. `Cache-Control: public, max-age=300`. |
+| `OPTIONS` | each of the above | `204` | none | CORS preflight. |
+
+All three set `Access-Control-Allow-Origin: *`. Only the JWKS sets an explicit cache directive; the two metadata documents carry no cache header.
+
+`GET /.well-known/oauth-protected-resource`, live on 2026-10-21:
+
+```json
+{
+  "resource": "https://agentregistrar.dev/mcp",
+  "authorization_servers": ["https://agentregistrar.dev"],
+  "bearer_methods_supported": ["header"],
+  "scopes_supported": ["mcp:tools", "tos:accept", "signup:free_tier"]
+}
+```
+
+`GET /.well-known/oauth-authorization-server`, live on 2026-10-21:
+
+```json
+{
+  "issuer": "https://agentregistrar.dev",
+  "authorization_endpoint": "https://agentregistrar.dev/oauth/authorize",
+  "token_endpoint": "https://agentregistrar.dev/api/oauth/token",
+  "registration_endpoint": "https://agentregistrar.dev/api/oauth/register",
+  "jwks_uri": "https://agentregistrar.dev/.well-known/jwks.json",
+  "response_types_supported": ["code"],
+  "grant_types_supported": ["authorization_code", "refresh_token"],
+  "token_endpoint_auth_methods_supported": ["none", "client_secret_post"],
+  "code_challenge_methods_supported": ["S256"],
+  "client_id_metadata_document_supported": true,
+  "scopes_supported": ["mcp:tools", "tos:accept", "signup:free_tier"]
+}
+```
+
+`GET /.well-known/jwks.json`, live on 2026-10-21, with the key material shortened:
+
+```json
+{
+  "keys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "<32-byte public key, base64url>",
+      "kid": "broker-key-1",
+      "alg": "EdDSA",
+      "use": "sig"
+    }
+  ]
+}
+```
+
+The `iss` in an assertion equals this issuer origin. Assertions carry `alg` `EdDSA`, `kid` `broker-key-1` and `typ` `agent-id+jwt`. Verify against the JWKS, never against a key URL supplied by the assertion. See [Issuer and JWKS assumptions](/agent-identity/v1/specification/#10-issuer--jwks-assumptions).
+
+## OAuth 2.1
+
+The broker implements authorization code with PKCE `S256` and rotating refresh tokens. It supports three kinds of client: clients registered through dynamic client registration, two pre-seeded loopback CLI clients, and Client ID Metadata Document (CIMD) clients whose `client_id` is an HTTPS metadata URL.
+
+### POST /api/oauth/register
+
+RFC 7591 dynamic client registration. No authentication. Request body:
+
+| Field | Type | Required | Default | Rule |
+| :--- | :--- | :-: | :--- | :--- |
+| `client_name` | string | no | `MCP Client` | Display name. |
+| `redirect_uris` | array of strings | yes | - | At least one. Each must be HTTPS, or HTTP on a loopback host (`localhost`, `127.0.0.1`, `::1`). Fragments and other schemes are rejected. |
+| `grant_types` | array of strings | no | `["authorization_code","refresh_token"]` | |
+| `response_types` | array of strings | no | `["code"]` | |
+| `token_endpoint_auth_method` | string | no | `none` | Public clients use `none`. |
+
+Success is `201` with the stored client information:
+
+```json
+{
+  "client_id": "cli_01jdocsverify000000000000",
+  "client_id_issued_at": 1792576800,
+  "client_name": "Example MCP client",
+  "redirect_uris": ["http://127.0.0.1:33418/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none"
+}
+```
+
+| Status | `error` | Meaning |
+| :--- | :--- | :--- |
+| `400` | `invalid_redirect_uri` | A redirect URI is not loopback HTTP or HTTPS, or the list is empty. |
+| `400` | `invalid_client_metadata` | Invalid JSON or a body that fails the metadata schema. |
+| `500` | `server_error` | The client could not be persisted. |
+
+### GET /oauth/authorize
+
+The consent page. Query parameters:
+
+| Parameter | Required | Rule |
+| :--- | :-: | :--- |
+| `client_id` | yes | A registered `cli_...` id, a seed client id, or an HTTPS CIMD URL. |
+| `redirect_uri` | yes | Must match one registered redirect URI for that client. |
+| `response_type` | yes | `code`. |
+| `code_challenge` | yes | PKCE challenge, non-empty. |
+| `code_challenge_method` | yes | `S256`. |
+| `state` | no | Returned unchanged on the callback. |
+| `scope` | no | Space-delimited; defaults to `mcp:tools tos:accept signup:free_tier`. |
+| `resource` | no | Stored with the authorization code. |
+
+Behavior:
+
+- An anonymous request gets `307` to `/login?next=<the encoded authorize URL>`, so the human returns to the same consent request after signing in.
+- The parameters are validated before anything is rendered. An invalid request renders an error card and never redirects to an unvalidated `redirect_uri`; the card names `invalid_client`, `invalid_redirect_uri`, `unsupported_response_type` or `invalid_request` (missing PKCE). The page response itself is a rendered HTML document, not an OAuth JSON error.
+- A valid request renders the consent card with the resolved client name, the requested scopes and the Master Agent Delegation agreement.
+
+### POST /api/oauth/authorize/decision
+
+Submits the human's decision from the consent page. Same-origin JSON with the human session cookie. Body:
+
+| Field | Type | Required | Meaning |
+| :--- | :--- | :-: | :--- |
+| `client_id` | string | yes | The client being authorized. |
+| `redirect_uri` | string | yes | Must match the client registration. |
+| `code_challenge` | string | yes | The PKCE challenge from the request. |
+| `code_challenge_method` | string | no | `S256` (default). |
+| `state` | string | no | Echoed into the redirect URL. |
+| `scope` | string | no | Space-delimited scopes. |
+| `resource` | string | no | Stored with the code. |
+| `decision` | `approve` or `deny` | yes | |
+| `accept_master_tos` | boolean | no | Record the Master ToS signature inline. |
+
+Success is `200` with `{ "redirect_url": "..." }`. The broker does not redirect the browser itself; the consent page follows the returned URL.
+
+| Status | `error` | Meaning |
+| :--- | :--- | :--- |
+| `401` | `unauthorized` | No human session. |
+| `400` | `invalid_request` | Invalid JSON or a body that fails the decision schema. |
+| `400` | `invalid_client` | The client cannot be resolved. |
+| `400` | `invalid_redirect_uri` | The redirect URI does not match the client. |
+| `403` | `access_denied` | The human account is suspended. |
+| `403` | `email_verification_required` | `accept_master_tos` was set but the human email is unverified. |
+| `400` | `master_tos_required` | The Master ToS is unsigned and was not accepted in this decision. |
+| `500` | `server_error` | The signature or the authorization code could not be stored. |
+
+A denial is not an error response: it returns `200` with a `redirect_url` carrying `error=access_denied`.
+
+### POST /api/oauth/token
+
+Exchanges a one-time authorization code, or rotates a refresh token. Accepts `application/x-www-form-urlencoded` or `application/json`.
+
+`grant_type=authorization_code`:
+
+| Parameter | Required | Meaning |
+| :--- | :-: | :--- |
+| `grant_type` | yes | `authorization_code`. |
+| `code` | yes | The `mcc_...` code from the callback. One use, 10-minute lifetime. |
+| `code_verifier` | yes | PKCE verifier for the stored `S256` challenge. |
+| `client_id` | no | When present, must equal the code's client. |
+| `redirect_uri` | no | When present, must equal the code's redirect URI. |
+
+`grant_type=refresh_token`:
+
+| Parameter | Required | Meaning |
+| :--- | :-: | :--- |
+| `grant_type` | yes | `refresh_token`. |
+| `refresh_token` | yes | The `mcr_...` token. Rotation revokes the presented token. |
+| `client_id` | no | When present, must equal the token's client. |
+
+Success is `200` with `Cache-Control: no-store` and `Pragma: no-cache`:
+
+```json
+{
+  "access_token": "mca_<64 hex>",
+  "token_type": "Bearer",
+  "expires_in": 86400,
+  "refresh_token": "mcr_<64 hex>",
+  "scope": "mcp:tools tos:accept signup:free_tier"
+}
+```
+
+The access token lifetime is 24 hours. The token is opaque; only its SHA-256 hash is stored.
+
+| Status | `error` | Meaning |
+| :--- | :--- | :--- |
+| `400` | `invalid_request` | `code` or `code_verifier` missing, or `refresh_token` missing. |
+| `400` | `invalid_grant` | Unknown, expired or already used code; PKCE mismatch; unknown or revoked refresh token; or the human account is not active or has no Master ToS signature. |
+| `400` | `unsupported_grant_type` | Any `grant_type` other than the two above. |
+| `500` | `server_error` | The token pair could not be persisted. |
+
+## MCP transport
+
+### POST /mcp
+
+The Streamable HTTP MCP endpoint. One stateless handler per request; no session id is issued. Send JSON-RPC 2.0 with `Content-Type: application/json` and `Authorization: Bearer mca_...`.
+
+| Request | Result |
+| :--- | :--- |
+| Valid bearer, valid JSON-RPC | `200` with a JSON-RPC response. `initialize`, `tools/list`, `tools/call`, `resources/list` and `resources/read` are supported. |
+| Missing, invalid, expired or revoked token | `401`, JSON-RPC code `-32001`, plus `WWW-Authenticate`. |
+| Human suspended, or Master ToS unsigned | `403`, JSON-RPC code `-32003`. |
+| No acceptable media type | `406`, JSON-RPC code `-32000`. |
+| CORS preflight | `204`, no body. |
+
+`401` body, live on 2026-10-21, with the challenge header:
+
+```http
+HTTP/2 401
+content-type: application/json
+www-authenticate: Bearer resource_metadata="https://agentregistrar.dev/.well-known/oauth-protected-resource", scope="mcp:tools tos:accept signup:free_tier"
+
+{"jsonrpc":"2.0","error":{"code":-32001,"message":"Unauthorized: Missing, invalid, expired, or revoked MCP Bearer token."},"id":null}
+```
+
+`403` bodies use code `-32003` with either "Human owner account is suspended." or "Master Agent Delegation ToS has not been signed." and an `id` of `null`.
+
+`POST` accepts `Accept: application/json` alone; the handler normalizes the header to `application/json, text/event-stream` and defaults a missing content type, so `curl` works. A `GET` without `Accept: text/event-stream` returns `406` with code `-32000`.
+
+CORS headers on every `/mcp` response, including errors:
+
+| Header | Value |
+| :--- | :--- |
+| `Access-Control-Allow-Origin` | `*` |
+| `Access-Control-Allow-Methods` | `GET, POST, DELETE, OPTIONS` |
+| `Access-Control-Allow-Headers` | `Authorization, Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID` |
+| `Access-Control-Expose-Headers` | `WWW-Authenticate, Mcp-Session-Id, Mcp-Protocol-Version` |
+
+### GET and DELETE /mcp
+
+The route exports `GET` and `DELETE`, but the transport is stateless, so there is no stream to resume and no session to terminate. `DELETE` returns `200` with an empty body. `GET` without `Accept: text/event-stream` returns `406`; with that header the deployed broker returned a Cloudflare `500` error page on 2026-10-21. Use `POST` for every request. The `500` is recorded as a defect against the broker's D10 transport; this page will be corrected when it is fixed.
+
+## Broker APIs
+
+### POST /api/broker/report-abuse
+
+Relying-party abuse reporting. Revoking is immediate and does not require the human's consent.
+
+Request body:
+
+| Field | Type | Required | Meaning |
+| :--- | :--- | :-: | :--- |
+| `agent_id` | string (`agt_...`) | yes | The agent being reported. |
+| `reporter_service` | string | yes | Who is reporting. |
+| `reason` | string | yes | Why. Stored verbatim and shown to the human. |
+| `evidence_jti` | string | no | The assertion id that shows the behaviour. |
+
+Success is `200`:
+
+```json
+{
+  "ok": true,
+  "agent_id": "agt_01jdocsverify0000000000000",
+  "agent_status": "revoked",
+  "human_notified": true
+}
+```
+
+| Status | `error` | Meaning |
+| :--- | :--- | :--- |
+| `400` | `invalid_request` | Invalid JSON or a body that fails the report schema. |
+| `404` | `agent_not_found` | No agent with that id. |
+| `500` | `internal_error` | The audit row, revocation or lookup failed. |
+
+The endpoint has no authentication at the HTTP layer. A report is accepted from any caller that knows the agent id; the audit row records `reporter_service` as claimed, not as verified. `human_notified` is best effort: a failed alert email does not block the revocation.
+
+### POST /api/broker/signup-receipt
+
+Contract F ingestion for a provider that records the signup server-to-server instead of returning the token to the agent. Request body: `{ "signup_token": "<signed receipt token>" }`.
+
+Success is `201` when a new proof row is created and `200` when an existing proof is returned or refreshed:
+
+```json
+{
+  "ok": true,
+  "signup_id": "7f651102-docs-4fa6-b700-000000000000",
+  "signup_token_jti": "srp_01jdocsverify00000000000",
+  "assertion_jti": "jti_01jdocsverify0000000000000",
+  "agent_id": "agt_01jdocsverify0000000000000",
+  "service_audience": "example-rp",
+  "provider_account_id": "840d6148-docs-4680-8f33-000000000000",
+  "human_email_shared": "human@example.com",
+  "context_url": "https://example.com/docs/SKILL.md",
+  "context_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+}
+```
+
+| Status | `error` | Meaning |
+| :--- | :--- | :--- |
+| `400` | `invalid_request` | Invalid JSON or a body without `signup_token`. |
+| `401` | `invalid_signup_token` | The token failed verification or is inconsistent with broker state. The response is sanitized; diagnostics stay in server logs. |
+| `500` | `internal_error` | Persistence failed. |
+
+The endpoint is idempotent on the receipt `jti`, on `assertion_jti`, and on `(agent, audience, provider_account_id)`. `context_url` and `context_sha256` are `null` when the receipt carried no guide. See [Receipt and context](/agent-identity/v1/receipt-and-context/).
+
+### POST /api/webhooks/resend
+
+Operator surface only. This endpoint receives mail-provider delivery events. It requires the provider's webhook signature headers; without them it returns `401` with `error` `invalid_webhook_signature`. It returns `200` with the processing result when the signature verifies. Agents, harnesses and relying parties must not call it, and it is not part of `agent-identity-v1`.
+
+## Status codes and errors
+
+Each endpoint above lists its own statuses. The shared code lists, retryability and next actions are in [Error codes](/reference/error-codes/). The short version:
+
+- `401` from `/mcp` is a transport gate, not a tool error. Re-run the client's OAuth step.
+- `403` from `/mcp` is a human-account gate. The human must fix the account; retrying does not help.
+- A tool-level failure returns `200` with `isError: true` and a structured error body. Do not treat it as a transport failure.
+- OAuth errors use the RFC 6749 `error` and `error_description` fields. `error_description` is not normative.
+
+## Versioning
+
+Paths are not versioned. `/mcp`, the OAuth endpoints and the broker APIs are the v1 surface; a breaking change to the wire contract would ship as a new path or a new protocol major version, not as a silent change to these paths. This page records what the deployed broker does and names the commit it was checked against in `verifiedAgainst`. The protocol version itself is documented in [Versioning](/agent-identity/v1/versioning/) and the [changelog](/agent-identity/v1/changelog/).
+
+## Verification record
+
+Live requests on 2026-10-21 against `https://agentregistrar.dev`, with broker commit `dec84d9` as the code baseline:
+
+- The three metadata documents returned `200 application/json` with the bodies shown, `Access-Control-Allow-Origin: *`, and `Cache-Control: public, max-age=300` on the JWKS only. The JWKS key is `OKP`/`Ed25519`/`EdDSA`, `kid` `broker-key-1`, `use` `sig`.
+- `POST /mcp` without a token returned `401` with code `-32001` and the `WWW-Authenticate` header shown. `OPTIONS /mcp` returned `204`. An authenticated `initialize` returned server `agentregistrar` 1.0.0 with `tools` and `resources` capabilities; `tools/list` returned eight tools.
+- `POST /api/oauth/register` with a loopback redirect URI returned `201` with a `cli_...` id; an empty body returned `400 invalid_redirect_uri`.
+- `GET /oauth/authorize` anonymously returned `307` to `/login?next=...`.
+- `POST /api/oauth/authorize/decision` without a session returned `401 unauthorized`.
+- `POST /api/oauth/token` with `grant_type=weird` returned `400 unsupported_grant_type`; with an unknown code it returned `400 invalid_grant`.
+- `POST /api/broker/report-abuse` with an empty body returned `400 invalid_request`; with an unknown `agt_...` id it returned `404 agent_not_found`.
+- `POST /api/broker/signup-receipt` with an invalid token returned `401 invalid_signup_token`.
+- `POST /api/webhooks/resend` without signature headers returned `401 invalid_webhook_signature`.
+- `GET /mcp` returned `406` without an SSE `Accept` header and a Cloudflare `500` with one (see above). `DELETE /mcp` returned `200`.
