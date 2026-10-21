@@ -8,6 +8,13 @@ Read it before you edit, audit, or verify a page. If a rule here conflicts with
 `docs/12-docs-push/` in the monorepo, the monorepo record wins for scope, and
 this file is corrected in the same change.
 
+The human contribution contract is in [`CONTRIBUTING.md`](./CONTRIBUTING.md):
+page templates, provenance, the review checklist and pull request rules. The
+release, sync, redirect, freshness and incident runbooks are in
+[`MAINTENANCE.md`](./MAINTENANCE.md). This file adds the agent-specific
+operating detail; where the two overlap, the stricter rule wins. Do not copy
+`THEME.md` rules into a content page or this file.
+
 ## 1. What this repo is
 
 The public documentation site for Agent Registrar and `agent-identity-v1`.
@@ -134,7 +141,8 @@ verifiedAgainst: "spec v1.1.0, validator 1.0.0, 2026-10-21"
 
 ## 6. Page templates
 
-Pick one shape; do not invent a seventh.
+Pick one shape; do not invent a seventh. `CONTRIBUTING.md` section 3 is the
+human-facing copy of this table; keep the two in step.
 
 1. **Concept** - what and why, mental model, diagram, non-goals, next links.
 2. **Quickstart** - outcome, prerequisites, numbered steps, verify, next step.
@@ -237,7 +245,9 @@ skills/<name>/SKILL.md
 ## 10. Gates: build, check, lint, theme
 
 Run in this order before you hand work back. Lint needs a prior build because
-the link rules read `.nimbus/routes.json`.
+the link rules read `.nimbus/routes.json`. The same commands, with pass/fail
+rules, are in `CONTRIBUTING.md` section 10; the release gate set is in
+`MAINTENANCE.md` section 11.
 
 ```bash
 pnpm install --frozen-lockfile   # cold checkout only
@@ -470,6 +480,10 @@ Run, in order:
 
 Do not fix a finding by silencing a rule. Fix the page, or record why the rule
 is wrong for this site and change the config in a reviewed diff.
+
+The recurring version of this sweep is the freshness audit in
+[`MAINTENANCE.md`](./MAINTENANCE.md) section 6: run it quarterly and before a
+launch, and record the date and findings.
 
 ## 14. Known warnings and deviations
 

@@ -1,0 +1,130 @@
+---
+title: Local development
+description: Clone the docs site, run it locally, sync the spec and run the checks.
+audience: human
+aiGenerated: true
+sidebar:
+  order: 3
+---
+
+The docs site is a static Astro build with Cloudflare Nimbus, deployed as a Cloudflare Worker. This page is the local loop: install, run, add a page, sync the spec and run the gates.
+
+## Requirements
+
+- Node `22.12` or newer. The repository is developed on Node 24.
+- pnpm `9.15.4` (pinned in `package.json`).
+- Git, and a GitHub account for a pull request.
+
+## Clone and install
+
+```bash
+git clone https://github.com/agentregistrar/docs.git
+cd docs
+pnpm install
+```
+
+Use `pnpm install --frozen-lockfile` on a cold checkout or in review so the lockfile is respected.
+
+## Run the site
+
+```bash
+pnpm dev      # Astro dev server at http://localhost:4321
+pnpm build    # static output in dist/
+pnpm preview  # serve dist/ with Astro's static server
+```
+
+Do not run the build and the dev server against the same `.nimbus/` cache at the same time.
+
+For the host contract, serve the build with `wrangler`:
+
+```bash
+pnpm build
+pnpm exec wrangler dev --port 8787
+```
+
+`pnpm preview` infers content types from file extensions and ignores `public/_headers`. `wrangler dev` applies the headers, CORS and cache rules the production Worker uses.
+
+## Repository layout
+
+```text
+src/content/docs/        the page tree; the path is the URL
+src/content/docs/start/  concepts and quickstarts
+src/content/docs/providers/  implementation guides and hosting recipes
+src/content/docs/agent-identity/v1/  generated protocol pages and hand-authored reference
+src/content/docs/reference/  MCP, HTTP and error lookup
+src/content.config.ts    collection and provenance schema
+astro.config.ts          top-level sidebar order and redirects
+spec.lock.json           pinned spec tag/commit and hashes
+scripts/                 sync, link and theme checks
+skills/                  published Agent Skills
+```
+
+The content tree is the navigation. A folder is a group; its `index.mdx` is the landing page.
+
+## Add a page
+
+1. Create `src/content/docs/<section>/<page>.mdx`.
+2. Add `title`, `description` and the provenance fields from [Contribute to the docs](/contribute/docs/).
+3. Set `sidebar.order` and, if needed, `sidebar.label`.
+4. Link it from the section landing page.
+5. Run `pnpm build` and confirm the URL is `/<section>/<page>/`.
+6. Run the gates below before you open a pull request.
+
+A rename changes a public URL. Add a permanent redirect in `astro.config.ts` (a versioned collection may use `previousSlug`), and update the links in the same change.
+
+## Sync the spec
+
+The protocol pages are generated from a pinned revision. Do not edit them by hand.
+
+```bash
+pnpm sync:spec          # fetch the pin, verify it, write pages and lock
+pnpm sync:spec:check    # offline drift check; runs before pnpm build
+node scripts/sync-spec.mjs --tag v1.2.0   # preview a tag, writes nothing
+```
+
+`pnpm build` runs the offline check first and the link gate last. A hand edit to a generated page, a stale lock or a moved source fails the build. The release procedure is in [MAINTENANCE.md](https://github.com/agentregistrar/docs/blob/main/MAINTENANCE.md) section 2.
+
+## Run the gates
+
+```bash
+pnpm build        # must run before lint: the link rules read .nimbus/routes.json
+pnpm check        # environment, structure, authoring, types
+pnpm lint         # authoring rules; 0 errors required
+pnpm typecheck    # astro check
+pnpm check:theme  # Terminal theme QA gate
+pnpm check:links  # internal links and anchors in dist/
+pnpm sync:spec:check
+git diff --check
+```
+
+There are no tests. The build plus these gates plus a human review are the verification. Warnings are reviewed and explained in the pull request; do not silence a rule.
+
+## Check the agent endpoints locally
+
+With `wrangler dev` running on port 8787:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code} %{content_type}\n' http://127.0.0.1:8787/llms.txt
+curl -sS -o /dev/null -w '%{http_code} %{content_type}\n' http://127.0.0.1:8787/agents/index.md
+curl -sS http://127.0.0.1:8787/.well-known/agent-skills/index.json
+curl -sS http://127.0.0.1:8787/robots.txt
+```
+
+Expected from `wrangler dev`: `200 text/plain; charset=utf-8` for the indexes, `200 text/markdown; charset=utf-8` for page Markdown, and JSON with `Access-Control-Allow-Origin: *` for the discovery files and skills index. A path that returns HTML here is a not-found page, not a page.
+
+For a page you changed, confirm it appears in its section `/llms.txt` and that `/<slug>/index.md` contains the steps, not a stub.
+
+## Common failures
+
+- **`nimbus-docs lint` reports missing routes.** Run `pnpm build` first; the link rules read `.nimbus/routes.json`.
+- **The build fails on a spec hash.** Run `pnpm sync:spec`, then re-run the build. Never hand-edit a generated page.
+- **The build fails on a redirect.** The destination must exist in the same build. Create the page or point the redirect at a live route.
+- **The theme gate reports a non-ASCII character.** Replace smart quotes, em dashes and arrows with ASCII. Generated protocol pages are the documented exception.
+- **A bare URL warning.** Use descriptive link text instead of a naked URL.
+- **Node version errors.** Confirm `node -v` is `22.12` or newer and `pnpm -v` is `9.15.4`.
+
+## Next
+
+- [Contribute to the docs](/contribute/docs/): templates, provenance and the review checklist.
+- [Maintenance runbook](https://github.com/agentregistrar/docs/blob/main/MAINTENANCE.md): sync, redirects, releases and rollback.
+- [Contribute to the spec](/contribute/spec/): the protocol change process.
