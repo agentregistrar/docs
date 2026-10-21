@@ -1,0 +1,139 @@
+---
+title: Gemini CLI
+description: Add the broker to Gemini CLI, complete OAuth with /mcp auth and confirm the broker tools.
+audience: human
+aiGenerated: true
+verifiedAgainst: "Gemini CLI MCP reference geminicli.com/docs, live broker agentregistrar.dev, 2026-10-21"
+sidebar:
+  order: 5
+---
+
+**Tier 2: configuration verified on 2026-10-21 against the Gemini CLI MCP reference.** Gemini CLI was not installed on the verification machine. The command, the `settings.json` shape, the OAuth behavior and the callback rules below are quoted from the current documentation; the broker endpoints were checked live.
+
+<Aside type="caution" title="Product transition">
+Gemini CLI's own site states that it was replaced by Antigravity CLI on 2026-06-18 for unpaid-tier and Google One users. These steps are checked against the Gemini CLI documentation as it stands on 2026-10-21. If you are starting fresh, check whether your account should use Antigravity instead. This page makes no claim about Antigravity.
+</Aside>
+
+## Before you start
+
+- Gemini CLI installed and signed in to a Google account.
+- A browser on the same machine, signed in to the GitHub account that owns the agents. The OAuth flow needs a local browser; it does not work in a headless container or a plain SSH session.
+- A verified human account with the master delegation agreement signed. See the [agent quickstart](/agents/quickstart/).
+- The server URL has no trailing slash: `https://agentregistrar.dev/mcp`.
+
+## Add the server
+
+```bash
+gemini mcp add --transport http agentregistrar https://agentregistrar.dev/mcp
+```
+
+The default scope is project, which writes `.gemini/settings.json`; add `--scope user` to write `~/.gemini/settings.json`. The command adds this entry:
+
+```json
+{
+  "mcpServers": {
+    "agentregistrar": {
+      "httpUrl": "https://agentregistrar.dev/mcp",
+      "timeout": 30000
+    }
+  }
+}
+```
+
+The property names matter. `httpUrl` selects the Streamable HTTP transport. `url` is the older SSE transport and would connect to the wrong protocol for this endpoint. `timeout` is optional and is in milliseconds; the client default is ten minutes, which is longer than a broker tool needs. Do not add an `Authorization` header: OAuth supplies the credential, and a configured header bypasses the client's discovery flow.
+
+## Authorize
+
+```bash
+gemini mcp list
+```
+
+The server is listed with its connection state. Inside the CLI, run:
+
+```text
+/mcp
+```
+
+The command lists every configured server with its state and tools. To sign in, run:
+
+```text
+/mcp auth
+```
+
+Choose `agentregistrar`. Gemini CLI detects the `401`, discovers the broker's authorization server, opens a browser and stores the token in `~/.gemini/mcp-oauth-tokens.json`. Dynamic client registration is used when the server supports it; this broker does.
+
+The callback is `http://localhost:<port>/oauth/callback` on a port the client chooses. The broker accepts loopback callbacks on any port for a registered loopback URI. If you need a fixed port, set `redirectUri` in the server's `oauth` block and register the same URI.
+
+The broker's authorization server metadata does not advertise the RFC 9207 issuer parameter, so Gemini CLI accepts a callback without `iss`, which is the documented behavior for such a server.
+
+## Verify the connection
+
+```text
+/mcp
+```
+
+The server should show `CONNECTED` with the eight broker tools: `identity_register`, `identity_whoami`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`. Gemini CLI prefixes discovered tools with the server name, so they appear with an `mcp_agentregistrar_` prefix.
+
+A server that connects with no tools is closed by the client after discovery; if the server disappears from the list, read the connection error in `/mcp` and the debug output from `gemini --debug`.
+
+## First call
+
+```text
+Use the agentregistrar MCP server. Call identity_whoami with no arguments and show the result.
+```
+
+The result names the agent bound to this OAuth session, its inbox address, its scopes and its human owner. The shape below is illustrative; the ids and address are synthetic:
+
+```json
+{
+  "id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "name": "gemini-agent",
+  "slug": "gemini-agent-4n5p6q",
+  "harness": "gemini-cli",
+  "email_address": "gemini-agent-4n5p6q@agents.agentregistrar.dev",
+  "status": "active",
+  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"]
+}
+```
+
+`identity_whoami` creates a default agent when the session has none. Call `identity_register` first for a specific name; the session decides which agent you get.
+
+## Continue
+
+The full signup is in the [agent quickstart](/agents/quickstart/). Tool inputs and error codes are in the [reference](/reference/).
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| The server shows `DISCONNECTED` with a transport error | The entry used `url` (SSE) instead of `httpUrl` | Change the property to `httpUrl` and reconnect |
+| No browser opens | Headless session, container without a browser, or SSH without forwarding | Run the client on a desktop session; there is no supported token-paste workaround |
+| `/mcp auth` completes but tools stay missing | The token was stored for another account, or discovery failed | Re-run `/mcp auth` after signing out of GitHub, or delete `~/.gemini/mcp-oauth-tokens.json` and authenticate again |
+| `Issuer mismatch` in the callback | A configured `issuer` disagrees with the metadata | Remove the explicit `issuer` and let the client discover it |
+| Tools are listed but calls fail with `401` | The token expired and the refresh did not run | Re-authenticate with `/mcp auth` |
+| The server is missing after a restart | It was added to a project you are not in | Add it with `--scope user`, or open the project that holds `.gemini/settings.json` |
+
+The client redacts sensitive environment variables before starting MCP processes. That does not affect this server, which needs no environment variables.
+
+## Remove and reset
+
+```bash
+gemini mcp remove agentregistrar
+```
+
+Use `gemini mcp disable agentregistrar` to keep the entry without connecting, and `gemini mcp enable agentregistrar` to restore it. Removing the server does not necessarily delete the stored token; delete `~/.gemini/mcp-oauth-tokens.json` if you need a clean sign-in as another account.
+
+## Verification record
+
+| Field | Value |
+| :--- | :--- |
+| Client | Not installed on the verification machine |
+| Documentation | Gemini CLI MCP reference at `geminicli.com/docs/tools/mcp-server/`, read 2026-10-21 |
+| Operating system | Linux 7.2.9 aarch64 (documentation review only) |
+| Date | 2026-10-21 |
+| Commands checked against docs | `gemini mcp add --transport http`, `--scope`, `gemini mcp list`, `/mcp`, `/mcp auth`, `gemini mcp remove` |
+| Configuration shape | `settings.json` `mcpServers.<name>.httpUrl`, quoted from the reference |
+| Live broker | `/mcp` returns `401` with `WWW-Authenticate`; DCR accepts loopback callbacks |
+| Not verified | Install, sign-in, tool list and `identity_whoami` on a real client |
+
+Tier 1 needs a recorded transcript from an installed client. That transcript does not exist yet, and the product transition above means this page should be re-checked before anyone claims it.

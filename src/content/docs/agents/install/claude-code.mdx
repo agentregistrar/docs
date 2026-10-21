@@ -1,0 +1,145 @@
+---
+title: Claude Code
+description: Add the broker to Claude Code, complete OAuth with /mcp and confirm the broker tools.
+audience: human
+aiGenerated: true
+verifiedAgainst: "Claude Code MCP reference docs.claude.com, live broker agentregistrar.dev, 2026-10-21"
+sidebar:
+  order: 2
+---
+
+**Tier 2: configuration verified on 2026-10-21 against the Claude Code MCP reference.** Claude Code was not installed on the verification machine, so no command output is reproduced from a local run. The command, the scope model, the authorization step and the failure messages below are quoted from the current client documentation, and the broker endpoints were checked live.
+
+## Before you start
+
+- Claude Code installed and signed in. Run `claude --version` and `claude mcp list` to confirm the CLI works.
+- A browser on the same machine, signed in to the GitHub account that owns the agents.
+- A verified human account with the master delegation agreement signed. See the [agent quickstart](/agents/quickstart/).
+- The server URL has no trailing slash: `https://agentregistrar.dev/mcp`.
+
+## Add the server
+
+```bash
+claude mcp add --transport http agentregistrar https://agentregistrar.dev/mcp
+```
+
+The default scope is `local`: the server is available only to you, in the current project, and is stored in `~/.claude.json` under that project. Use `--scope user` for every project, or `--scope project` to write a shared `.mcp.json` at the project root:
+
+```bash
+claude mcp add --transport http agentregistrar --scope project https://agentregistrar.dev/mcp
+```
+
+A project entry is a complete file in this shape:
+
+```json
+{
+  "mcpServers": {
+    "agentregistrar": {
+      "type": "http",
+      "url": "https://agentregistrar.dev/mcp"
+    }
+  }
+}
+```
+
+`type` is required. Claude Code reads an entry with a `url` but no `type` as a stdio server, skips it and reports that the entry needs `"type": "http"`. `streamable-http` is accepted as an alias for `http`. Do not add an `Authorization` header: OAuth supplies the credential, and a configured header makes Claude Code treat a `401` as a failed connection instead of starting the sign-in flow.
+
+## Authorize
+
+```bash
+claude mcp list
+```
+
+The server is listed with the status `! Needs authentication` until the browser flow completes. Inside a Claude Code session, run:
+
+```text
+/mcp
+```
+
+Select `agentregistrar`, then authenticate. Claude Code opens the browser and approves the request for the account you are signed in to. If the browser does not open, copy the URL the client prints and open it yourself. If the browser redirect fails with a connection error after you approve, paste the full callback URL from the browser address bar into the prompt Claude Code shows.
+
+The shell equivalent, for a session you have not opened yet, is:
+
+```bash
+claude mcp login agentregistrar
+```
+
+Claude Code discovers the broker's authorization server from the `WWW-Authenticate` challenge and supports both dynamic client registration and Client ID Metadata Documents, so no client ID is needed. By default it picks a random loopback port for the callback. If you have a client that requires a fixed redirect URI, add `--callback-port 8080` when you add the server and use `http://localhost:8080/callback` in that client's registration.
+
+## Verify the connection
+
+Inside the session, `/mcp` lists the server as connected with a tool count. From a shell:
+
+```bash
+claude mcp get agentregistrar
+claude mcp list
+```
+
+`claude mcp get` shows the server definition and its status; `claude mcp list` shows a health status for every server. A connected server with zero tools is flagged by the client, which is the signal that initialization succeeded but the tool list did not.
+
+The broker exposes eight tools: `identity_register`, `identity_whoami`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`.
+
+## First call
+
+In the session:
+
+```text
+Use the agentregistrar MCP server. Call identity_whoami with no arguments and show the result.
+```
+
+The result names the agent bound to this OAuth session, its inbox address, its scopes and its human owner. The shape below is illustrative; the ids and address are synthetic:
+
+```json
+{
+  "id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "name": "claude-agent",
+  "slug": "claude-agent-4d5e6f",
+  "harness": "claude-code",
+  "email_address": "claude-agent-4d5e6f@agents.agentregistrar.dev",
+  "status": "active",
+  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"]
+}
+```
+
+`identity_whoami` creates a default agent when the session has none. Call `identity_register` first if you want a specific name; the session decides which agent you get, and a later call with a different name changes nothing.
+
+## Continue
+
+The full signup is in the [agent quickstart](/agents/quickstart/). Tool inputs and error codes are in the [reference](/reference/).
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| `MCP server "agentregistrar" has a "url" but no "type"` | A hand-written `.mcp.json` entry copied from another client | Add `"type": "http"` to the entry |
+| `Incompatible auth server: does not support dynamic client registration` | The server does not advertise DCR and CIMD | The broker advertises both; check the URL and that you are on a current client version |
+| The browser does not open | No desktop session, or the client cannot launch a browser | Copy the printed URL into a browser on any machine that can reach the callback, or use `claude mcp login` from a desktop session |
+| `claude -p` cannot complete sign-in | A non-interactive run has no `/mcp` panel and cannot run the OAuth flow | Sign in first in an interactive session or with `claude mcp login`, then run the headless job |
+| The server stays at `! Needs authentication` | Stale token, or approval completed for another account | `/mcp`, then Clear authentication, then authenticate again |
+| A `401` appears after a working session | The access token expired and the refresh failed | Open `/mcp` and re-authenticate; the client retries a single refresh automatically |
+| Same server name in two scopes | Two definitions with different URLs; sign-ins are stored per endpoint | `claude mcp remove agentregistrar --scope <scope>` for the definition you do not want |
+
+Claude Code redacts credential-like text from error output, so the `Issue:` line in `claude mcp get` may name only the HTTP status and the server origin.
+
+## Remove and reset
+
+```bash
+claude mcp remove agentregistrar
+```
+
+Removing a remote server also deletes the OAuth tokens and the client registration Claude Code stored for it. For a project-scoped entry, add `--scope project`; for a user-scoped entry, add `--scope user`. To clear credentials without removing the server, use Clear authentication in the `/mcp` menu. Re-add and authenticate to start a new session.
+
+## Verification record
+
+| Field | Value |
+| :--- | :--- |
+| Client | Not installed on the verification machine |
+| Documentation | Claude Code MCP reference at `docs.claude.com/en/docs/claude-code/mcp`, read 2026-10-21 |
+| Operating system | Linux 7.2.9 aarch64 (documentation review only) |
+| Date | 2026-10-21 |
+| Commands checked against docs | `claude mcp add --transport http`, `--scope`, `claude mcp list`, `claude mcp get`, `claude mcp login`, `claude mcp remove`, `/mcp`, `--callback-port` |
+| Configuration shape | `.mcp.json` with `mcpServers.<name>.type` and `.url`, quoted from the reference |
+| Live broker | `401` with `WWW-Authenticate` on `/mcp`; OAuth metadata and DCR checked live |
+| Not verified | Install, OAuth completion, tool list and `identity_whoami` on a real client |
+
+Tier 1 needs a recorded transcript from an installed client: version, operating system, add command, `/mcp` status, tool names, `identity_whoami` output and a brokered signup. That transcript does not exist yet.

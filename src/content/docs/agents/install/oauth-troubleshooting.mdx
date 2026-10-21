@@ -1,0 +1,118 @@
+---
+title: OAuth troubleshooting
+description: Diagnose the connection failures that stop a harness before its first broker tool call.
+audience: human
+aiGenerated: true
+verifiedAgainst: "live broker agentregistrar.dev, 2026-10-21"
+sidebar:
+  order: 9
+---
+
+Most failures happen before any broker tool runs: the client never gets a usable bearer token, or it gets one for the wrong human. This page is about that half of the flow. Tool-level errors such as `tos_text_hash_mismatch` or `agent_revoked` are in [Troubleshooting](/agents/troubleshooting/).
+
+## Read the 401 first
+
+The broker answers an unauthenticated request with `401` and a challenge that names the metadata document:
+
+```bash
+curl -sS -D - -o /dev/null https://agentregistrar.dev/mcp
+```
+
+```text
+HTTP/2 401
+www-authenticate: Bearer resource_metadata="https://agentregistrar.dev/.well-known/oauth-protected-resource", scope="mcp:tools tos:accept signup:free_tier"
+```
+
+That is the expected first response. A client that reports "failed to connect" without trying the metadata URL has not followed the discovery step. A client that never sends a request at all has a configuration problem, not an OAuth problem.
+
+## Symptom to fix
+
+| Symptom | Likely cause | Fix |
+| :--- | :--- | :--- |
+| The browser opens but the callback fails | The loopback port is blocked or already in use, the redirect URI does not match the registration, or the client version has a callback bug | Free the port, retry, update the client; if the client prints the callback URL, paste it into its prompt |
+| `401` with `WWW-Authenticate` on a tool call | The bearer token is missing, expired or revoked | Re-authenticate; if it fails again, remove and re-add the server |
+| The server never leaves `needs authentication` | The token was not stored, or the approval went to another account | Clear the client's authentication, sign out of GitHub, authenticate again |
+| Dynamic registration is rejected | The client does not support DCR or CIMD, or sent a redirect URI that is neither loopback nor HTTPS | Use a client that registers itself; check the redirect URI |
+| `invalid_client` | A stale registration, or a client ID from another broker | Remove and re-add the server so the client registers again |
+| The agent belongs to the wrong human | The browser session was signed in to another GitHub account | Disconnect, sign out of GitHub, reconnect with the intended account |
+| No browser is available | Headless session, container, or SSH without forwarding | Complete the sign-in on a desktop session; do not paste a token |
+| The server connects but the tool list is empty | Initialization failed, the transport is wrong, or the tool list is cached | Check the transport (`http`, not SSE), the `Accept` header, then reset the client's tool cache |
+| `403` or an audience error later | Authorization succeeded, but the assertion was minted for another audience | Re-read the provider's discovery document and use its exact `audience` |
+| Metadata or JWKS requests fail behind a proxy | The corporate proxy blocks `agentregistrar.dev` or its JWKS path | Allow the host and `/.well-known/jwks.json`; install the proxy CA. Never disable TLS verification |
+| Two agents or accounts collide | One client token maps to one human and one agent session | Use separate client profiles, or re-authenticate; do not share tokens |
+
+## The token is not the assertion
+
+Two different credentials appear in this flow:
+
+- The **MCP bearer token** is issued by the broker's OAuth server and sent to `https://agentregistrar.dev/mcp`. It identifies the OAuth session and the human behind it. Every client page on this site is about this token.
+- The **agent assertion** is minted by `identity_prove` for one relying party and sent only to that provider's `agent_signup` endpoint. It proves the agent, its human owner and the accepted terms.
+
+A `401` from `/mcp` is about the first. A `403` or `audience_mismatch` from a provider is about the second. Mixing them up leads to pasting a token into the wrong place, which is never the fix.
+
+## Registration and redirect URIs
+
+The broker accepts two registration paths:
+
+- **Client ID Metadata Documents.** The client sends an HTTPS metadata-document URL as its `client_id`, and the broker fetches it. The authorization server metadata advertises `client_id_metadata_document_supported: true`.
+- **Dynamic client registration.** `POST https://agentregistrar.dev/api/oauth/register` with at least one redirect URI. Loopback URIs on any port and HTTPS URIs on any host are accepted; anything else returns `400 invalid_redirect_uri`.
+
+A client that supports neither path needs a pre-registered client ID. The broker does not issue those in the portal, so such a client cannot complete the flow. Use one that registers itself, or the [generic MCP client](/agents/install/generic-mcp/) path. Do not hand-edit a token into a configuration file.
+
+If a client stores a registration and the broker's metadata later changes, the old client ID can fail with `invalid_client`. Removing the server usually deletes the stored registration; adding it again registers a new client.
+
+## Callback and port
+
+The authorization code comes back to a loopback URL on the machine that runs the client, unless the client is a hosted surface that uses an HTTPS callback. Common defaults documented by the clients on this site:
+
+- OpenCode V2: loopback callback with CIMD, or `callback_port` in the server's `oauth` block.
+- Claude Code: a random loopback port by default; `--callback-port` fixes it.
+- Codex CLI: `http://127.0.0.1/callback` with the port inserted at login.
+- Cursor: `http://localhost:8787/callback` on desktop, `https://www.cursor.com/agents/mcp/oauth/callback` on the web.
+- Gemini CLI: `http://localhost:<port>/oauth/callback`.
+- Claude Desktop: the callback is handled by Anthropic's connector infrastructure, not by your machine.
+
+A firewall that blocks loopback traffic, a port already bound by another process, or a remote SSH session without forwarding all break this step. Free the port, retry, or run the sign-in on a desktop session.
+
+## Account selection
+
+The OAuth session decides the human, not an email typed into a prompt. If an agent appears under an account you did not expect:
+
+1. Disconnect or log out in the client.
+2. Sign out of GitHub in the browser, or use a private window for the intended account.
+3. Authenticate again and read the consent screen before approving.
+
+Re-authenticating as the same human resumes the existing agent identity; it does not create a second one. A different name in `identity_register` does not override the session.
+
+## Clock, tokens and retries
+
+- **Clock skew.** Token issuance and expiry are time-based. A machine whose clock is minutes off can fail validation immediately after sign-in. Correct the system clock and re-authenticate.
+- **Token lifetime.** Clients refresh access tokens automatically when they hold a refresh token. A `401` after a working session usually means the refresh failed or the grant was revoked; authenticate again.
+- **Retries.** Retry the same request, not a new one. Registration and `identity_prove` are idempotent, and an identical prove call cannot create a second acceptance. A `401` is not transient: retrying without a new token just repeats it.
+- **Scopes.** The broker advertises `mcp:tools`, `tos:accept` and `signup:free_tier`. Request the scopes the server advertises. A tool that asks for a scope the agent does not hold returns `scope_not_granted`; the human has to re-delegate it, and retrying the same call does not help.
+
+## Headless and remote sessions
+
+OAuth needs a browser and a loopback callback. In CI, a container without a browser, or a plain SSH session, the flow cannot complete. Options that work:
+
+- Complete the sign-in once in a desktop session on the same machine, then run the headless job with the stored credential, if the client supports that.
+- Use the client's own device or manual flow if it documents one.
+
+Options that do not work: disabling TLS verification, pasting a bearer token into a committed configuration file, or sharing one token between humans.
+
+## What to collect before reporting
+
+- The client name and version, the operating system and the date.
+- The exact add command or configuration file, with secrets removed.
+- The first failing response: status code, `WWW-Authenticate` header and body.
+- Whether `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server` load in a browser on the same machine.
+- The client's own log line for the failure, for example Cursor's `MCP Logs` or Claude Code's `Issue:` line.
+
+If a broker response contradicts this page, report it with the details above through the contact address in the site footer. Client defects go to that client's own tracker. A defect on this page is a documentation issue.
+
+## Related
+
+- [Support matrix and chooser](/agents/install/)
+- [Agent quickstart](/agents/quickstart/)
+- [Troubleshooting](/agents/troubleshooting/)
+- [Reference](/reference/)

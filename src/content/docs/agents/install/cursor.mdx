@@ -1,0 +1,115 @@
+---
+title: Cursor
+description: Add the broker to Cursor with mcp.json, authorize and confirm the broker tools.
+audience: human
+aiGenerated: true
+verifiedAgainst: "Cursor MCP reference cursor.com/docs, live broker agentregistrar.dev, 2026-10-21"
+sidebar:
+  order: 4
+---
+
+**Tier 2: configuration verified on 2026-10-21 against the Cursor MCP reference.** Cursor was not installed on the verification machine. The `mcp.json` shape, the authentication options, the fixed callback URLs and the log location below are quoted from the current documentation; the broker endpoints were checked live. Whether the installed Cursor version registers itself automatically against this broker was not verified.
+
+## Before you start
+
+- Cursor installed and signed in.
+- A browser on the same machine, signed in to the GitHub account that owns the agents.
+- A verified human account with the master delegation agreement signed. See the [agent quickstart](/agents/quickstart/).
+- The server URL has no trailing slash: `https://agentregistrar.dev/mcp`.
+
+## Add the server
+
+Create `.cursor/mcp.json` in the project, or `~/.cursor/mcp.json` for every project. The complete file:
+
+```json
+{
+  "mcpServers": {
+    "agentregistrar": {
+      "url": "https://agentregistrar.dev/mcp"
+    }
+  }
+}
+```
+
+A remote entry uses `url` and no `type`; Cursor documents `stdio`, `SSE` and `Streamable HTTP`, and this endpoint is Streamable HTTP. Do not add an `Authorization` header or an `auth` object unless the sign-in step below tells you to.
+
+## Authorize
+
+Open Cursor's MCP settings, either from the Customize page or by editing the file and reloading the window. The server appears in the MCP list. Start it and choose to authenticate; Cursor opens a browser for the account that should own the agents.
+
+Cursor documents two fixed redirect URLs, which matter if the server requires a pre-registered client:
+
+```text
+http://localhost:8787/callback
+https://www.cursor.com/agents/mcp/oauth/callback
+```
+
+The desktop app uses the first; Cursor's web and agent surfaces use the second. This broker accepts both shapes: dynamic registration accepts loopback HTTP and HTTPS redirect URIs, and the metadata advertises Client ID Metadata Documents.
+
+If your Cursor version asks for a client ID instead of registering automatically, it needs a pre-registered OAuth client. The broker does not offer self-serve client creation in the portal, so in that case use a client that registers itself, or the [generic MCP client](/agents/install/generic-mcp/) path. Do not paste a token into `mcp.json`.
+
+## Verify the connection
+
+The MCP settings list shows the server as connected. In a chat, the server's tools appear under Available Tools; expanding a tool shows its schema. The broker exposes eight tools: `identity_register`, `identity_whoami`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`.
+
+For a connection failure, open the Output panel, choose `MCP Logs` in the dropdown and read the initialization error. The log names the failing server and the transport error.
+
+## First call
+
+In a chat:
+
+```text
+Use the agentregistrar MCP server. Call identity_whoami with no arguments and show the result.
+```
+
+Approve the tool call when Cursor asks. The result names the agent bound to this OAuth session, its inbox address, its scopes and its human owner. The shape below is illustrative; the ids and address are synthetic:
+
+```json
+{
+  "id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "name": "cursor-agent",
+  "slug": "cursor-agent-1k2l3m",
+  "harness": "cursor",
+  "email_address": "cursor-agent-1k2l3m@agents.agentregistrar.dev",
+  "status": "active",
+  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"]
+}
+```
+
+`identity_whoami` creates a default agent when the session has none. Call `identity_register` first for a specific name; the session decides which agent you get.
+
+## Continue
+
+The full signup is in the [agent quickstart](/agents/quickstart/). Tool inputs and error codes are in the [reference](/reference/).
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| The server does not appear in the list | The file is in the wrong place, or the JSON is invalid | Use `.cursor/mcp.json` in the project or `~/.cursor/mcp.json`; validate the JSON and reload the window |
+| The server connects but stays unauthenticated | The sign-in was not completed | Start the server and choose authenticate; complete the browser flow for the intended account |
+| `invalid_client` or a request for a client ID | The client expects a pre-registered OAuth client | Use a client that registers automatically, or the generic path; there is no self-serve client in the broker portal |
+| The browser callback fails | The fixed callback `http://localhost:8787/callback` is blocked or the port is in use | Free the port, retry, or authenticate from the web surface that uses the HTTPS callback |
+| Tools are missing from chat | The server is disabled, or the tool list is cached | Enable the server in Customize, then reload; read `MCP Logs` for the initialization result |
+| `401` after a working session | The token expired or was revoked | Authenticate again from the MCP settings |
+
+Cursor stores sign-ins per server entry. Two entries with the same name but different URLs need separate sign-ins.
+
+## Remove and reset
+
+Remove the entry from `.cursor/mcp.json` or `~/.cursor/mcp.json`, or toggle the server off in Customize to keep the configuration without connecting. Remove and re-add the entry to force a new registration and a new sign-in. Do not put a token in the file.
+
+## Verification record
+
+| Field | Value |
+| :--- | :--- |
+| Client | Not installed on the verification machine |
+| Documentation | Cursor MCP reference at `cursor.com/docs/context/mcp`, read 2026-10-21 |
+| Operating system | Linux 7.2.9 aarch64 (documentation review only) |
+| Date | 2026-10-21 |
+| Configuration shape | `.cursor/mcp.json` with `mcpServers.<name>.url`, quoted from the reference |
+| Callback URLs | `http://localhost:8787/callback` and `https://www.cursor.com/agents/mcp/oauth/callback`, quoted from the reference |
+| Live broker | `/mcp` returns `401` with `WWW-Authenticate`; DCR accepts loopback and HTTPS redirect URIs |
+| Not verified | Install, automatic registration, sign-in, tool list and `identity_whoami` on a real client |
+
+Tier 1 needs a recorded transcript from an installed client, including the registration method actually used. That transcript does not exist yet.

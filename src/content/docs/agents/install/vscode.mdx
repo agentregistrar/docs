@@ -1,0 +1,133 @@
+---
+title: VS Code and Copilot
+description: Add the broker to VS Code or the Copilot harness and confirm the broker tools.
+audience: human
+aiGenerated: true
+verifiedAgainst: "VS Code MCP configuration reference code.visualstudio.com, live broker agentregistrar.dev, 2026-10-21"
+sidebar:
+  order: 6
+---
+
+**Tier 2: configuration verified on 2026-10-21 against the VS Code MCP configuration reference.** VS Code was not usable on the verification machine. The file formats, the `type` and `url` fields, the OAuth object and the commands below are quoted from the current documentation; the broker endpoints were checked live.
+
+## Before you start
+
+- VS Code with AI features enabled, or the Copilot harness you intend to use, and a local project folder open.
+- A browser on the same machine, signed in to the GitHub account that owns the agents.
+- A verified human account with the master delegation agreement signed. See the [agent quickstart](/agents/quickstart/).
+- The server URL has no trailing slash: `https://agentregistrar.dev/mcp`.
+
+## Add the server
+
+There are two formats, and they are not interchangeable. The VS Code format uses a top-level `servers` object in `.vscode/mcp.json` or a user-profile `mcp.json`. The portable Copilot format uses a top-level `mcpServers` object in a workspace-root `.mcp.json` or `$COPILOT_HOME/mcp-config.json`.
+
+For a Copilot harness session, use the portable file:
+
+```json
+{
+  "mcpServers": {
+    "agentregistrar": {
+      "type": "http",
+      "url": "https://agentregistrar.dev/mcp"
+    }
+  }
+}
+```
+
+For the VS Code editor's own MCP support, use the VS Code format:
+
+```json
+{
+  "servers": {
+    "agentregistrar": {
+      "type": "http",
+      "url": "https://agentregistrar.dev/mcp"
+    }
+  }
+}
+```
+
+`type` is `http`; `url` is the endpoint. Do not commit a token or an `Authorization` header: this server uses OAuth. The guided flow labels `.vscode/mcp.json` as deprecated for compatibility, but the file is still read by VS Code; the portable file is the forward path.
+
+From a shell, the equivalent for the VS Code user profile is:
+
+```bash
+code --add-mcp '{"name":"agentregistrar","type":"http","url":"https://agentregistrar.dev/mcp"}'
+```
+
+## Authorize
+
+Open the Command Palette and run `MCP: Add Server`, or start the configured server from `MCP: List Servers`. On the first connection, a remote server that requires authentication prompts for sign-in and opens a browser.
+
+The reference documents an `oauth` object with a required `clientId`, for servers that need a pre-registered OAuth client. It does not document automatic client registration. This broker supports dynamic registration and Client ID Metadata Documents, but it does not issue client IDs in the portal. Add the server without an `oauth` block first:
+
+- If your build starts a browser sign-in, complete it for the intended GitHub account.
+- If your build reports that a client ID is required, that build cannot complete this broker's flow. Use a client that registers itself, such as [OpenCode V2](/agents/install/opencode/) or [Claude Code](/agents/install/claude-code/), or the [generic MCP client](/agents/install/generic-mcp/) path.
+
+Do not paste a bearer token into the configuration file to work around this.
+
+## Verify the connection
+
+Run `MCP: List Servers` and start `agentregistrar`. The server row shows its state; the server output view shows initialization errors. Then open `Chat: Open Customizations` > `Tools` to see the tools the server contributes.
+
+The broker exposes eight tools: `identity_register`, `identity_whoami`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`. If the list looks stale after a broker update, run `MCP: Reset Cached Tools`.
+
+## First call
+
+In the agent session:
+
+```text
+Use the agentregistrar MCP server. Call identity_whoami with no arguments and show the result. Do not change files.
+```
+
+Approve the tool call, then expand it in the conversation and check that it belongs to the `agentregistrar` server. The result names the agent bound to this OAuth session, its inbox address, its scopes and its human owner. The shape below is illustrative; the ids and address are synthetic:
+
+```json
+{
+  "id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "name": "vscode-agent",
+  "slug": "vscode-agent-7r8s9t",
+  "harness": "vscode",
+  "email_address": "vscode-agent-7r8s9t@agents.agentregistrar.dev",
+  "status": "active",
+  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"]
+}
+```
+
+A plausible answer is not proof. The check is that the tool ran and its output is what the answer reflects.
+
+## Continue
+
+The full signup is in the [agent quickstart](/agents/quickstart/). Tool inputs and error codes are in the [reference](/reference/).
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| The server does not appear | The file is in a scope the current window does not read, or the JSON is invalid | Use `MCP: Open Workspace Folder MCP Configuration` or `MCP: Open User Configuration` and validate the file |
+| The server will not start | The wrong top-level object for the format | `servers` for the VS Code format, `mcpServers` for the portable format |
+| Sign-in never starts | The build expects `oauth.clientId` and there is none | Use a client that registers itself, or the generic path; do not add a token |
+| Sign-in fails under an organization | `chat.mcp.access` or an enterprise allowlist blocks the server | Ask the administrator to allow the URL |
+| Tools are missing after a broker change | Cached tool list | Run `MCP: Reset Cached Tools`, then restart the server |
+| A committed file contains a secret | A token was added to share access | Remove it, rotate the token, and use OAuth |
+
+The two formats also differ in capability: input variables, environment files, working directory and sandboxing are VS Code-format features and are not available in the portable file. Do not copy a configuration between formats without checking the reference.
+
+## Remove and reset
+
+Run `MCP: List Servers`, select `agentregistrar` and stop or remove it. Removing the server entry from the file and re-adding it forces a fresh registration and sign-in. To clear only the credential, remove and re-add the entry, or use the sign-out control the server row offers in your build.
+
+## Verification record
+
+| Field | Value |
+| :--- | :--- |
+| Client | Not usable on the verification machine |
+| Documentation | VS Code MCP configuration reference at `code.visualstudio.com/docs/agents/reference/mcp-configuration`, read 2026-10-21 |
+| Operating system | Linux 7.2.9 aarch64 (documentation review only) |
+| Date | 2026-10-21 |
+| Configuration shapes | `servers` in `.vscode/mcp.json`, `mcpServers` in portable `.mcp.json`, both quoted from the reference |
+| Commands checked against docs | `code --add-mcp`, `MCP: Add Server`, `MCP: List Servers`, `MCP: Reset Cached Tools` |
+| Live broker | `/mcp` returns `401` with `WWW-Authenticate`; metadata and DCR checked live |
+| Not verified | Install, automatic registration, sign-in, tool list and `identity_whoami` on a real client |
+
+Tier 1 needs a recorded transcript from an installed client. Until then, this page documents configuration only, and the automatic-registration question above stays open.
