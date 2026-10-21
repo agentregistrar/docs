@@ -3,7 +3,6 @@ title: Trust and limits
 description: The liability chain, what revocation does and does not do, the known gaps, and where to report a security issue.
 audience: both
 aiGenerated: true
-lastReviewed: 2026-10-21
 verifiedAgainst: "live broker agentregistrar.dev, spec v1.1.0, 2026-10-21"
 sidebar:
   order: 4
@@ -31,12 +30,12 @@ What the chain does not do: it does not transfer liability to the broker, and it
 | :--- | :--- |
 | New `identity_prove` calls for that agent: they fail with `agent_revoked` | An assertion already handed to a provider: it stays valid until it expires, at most 5 minutes |
 | Every identity and inbox tool call for that agent: the gate rejects it with `agent_revoked` | Provider accounts the agent already created |
-| The agent's ability to mint or record anything new | Provider credentials the agent already holds |
-| The agent's status in the portal: it shows `REVOKED` with a reason and timestamp | Terms the human already accepted, in the broker ledger or at the provider |
+| Minting a new assertion: `identity_prove` cannot do it | Recording a receipt the provider already issued: `identity_record_signup` still accepts it, because the proof belongs to the human owner |
+| The agent's status in the portal: it shows `REVOKED` with a reason and timestamp | Provider credentials the agent already holds, and terms the human already accepted, in the broker ledger or at the provider |
 
-`identity_record_signup` is the exception: it still records a receipt the provider already issued, because that proof belongs to the human owner, not to the agent's status.
+The record exception is the only write that survives: revocation stops minting and identity-bound calls, not the recording of a signup that already happened.
 
-The portal can also reactivate an agent, which restores the same sub-identity. A revoked sub-identity is never silently replaced: in the same MCP session, calls keep failing until the human reactivates it. Registering a new sub-identity needs a new session and a different name, and the revoked identity is not reused.
+The portal can also reactivate an agent, which restores the same sub-identity. A revoked sub-identity is never silently replaced: in the same MCP session, the identity, inbox and prove calls keep failing until the human reactivates it. Registering a new sub-identity needs a new session and a different name, and the revoked identity is not reused.
 
 A provider can report abuse with `POST /api/broker/report-abuse`, which revokes the agent immediately and notifies the human owner (best effort). The broker does not adjudicate the dispute, restore data or issue refunds.
 

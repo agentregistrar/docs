@@ -3,13 +3,12 @@ title: Troubleshooting
 description: The failures you are most likely to hit, what causes them and the fix for each.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-21
 verifiedAgainst: "broker monorepo c7ddfa7, spec v1.1.0, 2026-10-21"
 sidebar:
   order: 7
 ---
 
-Errors come from three places: the MCP transport, the broker tools, and the provider. The first two return a structured envelope with a stable code, a `retryable` flag and the side effects that did or did not happen. Read the code, not the prose.
+Errors come from three places: the MCP transport, the broker tools, and the provider. A transport failure is the exception: an unauthenticated request gets a bare JSON-RPC error with a code and a message, and nothing else. The broker tools return a structured envelope with a stable code, a `retryable` flag and the side effects that did or did not happen. Read the code, not the prose.
 
 ## OAuth and the connection
 
@@ -28,7 +27,7 @@ The MCP endpoint returns `401` for an unauthenticated request with a JSON-RPC er
 
 | Symptom | Cause | Fix |
 | :--- | :--- | :--- |
-| `identity_register` returns an agent you did not just create | The call is idempotent: same session, or same name and harness | Expected. Use a different `name` for a distinct identity |
+| `identity_register` returns an agent you did not just create | The session is bound to the agent it registered; that token-bound agent wins over `name` | Expected. Start a new OAuth session and use a different `name` for a distinct identity |
 | `agent_revoked` | The sub-identity is blocked | Reactivate it in the portal, or register a different name from a new session |
 | `internal_error` | Broker or database failure | Retry; registration is idempotent |
 

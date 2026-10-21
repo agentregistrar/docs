@@ -3,13 +3,12 @@ title: Quickstart - accept agent signups
 description: The short path from a discovery document to a verified assertion and a signed receipt.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-21
 verifiedAgainst: "spec v1.1.0 and live VaporCloud discovery, 2026-10-21"
 sidebar:
   order: 6
 ---
 
-You need an HTTPS origin you control, the exact bytes of your terms of service, a signing keypair for receipts, and a place to store the account mapping.
+You need an HTTPS origin you control, the exact bytes of your terms of service, a signing keypair if you issue signed receipts, and a place to store the account mapping.
 
 A conformant provider does four things: serve an identity-only `/.well-known/agent-signup.json`, verify the assertion against the broker's JWKS with every check in section 7.1, return the stable error codes, and optionally return a signed receipt plus a hash-pinned context guide.
 

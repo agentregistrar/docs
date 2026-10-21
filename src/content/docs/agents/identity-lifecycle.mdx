@@ -3,7 +3,6 @@ title: Identity lifecycle
 description: Register, resume, prove, record and revoke an agent sub-identity, and what each state allows.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-21
 verifiedAgainst: "broker monorepo c7ddfa7 and live agentregistrar.dev, 2026-10-21"
 sidebar:
   order: 3
@@ -31,7 +30,7 @@ Two tools can create the first agent, and they differ.
 2. Otherwise the most recent agent for this human, whatever its name.
 3. Otherwise a new default agent.
 
-The difference matters once a human has more than one agent. `identity_register` can name a specific identity; the read tools follow the session, then recency.
+The difference matters once a human has more than one agent. In a session that already resolved an agent, `identity_register` returns that same agent whatever `name` you pass; a distinct named identity needs a new OAuth session, where the name and harness match picks it.
 
 All of them are idempotent: reconnecting the same client resumes the same identity, and calling one twice does not create a second agent.
 
@@ -94,7 +93,7 @@ The result always includes `context_url`, `context_sha256` and the `handoff` blo
 
 Revocation is per agent, from the portal kill switch or from a provider abuse report. It sets the agent status to `revoked` with a reason and a timestamp.
 
-What stops: `identity_prove` fails with `agent_revoked`, the identity and inbox tools reject the agent at the gate, and no new assertion can be minted. `identity_record_signup` still accepts a receipt the provider already issued, because the proof belongs to the human owner.
+What stops: `identity_prove` fails with `agent_revoked`, the identity and inbox tools reject the agent at the gate, and no new assertion can be minted. `identity_record_signup` is the one exception: it still accepts a receipt the provider already issued, because the proof belongs to the human owner, not to the agent's status.
 
 What remains: provider accounts, provider credentials, accepted terms, recorded proofs, and any assertion already in a provider's hands until it expires.
 
@@ -113,7 +112,7 @@ A new sub-identity has a new `agent.id` and a new inbox address. Providers that 
 | Acceptance recorded, no signup | A successful prove | Re-proving reuses the acceptance | Post the assertion to the provider |
 | Signed up, recorded | Signup plus `identity_record_signup` | Whoami shows the proof; the credential is yours | Use the credential |
 | Acceptance recorded, mail failed | A failed ledger dispatch | Re-proving retries the mail only | Retry `identity_prove` with the same inputs |
-| Revoked | Kill switch or abuse report | Nothing for that agent | Reactivate, or register a new identity |
+| Revoked | Kill switch or abuse report | No new assertions and no identity or inbox calls; `identity_record_signup` still records a receipt the provider already issued | Reactivate, or register a new identity in a new session |
 
 ## Next
 
