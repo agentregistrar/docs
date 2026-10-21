@@ -451,8 +451,8 @@ observability. `public/_headers` supplies the agent-endpoint content types,
 cache policy, CORS and baseline security headers.
 
 There is no deploy workflow in GitHub Actions. The former Pages project
-`agentregistrar-docs` is parked without a custom domain for the rollback window
-(monorepo `docs/deployment.md` section 8); `wrangler dev` locally (section 12)
+`agentregistrar-docs` is a frozen rollback snapshot with no custom domain and no
+Git source (monorepo `docs/deployment.md` section 8); `wrangler dev` locally (section 12)
 is the host contract to test against. Cloudflare's `_headers` support consumes
 `public/_headers` plus the generated Nimbus block. Do not change DNS from a
 content change.

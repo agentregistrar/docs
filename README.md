@@ -164,15 +164,19 @@ pnpm deploy     # wrangler deploy; needs CLOUDFLARE_API_TOKEN or cf OAuth
 
 The Worker hostname `https://agentregistrar-docs.sdairs.workers.dev` is enabled
 for verification. `_headers` in `public/` is copied to `dist/_headers` and
-applied by Workers static assets: it sets the Markdown/llms/JSON Schema/discovery
-content types, cache policy, CORS for agent artifacts and baseline security
-headers.
+applied by Workers static assets: it sets the Markdown/llms/discovery content
+types, cache policy, CORS for agent artifacts and baseline security headers. The
+JSON Schema content-type/CORS rule is deferred to Issue 06: until
+`public/agent-identity/v1/agent-signup.schema.json` exists, that path is a plain
+`text/html` 404 rather than HTML cached under a schema media type.
 
-The former Cloudflare Pages project `agentregistrar-docs` is parked without a
-custom domain (its last build still serves at
-`https://agentregistrar-docs.pages.dev`) for the rollback window; it is deleted
-only after the release verification and operator approval. Rollback and the
-recorded domain/DNS IDs are in the monorepo's `docs/deployment.md` §8.
+The former Cloudflare Pages project `agentregistrar-docs` is a frozen rollback
+snapshot: no custom domain and, since 2026-10-21, no Git source, so pushes no
+longer rebuild it. Its last build (deployment `0fdbc143`, commit `57974ba`)
+still serves at `https://agentregistrar-docs.pages.dev`; it is deleted only
+after the release verification and operator approval. Rollback order (detach the
+Worker domain before reattaching Pages) and the recorded domain/DNS IDs are in
+the monorepo's `docs/deployment.md` §8.
 
 ## License
 
