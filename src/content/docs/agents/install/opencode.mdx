@@ -1,0 +1,146 @@
+---
+title: OpenCode V2
+description: Add the broker to OpenCode V2, complete OAuth and confirm the broker tools.
+audience: human
+aiGenerated: true
+verifiedAgainst: "OpenCode v2.0.23 on Linux aarch64, live broker agentregistrar.dev, 2026-10-21"
+sidebar:
+  order: 1
+---
+
+**Tier 2: configuration verified on 2026-10-21 with OpenCode v2.0.23.** The server was added to a clean project, the client connected to the live broker and reported that the server needs authentication, and the written configuration was inspected. The browser sign-in and the first tool call were not completed on the verification machine.
+
+## Before you start
+
+- OpenCode V2 installed and on your `PATH`. Check with `opencode --version`. The version used here was `v2.0.23`.
+- A browser on the same machine, signed in to the GitHub account that owns the agents.
+- A verified human account with the master delegation agreement signed. See the [agent quickstart](/agents/quickstart/).
+- The server URL has no trailing slash: `https://agentregistrar.dev/mcp`.
+
+## Add the server
+
+From the project that should use the broker:
+
+```bash
+opencode mcp add agentregistrar --url https://agentregistrar.dev/mcp
+```
+
+Add `--global` to make it available in every project instead of writing the project configuration. The command wrote this file, `opencode.json` in the project root:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "agentregistrar": {
+        "type": "remote",
+        "url": "https://agentregistrar.dev/mcp"
+      }
+    }
+  }
+}
+```
+
+Each field is deliberate. `mcp.servers` is the V2 shape. A server name placed directly under `mcp` is the older V1 shape: the V2 schema marks it deprecated, but v2.0.23 still reads it, so use `mcp.servers` to stay on the documented shape. `type` is `remote` for a remote server. `url` is the Streamable HTTP endpoint. Do not add an `enabled` field: V2 uses `disabled` to keep a configured server from connecting.
+
+To add it by hand instead, write the same object into `opencode.json`. There is no token field, because OAuth supplies the credential.
+
+## Authorize
+
+Check the state first:
+
+```bash
+opencode mcp list
+```
+
+On a fresh configuration the server is listed as needing authentication. The client prints a status marker before the name; the output here keeps the text only:
+
+```text
+agentregistrar  needs authentication
+```
+
+Start the sign-in either way:
+
+```bash
+opencode mcp auth agentregistrar
+```
+
+or run `/mcps` inside OpenCode, select `agentregistrar` and choose to authenticate. OpenCode opens a browser. Approve the request for the GitHub account that should own the agents. The broker's authorization server metadata advertises Client ID Metadata Documents, so V2 identifies itself with its published metadata document first and falls back to dynamic client registration. No client ID or secret is needed.
+
+The token is stored outside the project configuration. Nothing in `opencode.json` changes after sign-in.
+
+## Verify the connection
+
+```bash
+opencode mcp list
+```
+
+The server should now read as connected. Inside OpenCode, `/mcps` shows the server, its state and its tool count. The broker exposes eight tools: `identity_register`, `identity_whoami`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`.
+
+OpenCode prefixes MCP tools with the server name, so `identity_whoami` is exposed as `agentregistrar_identity_whoami`. Under the default Code Mode the tools are grouped per server and called as `tools.agentregistrar.identity_whoami`.
+
+## First call
+
+Ask for the identity in an OpenCode session:
+
+```text
+Use the agentregistrar MCP server. Call identity_whoami with no arguments and show the result.
+```
+
+The result names the agent bound to this OAuth session, its inbox address, its scopes and its human owner. The shape below is illustrative, with synthetic ids and address. It is the `identity_whoami` result and is trimmed: the nested `agent` mirror, `signup_state` and `docs` are omitted for length.
+
+```json
+{
+  "id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
+  "name": "opencode-agent",
+  "slug": "opencode-agent-k0mn1p",
+  "harness": "opencode-v2",
+  "email_address": "opencode-agent-k0mn1p@agents.agentregistrar.dev",
+  "status": "active",
+  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"],
+  "human_owner": { "...": "..." }
+}
+```
+
+`identity_whoami` creates the default `opencode-agent` with `harness: "opencode-v2"` when the session has no agent yet. That default is the same for every client, so call `identity_register` with a `name` and `harness` first if you want a client-specific label. Registration is idempotent: the agent bound to the token is returned whatever name you pass later, so a different name needs a new OAuth session.
+
+## Continue
+
+The full signup, from the first registration to a provider account and a receipt, is in the [agent quickstart](/agents/quickstart/). The tool contract is in the [reference](/reference/).
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| `mcp list` prints `No MCP servers configured` right after `mcp add` | The list is served by OpenCode's background service, which had not loaded the project configuration yet | Run `opencode service start`, wait for it to print its address, then run `opencode mcp list` again |
+| `mcp list` reports a port already in use | Another OpenCode instance owns the service port | Run `opencode service set port <port>` and retry, or stop the other instance |
+| The server stays at `needs authentication` after sign-in | The token was not stored, or the browser completed against another account | Run `opencode mcp logout agentregistrar`, then `opencode mcp auth agentregistrar` |
+| The server is connected but the tool list is empty | The session connected before the token was stored | Reconnect from `/mcps`, or restart OpenCode |
+| The server is missing after a restart | It was added to a project you are no longer in | Add it again with `--global`, or open the project that holds the entry |
+| `401` with `WWW-Authenticate` from a tool call | The bearer token expired or was revoked | Re-authenticate; the agent identity is resumed, not recreated |
+
+If the browser does not open, `opencode mcp auth` prints the authorization URL; open it manually. Do not put a token in `opencode.json`: OAuth is the supported path.
+
+## Remove and reset
+
+```bash
+opencode mcp logout agentregistrar
+```
+
+That removes the stored OAuth credentials. To remove the server itself, delete its entry from `mcp.servers` in the project or global `opencode.json`; there is no `mcp remove` subcommand in v2.0.23. Re-add it and authorize again to start a new session with a different account.
+
+## Verification record
+
+| Field | Value |
+| :--- | :--- |
+| Client | OpenCode v2.0.23 (`opencode --version`) |
+| Operating system | Linux 7.2.9 aarch64 |
+| Date | 2026-10-21 |
+| Add command | `opencode mcp add agentregistrar --url https://agentregistrar.dev/mcp` |
+| Configuration | Project `opencode.json` written with `mcp.servers.agentregistrar`, `type: "remote"` and the broker URL |
+| Live connection | `opencode mcp list` reported the server as needing authentication against the live broker, which returns `401` with `WWW-Authenticate` |
+| Tool list | Not retrieved; sign-in was not completed |
+| First call | Not executed |
+| Logout | `opencode mcp logout agentregistrar` reported no stored credentials, as expected before sign-in |
+| Not verified | Browser sign-in, token storage, `tools/list` and `identity_whoami` |
+
+Tier 1 requires the missing rows above: a completed sign-in, a tool list and a full brokered signup with a transcript.

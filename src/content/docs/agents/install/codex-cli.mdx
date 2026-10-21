@@ -1,0 +1,114 @@
+---
+title: Codex CLI
+description: Add the broker to Codex CLI, complete the OAuth login and confirm the broker tools.
+audience: human
+aiGenerated: true
+verifiedAgainst: "Codex MCP reference developers.openai.com, live broker agentregistrar.dev, 2026-10-21"
+sidebar:
+  order: 3
+---
+
+**Tier 2: configuration verified on 2026-10-21 against the Codex MCP reference.** Codex CLI was not installed on the verification machine. The command, the `config.toml` shape, the OAuth registration behavior and the callback rules below are quoted from the current documentation; the broker endpoints were checked live.
+
+## Before you start
+
+- Codex CLI installed and signed in to a ChatGPT or API account. The CLI, the desktop app and the IDE extension share one MCP configuration.
+- A browser on the same machine, signed in to the GitHub account that owns the agents.
+- A verified human account with the master delegation agreement signed. See the [agent quickstart](/agents/quickstart/).
+- The server URL has no trailing slash: `https://agentregistrar.dev/mcp`.
+
+## Add the server
+
+```bash
+codex mcp add agentregistrar --url https://agentregistrar.dev/mcp
+```
+
+The command writes a `[mcp_servers.agentregistrar]` table to `~/.codex/config.toml`. The resulting entry is:
+
+```toml
+[mcp_servers.agentregistrar]
+url = "https://agentregistrar.dev/mcp"
+```
+
+A project can scope the server with `.codex/config.toml`, which is read only in trusted projects. `auth` defaults to `oauth`, which is what this server needs; do not set `bearer_token_env_var` or an `Authorization` header. Other fields such as `startup_timeout_sec`, `tool_timeout_sec` and `enabled_tools` are optional.
+
+## Authorize
+
+```bash
+codex mcp login agentregistrar
+```
+
+Codex opens a browser for the GitHub account that should own the agents and completes the loopback callback. The callback is `http://127.0.0.1/callback`; Codex inserts the port it is listening on, which the broker's registration accepts under the loopback rules.
+
+Codex chooses its client identity from the broker's metadata. The broker advertises Client ID Metadata Documents and the `none` token endpoint authentication method, so Codex prefers CIMD and falls back to dynamic client registration. If the login fails while registering the client, force the other method for that login:
+
+```bash
+codex mcp login agentregistrar --oauth-client-registration dcr
+```
+
+No client ID or secret is needed for either method. Provide `--oauth-client-id` only if a future broker configuration stops advertising both.
+
+## Verify the connection
+
+Start a Codex session and check the MCP server list in the client. The server should be connected and expose the eight broker tools: `identity_register`, `identity_whoami`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`.
+
+The authoritative check is the first call below. If `identity_whoami` is not offered, the server did not initialize; see the troubleshooting table.
+
+## First call
+
+```text
+Use the agentregistrar MCP server. Call identity_register with {"name": "codex-agent", "harness": "codex-cli"}, then call identity_whoami with no arguments and show the result.
+```
+
+`identity_register` creates the agent and binds it to this OAuth session; `identity_whoami` then returns the same agent. Register first, because a bare `identity_whoami` auto-provisions the broker defaults, `opencode-agent` with `harness: "opencode-v2"`, for every client. Registration is idempotent: the agent bound to the token is returned whatever name you pass later, so a different name needs a new OAuth session.
+
+The shape below is illustrative, with synthetic ids and address. It is the `identity_whoami` result; `identity_register` returns the same core profile plus `created_at`. The nested `agent` mirror, `signup_state` and `docs` are omitted for length.
+
+```json
+{
+  "id": "agt_01JAB2C3D4E5F6G7H8J9K0X1Y2",
+  "name": "codex-agent",
+  "slug": "codex-agent-k0x1y2",
+  "harness": "codex-cli",
+  "email_address": "codex-agent-k0x1y2@agents.agentregistrar.dev",
+  "status": "active",
+  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"],
+  "human_owner": { "...": "..." }
+}
+```
+
+## Continue
+
+The full signup is in the [agent quickstart](/agents/quickstart/). Tool inputs and error codes are in the [reference](/reference/).
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| `codex mcp login` fails at client registration | The client tried CIMD and the metadata document was rejected | Retry with `--oauth-client-registration dcr` |
+| The callback fails with a connection error | The browser could not reach the loopback listener, or the port was taken | Retry the login; if a fixed port is required, set `mcp_oauth_callback_port` or `mcp_servers.agentregistrar.oauth.callback_port` |
+| The server is configured but no tools appear | The login did not complete, or the server is disabled | Run `codex mcp login agentregistrar` again and check the server entry in `config.toml` |
+| `401` after a working session | The stored token expired and the refresh failed | Run `codex mcp login agentregistrar` again |
+| A secret was written to `config.toml` | A pre-registered client secret was passed on the command line | Remove the secret, keep the file out of version control, and use the OAuth login instead |
+| Login succeeds but the account is wrong | The browser session belonged to another account | Sign out of GitHub in the browser, then log in again |
+
+Codex caches helper headers and refreshes them once after a `401` or `403`; explicit OAuth credentials take precedence. There is no header to configure for this server.
+
+## Remove and reset
+
+Delete the `[mcp_servers.agentregistrar]` table from `~/.codex/config.toml`, or set `enabled = false` to keep it configured without connecting. The stored OAuth credential is Codex's own; run the login again to replace it, or remove the entry and add it again to start clean. Do not hand-edit a token into the file.
+
+## Verification record
+
+| Field | Value |
+| :--- | :--- |
+| Client | Not installed on the verification machine |
+| Documentation | Codex MCP reference at `developers.openai.com/codex/mcp`, read 2026-10-21 |
+| Operating system | Linux 7.2.9 aarch64 (documentation review only) |
+| Date | 2026-10-21 |
+| Commands checked against docs | `codex mcp add --url`, `codex mcp login`, `--oauth-client-registration`, `--oauth-client-id` |
+| Configuration shape | `[mcp_servers.agentregistrar]` with `url`, quoted from the reference |
+| Live broker | Metadata advertises CIMD and DCR; `/mcp` returns `401` with `WWW-Authenticate` |
+| Not verified | Install, login, tool list and `identity_whoami` on a real client |
+
+Tier 1 needs a recorded transcript from an installed client, including the login result and a brokered signup. That transcript does not exist yet.

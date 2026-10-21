@@ -1,0 +1,109 @@
+---
+title: Claude Desktop
+description: Add the broker as a custom connector in Claude Desktop and confirm the broker tools.
+audience: human
+aiGenerated: true
+verifiedAgainst: "Claude custom connectors guide support.claude.com, live broker agentregistrar.dev, 2026-10-21"
+sidebar:
+  order: 7
+---
+
+**Tier 2: configuration verified on 2026-10-21 against the Claude custom connectors guide.** Claude Desktop was not installed on the verification machine. The connector flow, the authentication choices, the plan limits and the network behavior below are quoted from the current guide; the broker endpoints were checked live.
+
+## Before you start
+
+- Claude Desktop, or claude.ai, signed in to the account that should own the agents. Custom connectors are available on Free, Pro, Max, Team and Enterprise plans; a Free account can add one custom connector.
+- A GitHub account for the human owner. The OAuth sign-in is a separate browser round trip from the Claude session.
+- A verified human account with the master delegation agreement signed. See the [agent quickstart](/agents/quickstart/).
+- The server URL has no trailing slash: `https://agentregistrar.dev/mcp`.
+
+<Aside type="caution" title="Remote connectors do not use claude_desktop_config.json">
+Claude Desktop's `claude_desktop_config.json` starts local stdio servers. A remote HTTP server placed in that file does nothing. Remote servers are added as custom connectors in the Claude settings, and the connection to the server is made from Anthropic's cloud infrastructure, not from your machine. That is why the broker must be reachable on the public internet, which it is.
+</Aside>
+
+## Add the server
+
+For an individual Pro or Max account:
+
+1. Open `Customize` > `Connectors`.
+2. Choose `+ Add`, then `Add custom connector`.
+3. Enter a name, for example `Agent Registrar`.
+4. Enter the server URL: `https://agentregistrar.dev/mcp`.
+5. Review the authentication settings Claude detects, then choose `Sign in when needed` so the connector can be enabled without an immediate sign-in.
+6. Under `OAuth client`, choose `Use Claude's published identity (Recommended)`. The broker advertises `client_id_metadata_document_supported: true`, so a Client ID Metadata Document is accepted. If that option is unavailable, choose `Register automatically` as the fallback: the broker also supports dynamic client registration, so no client ID or secret is needed.
+7. Finish with `Add`.
+
+For a Team or Enterprise organization, an Owner or Primary Owner adds the connector once under `Organization settings` > `Connectors` with the same URL and authentication choices. Members then connect their own account from `Customize` > `Connectors`.
+
+Do not choose `Use your own OAuth client` unless you have a client registered with the broker, which the portal does not offer. Do not add a fixed bearer token under `Request headers`; this server uses OAuth.
+
+## Authorize
+
+In `Customize` > `Connectors`, find the connector and choose `Connect`. Claude opens a browser for the GitHub account that should own the agents. Approve the request. The connector then shows as connected for that account.
+
+If the sign-in is deferred, the first tool call triggers the same browser flow. Complete it before retrying the call.
+
+## Verify the connection
+
+Enable the connector for a conversation with the `+` button, then `Connectors`. The connector appears with a toggle. Open the tools menu (`Search and tools`) and confirm the broker's eight tools are listed: `identity_register`, `identity_whoami`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`.
+
+A connector that is connected but exposes no tools did not finish initialization. Remove and re-add it before assuming the broker is at fault.
+
+## First call
+
+```text
+Use the Agent Registrar connector. Call identity_register with {"name": "claude-desktop-agent", "harness": "claude-desktop"}, then call identity_whoami with no arguments and show the result.
+```
+
+`identity_register` creates the agent and binds it to this OAuth session; `identity_whoami` then returns the same agent. Register first, because a bare `identity_whoami` auto-provisions the broker defaults, `opencode-agent` with `harness: "opencode-v2"`, for every client. Registration is idempotent: the agent bound to the token is returned whatever name you pass later, so a different name needs a new OAuth session.
+
+The shape below is illustrative, with synthetic ids and address. It is the `identity_whoami` result; `identity_register` returns the same core profile plus `created_at`. The nested `agent` mirror, `signup_state` and `docs` are omitted for length.
+
+```json
+{
+  "id": "agt_01JAB2C3D4E5F6G7H8J9K0D1E2",
+  "name": "claude-desktop-agent",
+  "slug": "claude-desktop-agent-k0d1e2",
+  "harness": "claude-desktop",
+  "email_address": "claude-desktop-agent-k0d1e2@agents.agentregistrar.dev",
+  "status": "active",
+  "scopes": ["tos:accept", "signup:free_tier", "inbox:read", "inbox:send"],
+  "human_owner": { "...": "..." }
+}
+```
+
+## Continue
+
+The full signup is in the [agent quickstart](/agents/quickstart/). Tool inputs and error codes are in the [reference](/reference/).
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| The URL was added to `claude_desktop_config.json` and nothing happens | That file is for local stdio servers only | Remove the entry and add a custom connector instead |
+| The connector cannot reach the server | The server is on a private network or behind a VPN; Claude connects from its own infrastructure | Serve the broker on a public HTTPS URL; this one is public |
+| `Add custom connector` is missing | Plan or role does not allow it | Free supports one connector; on Team and Enterprise an Owner must add it first |
+| Sign-in fails at client registration | The OAuth client choice does not match the broker | Edit the connector and choose `Use Claude's published identity (Recommended)`, or `Register automatically` as the fallback |
+| The connector is connected but tools are missing | Initialization failed, or tools are disabled for the conversation | Re-enable the connector for the conversation and check the tools menu; remove and re-add if needed |
+| `401` after a working session | The token expired or was revoked | Reconnect the connector from `Customize` > `Connectors` |
+| Wrong human owner on the agent | The browser signed in to another GitHub account | Disconnect the connector, sign out of GitHub, reconnect |
+
+Removing a connector removes its stored credential. There is no separate logout for a custom connector.
+
+## Remove and reset
+
+Open `Customize` > `Connectors`, find the connector, and choose `Remove` from its menu. To change the URL or the OAuth settings, remove the connector and add it again; the guide states that editing requires a re-add. On Team and Enterprise plans an Owner can remove it for the organization.
+
+## Verification record
+
+| Field | Value |
+| :--- | :--- |
+| Client | Not installed on the verification machine |
+| Documentation | Claude custom connectors guide at `support.claude.com`, article 11175166, read 2026-10-21 |
+| Operating system | Linux 7.2.9 aarch64 (documentation review only) |
+| Date | 2026-10-21 |
+| Flow checked against docs | Customize > Connectors > Add custom connector, authentication choice, OAuth client choice, per-conversation enable |
+| Live broker | Public HTTPS endpoint; `/mcp` returns `401` with `WWW-Authenticate`; DCR accepts HTTPS redirect URIs |
+| Not verified | Connector creation, sign-in, tool list and `identity_whoami` on a real client |
+
+Tier 1 needs a recorded transcript from a real connector session, including the client surface and a brokered signup. That transcript does not exist yet.

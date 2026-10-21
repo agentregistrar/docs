@@ -1,0 +1,65 @@
+---
+title: Install a harness
+description: Pick a harness, add the broker's remote MCP server and see how each client was checked.
+audience: human
+aiGenerated: true
+verifiedAgainst: "live broker agentregistrar.dev, 2026-10-21"
+sidebar:
+  order: 0
+  group:
+    label: Install a harness
+---
+
+Every client on this site connects to the same remote MCP server:
+
+```text
+https://agentregistrar.dev/mcp
+```
+
+The server speaks MCP Streamable HTTP and requires an OAuth bearer token. The broker publishes OAuth metadata, so a compliant client discovers the authorization server, registers itself (CIMD or dynamic client registration), signs in through a browser and stores the token. There is no API key to copy and no separate broker signup form.
+
+The human actions stay human: approving the OAuth request in a browser and signing the master delegation agreement. A tool call cannot complete either one.
+
+## Support matrix
+
+Tiers are defined below. "Checked" is the date the page was verified, not a release date.
+
+| Harness | Add it with | Auth | Tier | Checked | Page |
+| :--- | :--- | :--- | :-: | :--- | :--- |
+| OpenCode V2 | `opencode mcp add` | OAuth, CIMD then DCR | 2 | 2026-10-21 | [OpenCode V2](/agents/install/opencode/) |
+| Claude Code | `claude mcp add --transport http` | OAuth, DCR or CIMD | 2 | 2026-10-21 | [Claude Code](/agents/install/claude-code/) |
+| Codex CLI | `codex mcp add` then `codex mcp login` | OAuth, CIMD or DCR | 2 | 2026-10-21 | [Codex CLI](/agents/install/codex-cli/) |
+| Cursor | `.cursor/mcp.json` with `url` | OAuth, DCR or static client | 2 | 2026-10-21 | [Cursor](/agents/install/cursor/) |
+| Gemini CLI | `gemini mcp add --transport http` | OAuth, DCR | 2 | 2026-10-21 | [Gemini CLI](/agents/install/gemini-cli/) |
+| VS Code / Copilot | `.vscode/mcp.json` or portable `.mcp.json` | OAuth, pre-registered client ID (automatic registration unverified) | 2 | 2026-10-21 | [VS Code and Copilot](/agents/install/vscode/) |
+| Claude Desktop | Customize > Connectors | OAuth, automatic registration | 2 | 2026-10-21 | [Claude Desktop](/agents/install/claude-desktop/) |
+| Any other MCP client | HTTP plus OAuth discovery | Bearer token | 3 | 2026-10-21 | [Generic MCP client](/agents/install/generic-mcp/) |
+
+No harness is tier 1 today. A tier-1 claim needs a recorded transcript of connect, `identity_whoami`, a brokered signup and an inbox check, with the client version, operating system and date. That transcript does not exist for any client yet, so every page above is honest about what was actually checked.
+
+## What the tiers mean
+
+- **Tier 1:** a recorded end-to-end transcript on the live broker: connect, `identity_whoami`, `identity_prove`, a provider signup, `identity_record_signup` and an inbox check, with client version, operating system, date, commands and output.
+- **Tier 2:** the install, configuration and authorization steps were checked against the client's current documentation and, where possible, a live connection. The full signup is not claimed.
+- **Tier 3:** protocol-level instructions that work with any compliant client. No client-specific claim.
+
+A page may only say "supported" together with its tier and date. None does, because the matrix above is the claim.
+
+## Which page to open
+
+- **OpenCode V2** is the default tab the portal dashboard shows. Its page has the only live connection check in this set: the server was added and the client reported that it needs authentication.
+- **Claude Code** is the other command-line client with a documented OAuth path. The page records documentation checks only, because the client was not installed on the verification machine.
+- **Codex CLI**, **Cursor**, **Gemini CLI**, **VS Code** and **Claude Desktop** each have a page with the exact configuration shape for that client, the authorization flow it documents, and what remains unverified.
+- **Generic MCP client** is the fallback. It carries the transport, discovery and `curl` transcript, and it is the page to use for a client that is not listed.
+
+## What every page records
+
+Each page ends with a verification record: the client version or documentation source, the date, what was checked live, and what was not. The same fields are used in the matrix above. When a client changes its configuration format, the page and this table are updated in the same change.
+
+## Before any client
+
+1. Create and verify the human account, and sign the master delegation agreement. The [agent quickstart](/agents/quickstart/) walks through both.
+2. Have a browser on the same machine as the client, signed in to the GitHub account that should own the agents.
+3. Add the server, complete OAuth, and confirm that the tool list contains `identity_register`, `identity_whoami`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`.
+
+If a client does not open a browser, or the connection stays unauthenticated, start with [OAuth troubleshooting](/agents/install/oauth-troubleshooting/).
