@@ -1,0 +1,123 @@
+---
+title: Report abuse
+description: Report a misbehaving agent to the broker with Contract D.2, and understand what the broker does and does not do.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0 (d3fddc9), broker c7ddfa7, live endpoint 2026-10-21"
+---
+
+**Goal:** report a compromised or abusive agent sub-identity to the broker so it can be revoked and its human owner notified.
+
+This is Contract D.2. It is an identity action, not a billing dispute process and not a way to delete your account.
+
+## When to report
+
+- The agent is compromised and is acting outside its owner's intent.
+- The agent is using your service for fraud, cryptomining, spam or other abusive resource use.
+- A chargeback or legal notice points at a specific agent identity.
+- You need the broker to suspend the identity while you investigate.
+
+Do not use it for ordinary support, a failed payment, a normal account cancellation or a disagreement about your product.
+
+## Request
+
+Send a JSON `POST` to the broker:
+
+```bash
+curl -sS -X POST https://agentregistrar.dev/api/broker/report-abuse \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "agent_id": "agt_01j00000000000000000000000",
+    "reporter_service": "example-rp",
+    "reason": "Synthetic example: repeated provisioning after account termination",
+    "evidence_jti": "jti_01j00000000000000000000000"
+  }'
+```
+
+| Field | Required | Meaning |
+| :--- | :--- | :--- |
+| `agent_id` | yes | The agent sub-identity id (`agt_...`) from the assertion or receipt. |
+| `reporter_service` | yes | Your service identifier, normally your `audience`. |
+| `reason` | yes | Short factual description. Include dates and account ids, not speculation. |
+| `evidence_jti` | no | The `jti` of the assertion or receipt that supports the report. |
+
+The request schema is `agent_id` starting with `agt_`, a non-empty reporter and reason, and an optional evidence JTI.
+
+## Responses
+
+An invalid request returns `400` with the broker's error envelope. Recorded on 2026-10-21 with a malformed agent id:
+
+```text
+HTTP 400
+{"error":"invalid_request","error_description":"Invalid input: must start with \"agt_\""}
+```
+
+A well-formed but unknown agent returns `404`. Recorded with a synthetic id:
+
+```text
+HTTP 404
+{"error":"agent_not_found","error_description":"Agent agt_00000000000000000000000000 not found"}
+```
+
+A successful report returns `200` with:
+
+```json
+{
+  "ok": true,
+  "agent_id": "agt_01j00000000000000000000000",
+  "agent_status": "revoked",
+  "human_notified": true
+}
+```
+
+The success shape is the broker's Contract D.2 response schema. It was not executed against a live agent because that would revoke a real identity; the two error responses above were.
+
+`human_notified` reports whether the broker's alert email was sent. A false value does not undo the revocation.
+
+## What the broker does
+
+- Validates the report and writes an immutable audit record.
+- Immediately sets the agent identity to `revoked` with the reason and timestamp.
+- Alerts the human owner by email, best effort.
+- Stops minting new assertions for that agent.
+
+## What the broker does not do
+
+- It does not adjudicate the dispute, decide who is right, or reverse your account action.
+- It does not delete the account you created or the resources the agent provisioned.
+- It does not guarantee that an in-flight assertion is rejected; assertions are short-lived and revocation is enforced at minting time.
+- It does not notify you of the outcome beyond the response.
+
+Your own termination, credential rotation and data-retention policy still apply.
+
+## Evidence and privacy
+
+Include the minimum needed to identify the event:
+
+- the agent id, your account id and the relevant timestamps;
+- the assertion or receipt `jti` as evidence;
+- a factual reason with no speculation about the human.
+
+Do not send credentials, full request bodies, payment data or personal data beyond what the report requires. Do not paste secrets into the reason field.
+
+## Safety
+
+- Report one agent per request. Do not use the endpoint as a bulk messaging channel.
+- Do not automate retaliation against an agent or its owner.
+- If you need a provider-wide block, use your own access controls; the broker revokes identities, not accounts.
+- Keep a monitored abuse contact in discovery and in your context guide.
+
+## Verify your work
+
+- [ ] The request uses an `agt_...` id from a verified assertion or receipt.
+- [ ] `reporter_service` matches your audience.
+- [ ] The reason is factual and contains no secrets or unnecessary personal data.
+- [ ] You understand that revocation does not delete your account or resources.
+- [ ] Your own incident steps (disable, rotate, preserve evidence) are recorded.
+
+## Next
+
+- [Production checklist](/providers/guides/production-checklist/): incidents and contacts.
+- [Liability and ToS](/providers/concepts/liability-and-tos/): attribution and retention.
+- [Specification](/agent-identity/v1/specification/): the relying-party publication rules.

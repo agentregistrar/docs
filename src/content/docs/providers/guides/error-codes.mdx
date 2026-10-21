@@ -1,0 +1,118 @@
+---
+title: Stable error codes
+description: Return the fixed v1 error envelope, with the right status, retryability and agent action for each failed check.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0 (d3fddc9), generic HTTP sample, 2026-10-21"
+---
+
+**Goal:** every rejected signup returns a JSON envelope with one fixed v1 code, so an agent can act without reading prose.
+
+The normative table is [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes). This page is the implementation step and the recorded output from the samples.
+
+## The envelope
+
+```json
+{
+  "error": "tos_hash_mismatch",
+  "error_description": "Accepted ToS hash does not match the published terms",
+  "retryable": false
+}
+```
+
+- `error` is one of the fixed codes.
+- `error_description` is for humans and logs. It is not normative, and agents must not parse it for control flow.
+- `retryable` is recommended. When it is absent, the agent infers retryability from the code.
+- Return errors as `application/json`, not HTML, and do not return `200` with an error body.
+- Do not include stack traces, internal hostnames, assertion bodies or personal data in the response.
+
+## The fixed codes
+
+| Code | HTTP | Retryable | Agent action |
+| :--- | :--- | :--- | :--- |
+| `invalid_request` | 400 | no | Fix the request; do not retry blindly. |
+| `invalid_assertion` | 401 | no | Obtain a new assertion. |
+| `issuer_not_allowed` | 403 | no | Do not proceed; the broker is not accepted here. |
+| `audience_mismatch` | 403 | no | Re-discover and mint a correct-audience assertion. |
+| `assertion_expired` | 401 | no | Obtain a new assertion. |
+| `assertion_replayed` | 409 | no | Obtain a new assertion; do not reuse. |
+| `tos_hash_mismatch` | 409 | no | Hard stop: re-discover, re-read, re-accept, re-assert. |
+| `insufficient_scope` | 403 | no | Ask the human to re-delegate; do not proceed. |
+| `human_unverified` | 403 | no | Complete human verification; do not proceed. |
+| `rate_limited` | 429 | yes | Back off and retry after the advertised delay. |
+
+The codes and statuses are fixed for v1. Do not rename them, remap them or replace them with your own vocabulary in the core flow. If you add an implementation-specific code outside the core flow, document it, keep it distinguishable from these values, and still return the fixed code for the corresponding core failure.
+
+## Recorded responses
+
+These were produced by the [generic HTTP sample](/providers/hosting/generic-http/) on 2026-10-21 with synthetic assertions.
+
+Expired or incorrectly signed token:
+
+```text
+HTTP 401
+{"error":"invalid_assertion","error_description":"Signature or JOSE header verification failed","retryable":false}
+```
+
+Assertion for another audience:
+
+```text
+HTTP 403
+{"error":"audience_mismatch","error_description":"Assertion audience does not match","retryable":false}
+```
+
+Human owner not verified:
+
+```text
+HTTP 403
+{"error":"human_unverified","error_description":"The human owner is not verified","retryable":false}
+```
+
+Stale terms hash:
+
+```text
+HTTP 409
+{"error":"tos_hash_mismatch","error_description":"Accepted ToS hash does not match the published terms","retryable":false}
+```
+
+Issuer not in the allowlist, recorded from the Worker sample:
+
+```text
+HTTP 403
+{"error":"issuer_not_allowed","error_description":"Issuer not allowed","retryable":false}
+```
+
+## Choosing between similar codes
+
+- **`invalid_assertion` versus `assertion_expired`.** Use `assertion_expired` only when the token is well formed and the expiry is the reason. A bad signature, an unexpected `alg`, an unknown `kid` after one refresh, or a malformed JWT is `invalid_assertion`.
+- **`issuer_not_allowed` versus `audience_mismatch`.** The issuer check comes first. If both fail, report the issuer; the agent should not try another audience for a broker you do not accept.
+- **`invalid_request` versus `invalid_assertion`.** A missing `Authorization` header, a non-JSON body or a missing required header is `invalid_request`. A present but unverifiable token is `invalid_assertion`.
+- **`assertion_replayed` versus `resolved`.** A repeated `jti` for the same agent, account and service is not an error; return success with `resolution: "resolved"`. `assertion_replayed` is for a conflicting context.
+- **`tos_hash_mismatch` versus `invalid_assertion`.** The signature is valid but the accepted terms are not the current ones. That is a consent problem, not a token problem.
+
+## Retry behavior
+
+Only `rate_limited` is retryable in the core table. An agent should back off on `429` and must not loop on the others:
+
+- `invalid_request`: fix the request.
+- `invalid_assertion`, `assertion_expired`, `assertion_replayed`: request a new assertion from the broker.
+- `issuer_not_allowed`, `audience_mismatch`, `insufficient_scope`, `human_unverified`: do not retry unchanged; the precondition is missing.
+- `tos_hash_mismatch`: re-discover and re-accept. This is a hard stop until the agent accepts the current hash.
+
+If you send `Retry-After` on `429`, set `retryable: true` and keep the delay honest.
+
+## Verify your work
+
+- [ ] Every failure path returns one of the fixed codes.
+- [ ] The HTTP status matches the table.
+- [ ] `error_description` is present but adds no control-flow semantics.
+- [ ] A repeated `jti` for the same account returns `200`/`201` with `resolution: "resolved"`.
+- [ ] Error responses contain no secrets, tokens, stack traces or personal data.
+- [ ] The body parses as JSON for every error.
+
+## Next
+
+- [Verify assertions](/providers/guides/verify-assertions/): where each code comes from.
+- [Troubleshooting](/providers/troubleshooting/): symptom, cause and fix.
+- [Production checklist](/providers/guides/production-checklist/): error monitoring by code.

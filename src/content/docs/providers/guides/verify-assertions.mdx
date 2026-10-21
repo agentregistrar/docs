@@ -1,0 +1,275 @@
+---
+title: Verify assertions
+description: Verify the Ed25519 assertion against the issuer JWKS and enforce issuer, audience, expiry, scopes, human status and ToS hash checks.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0 (d3fddc9), jose 6.2.13, Node 24.21.0, 2026-10-21"
+---
+
+**Goal:** accept a compact Ed25519 JWT only when every check in [spec section 7.1](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake) passes, and map each failure to a fixed v1 code.
+
+The claim set is in [Assertion claims](/agent-identity/v1/assertion-claims/). This guide is the implementation step.
+
+## Before you start
+
+- The issuer origin from your `issuer_allowlist`, for example `https://agentregistrar.dev`.
+- The published `audience`, `required_scopes` and current `terms.sha256`.
+- A place to record seen `jti` values, such as your account table.
+- `jose` 6.2.13, or an equivalent Ed25519 implementation. Nothing here requires a specific library.
+
+## The verifier
+
+Save as `verify.mjs`. It verifies the signature first, then the claims, and throws an error whose `code` is the stable v1 code.
+
+```js
+import { createHash } from "node:crypto";
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
+const MAX_LIFETIME_SECONDS = 300;
+const CLOCK_TOLERANCE_SECONDS = 60;
+
+export async function verifyAssertion(jwt, config) {
+  const fail = (code, description) => {
+    const error = new Error(description);
+    error.code = code;
+    throw error;
+  };
+
+  let payload;
+  try {
+    const jwks = createRemoteJWKSet(new URL(config.jwksUrl), {
+      timeoutDuration: 5000,
+      cooldownDuration: 30000,
+    });
+    const result = await jwtVerify(jwt, jwks, {
+      algorithms: ["EdDSA"],
+      clockTolerance: CLOCK_TOLERANCE_SECONDS,
+      typ: "agent-id+jwt",
+    });
+    payload = result.payload;
+  } catch (error) {
+    if (error.code === "ERR_JWT_EXPIRED") {
+      fail("assertion_expired", "Assertion has expired");
+    }
+    fail("invalid_assertion", "Signature or JOSE header verification failed");
+  }
+
+  if (!config.issuerAllowlist.includes(payload.iss)) {
+    fail("issuer_not_allowed", "Issuer is not in issuer_allowlist");
+  }
+  if (payload.aud !== config.audience) {
+    fail("audience_mismatch", "Assertion audience does not match");
+  }
+  if (typeof payload.exp !== "number" || payload.exp - payload.iat > MAX_LIFETIME_SECONDS) {
+    fail("invalid_assertion", "Assertion lifetime exceeds five minutes");
+  }
+
+  const scopes = payload.delegation?.scopes ?? [];
+  if (!config.requiredScopes.every((scope) => scopes.includes(scope))) {
+    fail("insufficient_scope", "Delegated scopes do not cover required_scopes");
+  }
+  if (payload.human?.verified !== true) {
+    fail("human_unverified", "The human owner is not verified");
+  }
+  if (payload.delegation?.accepted_rp_tos_hash !== config.termsSha256) {
+    fail("tos_hash_mismatch", "Accepted ToS hash does not match the published terms");
+  }
+
+  const accountKey = `${payload.iss}:${payload.human.id}`;
+  const previous = config.seenJti.get(payload.jti);
+  if (previous !== undefined && previous !== accountKey) {
+    fail("assertion_replayed", "Assertion id was used in a conflicting context");
+  }
+  config.seenJti.set(payload.jti, accountKey);
+
+  return { claims: payload, resolution: previous === undefined ? "created" : "resolved" };
+}
+
+export function sha256Text(text) {
+  return "sha256:" + createHash("sha256").update(text, "utf8").digest("hex");
+}
+```
+
+The `seenJti` map is a stand-in for a unique constraint in your account store. The semantics matter: the same `jti` for the same account resolves, a different account is a replay.
+
+## Try it locally
+
+This fixture mints an assertion with a throwaway key. A provider never mints assertions and never holds a broker private key; the fixture exists only so the verifier can be exercised offline.
+
+```bash
+mkdir provider-verify
+cd provider-verify
+npm init -y
+npm install jose@6.2.13
+```
+
+Save as `mint-test-assertion.mjs`:
+
+```js
+import { createHash } from "node:crypto";
+import { writeFileSync } from "node:fs";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
+
+const { publicKey, privateKey } = await generateKeyPair("Ed25519");
+const publicJwk = await exportJWK(publicKey);
+
+const jwks = { keys: [{ ...publicJwk, kid: "test-key-1", alg: "EdDSA", use: "sig" }] };
+writeFileSync("jwks.json", JSON.stringify(jwks, null, 2) + "\n");
+
+const termsText = "Example RP Terms of Service v2026.1";
+const tosHash = "sha256:" + createHash("sha256").update(termsText, "utf8").digest("hex");
+const now = Math.floor(Date.now() / 1000);
+
+const jwt = await new SignJWT({
+  agent: { id: "agt_test", name: "test-agent", email: "test-agent@agents.example", harness: "test" },
+  human: { id: "hum_test", name: "Test Human", email: "human@example.com", verified: true },
+  delegation: {
+    master_tos_version: "2026.1",
+    accepted_rp_tos_url: "https://example.com/terms",
+    accepted_rp_tos_hash: tosHash,
+    accepted_at: now,
+    scopes: ["tos:accept"],
+  },
+})
+  .setProtectedHeader({ alg: "EdDSA", kid: "test-key-1", typ: "agent-id+jwt" })
+  .setIssuer("https://agentregistrar.dev")
+  .setSubject("agt_test")
+  .setAudience("example-rp")
+  .setJti("jti_test_0001")
+  .setIssuedAt(now)
+  .setExpirationTime(now + 300)
+  .sign(privateKey);
+
+writeFileSync("assertion.jwt", jwt + "\n");
+console.log("wrote jwks.json and assertion.jwt");
+```
+
+Save as `serve-jwks.mjs`, so other recipes can point at the same fixture:
+
+```js
+import { createServer } from "node:http";
+import { readFileSync } from "node:fs";
+
+const jwks = readFileSync("jwks.json", "utf8");
+createServer((req, res) => {
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(jwks);
+}).listen(3015, "127.0.0.1", () => {
+  console.log("jwks on http://127.0.0.1:3015/.well-known/jwks.json");
+});
+```
+
+Save as `check.mjs`:
+
+```js
+import { readFileSync } from "node:fs";
+import { sha256Text, verifyAssertion } from "./verify.mjs";
+
+const jwt = readFileSync("assertion.jwt", "utf8").trim();
+try {
+  const result = await verifyAssertion(jwt, {
+    jwksUrl: "http://127.0.0.1:3015/.well-known/jwks.json",
+    issuerAllowlist: ["https://agentregistrar.dev"],
+    audience: "example-rp",
+    requiredScopes: ["tos:accept"],
+    termsSha256: sha256Text("Example RP Terms of Service v2026.1"),
+    seenJti: new Map(),
+  });
+  console.log(JSON.stringify({ outcome: "ok", resolution: result.resolution }));
+} catch (error) {
+  console.log(JSON.stringify({ outcome: "error", code: error.code }));
+}
+```
+
+Generate the token and keys once:
+
+```bash
+node mint-test-assertion.mjs
+```
+
+```text
+wrote jwks.json and assertion.jwt
+```
+
+Run the JWKS fixture in one shell and the check in another:
+
+```bash
+node serve-jwks.mjs
+```
+
+```text
+jwks on http://127.0.0.1:3015/.well-known/jwks.json
+```
+
+```bash
+node check.mjs
+```
+
+Recorded output on 2026-10-21:
+
+```text
+{"outcome":"ok","resolution":"created"}
+```
+
+## Failure cases
+
+The verifier was run against synthetic variants of the same fixture. Each row is a recorded result, not an illustration.
+
+| Case | Result |
+| :--- | :--- |
+| Valid assertion | `ok`, `resolution: "created"` |
+| Same `jti`, same account | `ok`, `resolution: "resolved"` |
+| Same `jti`, different human | `assertion_replayed` |
+| Wrong `aud` | `audience_mismatch` |
+| Stale or wrong ToS hash | `tos_hash_mismatch` |
+| `human.verified: false` | `human_unverified` |
+| Missing required scope | `insufficient_scope` |
+| Expired past the skew | `assertion_expired` |
+| Issuer not in the allowlist | `issuer_not_allowed` |
+| Tampered signature | `invalid_assertion` |
+| Lifetime over five minutes | `invalid_assertion` |
+
+## Checks and codes
+
+| Check | Rule | Failure code |
+| :--- | :--- | :--- |
+| Signature | Verify against `GET <iss>/.well-known/jwks.json`; `alg` is `EdDSA`; the key matches `kid`; `typ` is `agent-id+jwt` when present. | `invalid_assertion` (401) |
+| Issuer | `iss` equals an `issuer_allowlist` entry exactly. | `issuer_not_allowed` (403) |
+| Audience | `aud` equals your published `audience`. | `audience_mismatch` (403) |
+| Expiry | `exp` has not passed; allow at most 60 seconds of clock skew. | `assertion_expired` (401) |
+| Lifetime | `exp - iat` is at most 5 minutes. | `invalid_assertion` (401) |
+| Replay | A `jti` in a conflicting context is rejected; the same context resolves. | `assertion_replayed` (409) |
+| Scopes | `delegation.scopes` covers every `required_scopes` entry. | `insufficient_scope` (403) |
+| Human | `human.verified === true`. | `human_unverified` (403) |
+| Terms | `delegation.accepted_rp_tos_hash` equals the current `terms.sha256`. | `tos_hash_mismatch` (409) |
+
+Two checks are policy choices rather than fixed codes: the five-minute lifetime is the recommended maximum, and a JWKS transport failure is an operational error. Map the first to `invalid_assertion` and return a retryable `503`-style response for the second without inventing a core code. The normative table is [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes).
+
+## JWKS caching and rotation
+
+- Fetch only `GET <iss>/.well-known/jwks.json`. Do not accept a `jku` or `x5u` header that points at another host.
+- Cache keys by URL and `kid` for minutes, not forever. `createRemoteJWKSet` caches and refreshes; a custom cache must do the same.
+- On an unknown `kid`, refresh once before rejecting. This handles broker key rotation without a restart.
+- Apply a timeout and a size cap to the JWKS request. A slow issuer must not hold your signup route open.
+- The broker currently publishes one key with `kid` `broker-key-1`. Do not hard-code it; read it from the JWKS.
+- Revocation is enforced by the broker at minting time. A verifier learns about revocation the next time an assertion is requested, not from the signature.
+
+## Inspection-only rule
+
+Never decode, re-encode or modify the compact JWT to guess fields. The broker returns the exact signed payload as `assertion.claims` for inspection; the provider reads claims only from the verified token. Send `assertion.jwt` verbatim from the agent to your endpoint.
+
+## Verify your work
+
+- [ ] The verifier rejects a tampered token and accepts a valid one.
+- [ ] Each failure row above produces the listed code.
+- [ ] The JWKS URL is the issuer origin, not a request parameter.
+- [ ] Clock skew is bounded, and the lifetime check exists.
+- [ ] A repeated `jti` for the same account resolves instead of failing.
+- [ ] No identity field is read from the request body.
+
+## Next
+
+- [Stable error codes](/providers/guides/error-codes/): the HTTP envelope.
+- [Hosting: generic HTTP](/providers/hosting/generic-http/): the verifier wired into a route.
+- [Production checklist](/providers/guides/production-checklist/): rotation, replay and incidents.

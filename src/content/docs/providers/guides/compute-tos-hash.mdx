@@ -1,0 +1,127 @@
+---
+title: Compute the ToS hash
+description: Hash the exact UTF-8 bytes of terms.text, avoid the common encoding mistakes, and update the hash when terms change.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0 (d3fddc9), validator 1.0.0, Node 24.21.0, skdl.dev, 2026-10-21"
+---
+
+**Goal:** produce `sha256:<64 lowercase hex>` over the exact bytes of the complete terms text, and keep it in sync with what you serve.
+
+The normative rule is [ToS binding](/agent-identity/v1/specification/#6-tos-binding). The digest covers `terms.text`, not a URL, a summary, a rendered page or a JSON-encoded copy.
+
+## Node
+
+Save as `hash.mjs`:
+
+```js
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+
+const text = readFileSync("terms.txt", "utf8");
+const hash = "sha256:" + createHash("sha256").update(text, "utf8").digest("hex");
+console.log(hash);
+```
+
+Run against a terms file that ends with a newline:
+
+```bash
+node hash.mjs
+```
+
+Recorded output on 2026-10-21:
+
+```text
+sha256:6c18126f93de8d1972589ca94633ca82e76bd9ba1f0592618b0105753f3501d6
+```
+
+## Shell
+
+```bash
+sha256sum terms.txt
+```
+
+Recorded output for the same file:
+
+```text
+6c18126f93de8d1972589ca94633ca82e76bd9ba1f0592618b0105753f3501d6  terms.txt
+```
+
+Prefix the digest with `sha256:`. `sha256sum` hashes the file bytes, including a trailing newline. If you compute the value in a shell variable, use `$(sha256sum terms.txt | cut -d' ' -f1)`; do not pipe through a command that strips trailing newlines from the text before hashing.
+
+## Test vector
+
+`fixtures/valid-full.json` in `agentregistrar/spec` carries a complete terms text and its advertised hash. Recompute it from the JSON:
+
+```bash
+node --input-type=module -e '
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+const doc = JSON.parse(readFileSync("fixtures/valid-full.json", "utf8"));
+console.log("sha256:" + createHash("sha256").update(doc.terms.text, "utf8").digest("hex"));
+console.log(doc.terms.sha256);
+'
+```
+
+Recorded output:
+
+```text
+sha256:6357f96f625964c2eea9d04e24edfc5098bd9aae3623f5d96e0a441df0025967
+sha256:6357f96f625964c2eea9d04e24edfc5098bd9aae3623f5d96e0a441df0025967
+```
+
+The validator recomputes the same digest and fails on a mismatch. It prints the expected and actual values, so a bad hash is a field-level error, not a mystery.
+
+## Do not hash the rendered page
+
+The live VaporCloud discovery document advertises `sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5` over its `terms.text`. Hashing the HTML page at the same URL gives a different digest:
+
+```bash
+curl -sS https://skdl.dev/terms -o terms.html
+sha256sum terms.html
+```
+
+Recorded output on 2026-10-21:
+
+```text
+52f691a440318acd6a1a504ae9a34d3ec15bc0ffe8453e1599d43bc69c77f8a3  terms.html
+```
+
+Both are real digests of real artifacts. Only the first is the terms binding, because it is the digest of the text the agent receives in `terms.text`.
+
+## Common mistakes
+
+| Mistake | Result |
+| :--- | :--- |
+| Hashing a pretty-printed JSON string that contains the text | Different bytes, different digest. Hash the `terms.text` value itself. |
+| Extracting text from HTML, then hashing | Whitespace and entities differ from the source text. |
+| Trimming or normalizing line endings | The agent hashes what it received, so the digests diverge. |
+| Hashing a summary while publishing the full text | The agent cannot reproduce the digest. |
+| Editing the text under the same version | Old assertions keep the old hash and fail with `tos_hash_mismatch`. |
+
+## When the terms change
+
+1. Write the new complete text.
+2. Pick a new `terms.version`.
+3. Compute the new hash from the new bytes.
+4. Publish `text`, `sha256`, `version` and `url` atomically.
+5. Expect `409 tos_hash_mismatch` for assertions that carry the old hash. The agent re-discovers, re-reads and re-accepts.
+
+Do not keep two hashes in one discovery document. A grace period, if you have one, is documented outside discovery and applies to assertions already in flight, not to the advertised value.
+
+## Verify
+
+Run the validator against the document that contains the text:
+
+```bash
+pnpm --silent validate:discovery https://example.com/.well-known/agent-signup.json --json
+```
+
+A passing run reports `valid: true` and no `field.terms.sha256` error. See the [conformance validator](/agent-identity/v1/validator/).
+
+## Next
+
+- [Publish discovery](/providers/guides/publish-discovery/): the route and transport.
+- [Stable error codes](/providers/guides/error-codes/): how to return `tos_hash_mismatch`.
+- [Liability and ToS](/providers/concepts/liability-and-tos/): re-acceptance and retention.

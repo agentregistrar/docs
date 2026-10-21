@@ -1,0 +1,88 @@
+---
+title: Identity-only discovery
+description: Why agent-signup.json is a parameter document, which fields it may carry, and why vendor capability stays out.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0 (d3fddc9), validator 1.0.0, 2026-10-21"
+---
+
+`agent-signup.json` answers one question: can this agent, acting for this human, accept these terms and create an account here? It is a parameter document for that decision. It is not a capability catalog, a product description or an API index.
+
+The normative field rules are in [the specification](/agent-identity/v1/specification/#5-discovery-document-reference-identity-only). This page explains the design choice and the boundary.
+
+## What belongs in discovery
+
+| Group | Examples | Why it is identity |
+| :--- | :--- | :--- |
+| Protocol and service identity | `protocol`, `audience`, `provider_name`, `provider_url`, `contact` | Tells the agent which contract and which service it is talking to. |
+| Trust anchors | `issuer_allowlist` | Names the brokers whose assertions this service accepts. |
+| Delegation requirements | `required_scopes` | States what the agent must be allowed to do before signup. |
+| Terms binding | `terms.version`, `terms.url`, `terms.sha256`, `terms.text` | Pins the exact agreement the human is bound to. |
+| One endpoint | `endpoints.agent_signup` | The only place the assertion may be sent. |
+
+All required and optional fields, with types and spec sections, are in [Discovery fields](/agent-identity/v1/discovery-fields/).
+
+## What does not belong in discovery
+
+Anything that answers "what do you sell?" or "how do I call your API?" is vendor scope:
+
+- catalogs, SKUs, pricing tiers, quotas and product specs;
+- provisioning, resource, lifecycle or credential endpoints;
+- legacy email-signup and OTP endpoints;
+- broker receipt callbacks;
+- API or SDK usage metadata.
+
+The prohibition applies at any nesting depth, including under `extensions`. Moving `instance_catalog` under `extensions.dev.example` does not make it conformant; the validator fails it. This is the one-way door described in [Scope boundaries](/agent-identity/v1/scope-boundaries/): the protocol owns identity and liability, the vendor guide owns capability.
+
+The reason is not minimalism for its own sake. A catalog in a document that any agent fetches before any relationship exists is unversioned marketing data, and it invites the broker to validate commercial claims it cannot verify. Keeping discovery identity-only makes the conformance question precise and keeps liability with the party that wrote the terms.
+
+## The `extensions` rule
+
+`extensions` is for non-capability metadata, keyed by a reverse-DNS namespace:
+
+```json
+{
+  "extensions": {
+    "dev.example": {
+      "status_page": "https://status.example.com"
+    }
+  }
+}
+```
+
+Use it for things like a status page or a support URL. Do not use it to smuggle a catalog, a SKU list, a provisioning URL or a price. The validator warns on non-reverse-DNS keys and fails on capability fields at any depth.
+
+## Transport and caching
+
+- Serve `GET /.well-known/agent-signup.json` from the canonical HTTPS origin.
+- Return `200` with `application/json` when you support `agent-identity-v1`.
+- Return `404` or `410` when you do not. Do not use `401` or `403` to signal non-support.
+- No authentication, no redirect, no HTML.
+- `Cache-Control: public, max-age=60` (maximum 300) and `Access-Control-Allow-Origin: *` are recommended; the validator reports them as warnings when absent.
+- Keep the body under 1 MiB. The complete terms text counts toward that.
+
+`http://localhost` and `http://127.0.0.1` are the development exception. A live provider uses HTTPS.
+
+## Non-goals
+
+- Discovery does not prove the service is trustworthy, secure or available.
+- Discovery is not signed in v1. Trust comes from TLS, the issuer allowlist, the issuer's JWKS and the signed assertion.
+- Discovery does not advertise vendor capabilities, and it is not a place to negotiate them.
+- Discovery does not replace the terms page a human reads; `terms.url` points at the human-readable copy.
+
+## Verify
+
+Run the validator against your document and confirm that no forbidden field appears at any depth:
+
+```bash
+pnpm --silent validate:discovery https://example.com/.well-known/agent-signup.json --json
+```
+
+The command and output are documented in the [conformance validator](/agent-identity/v1/validator/).
+
+## Next
+
+- [Brokered signup handshake](/providers/concepts/brokered-signup/): what the agent sends and what you must verify.
+- [Liability and ToS](/providers/concepts/liability-and-tos/): the acceptance record and what to retain.
+- [Publish discovery](/providers/guides/publish-discovery/): the implementation step.

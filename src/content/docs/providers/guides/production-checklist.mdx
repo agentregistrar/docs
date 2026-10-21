@@ -1,0 +1,101 @@
+---
+title: Production checklist
+description: A readiness checklist for HTTPS, terms lifecycle, keys, replay, logging, abuse and incident response.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0 (d3fddc9), validator 1.0.0, 2026-10-21"
+---
+
+Use this before you take live traffic and again after any change to keys, terms or account handling. It is a checklist, not a second specification; each item links to the rule or the guide.
+
+## Transport and discovery
+
+- [ ] `GET /.well-known/agent-signup.json` returns `200`, `application/json`, no redirect and no authentication.
+- [ ] The origin is HTTPS. `localhost` is development only.
+- [ ] `Cache-Control` is `public, max-age=60` or another value within the 300-second maximum.
+- [ ] `Access-Control-Allow-Origin: *` is set where browser inspectors need it.
+- [ ] The body is under 1 MiB and contains no secrets, internal hostnames or personal data.
+- [ ] Unsupported deployments return `404` or `410`, not `401` or `403`.
+- [ ] `issuer_allowlist` contains exact origins with no path, query, fragment or wildcard.
+- [ ] The [validator](/providers/guides/validate-and-register/) passes in CI or in a documented manual step.
+
+## Terms lifecycle
+
+- [ ] `terms.text` is the complete agreement the agent accepts, not a summary.
+- [ ] `terms.sha256` is over the exact UTF-8 bytes and was recomputed after the last edit.
+- [ ] `terms.version` changes whenever the text changes materially.
+- [ ] `terms.url` serves the same text to a human and is on a stable host.
+- [ ] Text, hash, version and URL ship atomically.
+- [ ] Any grace period for in-flight assertions is bounded and documented outside discovery.
+- [ ] A stale hash returns `409 tos_hash_mismatch`; it is never accepted silently.
+
+## Assertion verification
+
+- [ ] Signature verification uses the issuer's `/.well-known/jwks.json`, not a `jku`/`x5u` header.
+- [ ] `alg` is `EdDSA`, the `kid` selects the key and `typ` is `agent-id+jwt` when present.
+- [ ] `iss` is compared against the allowlist exactly.
+- [ ] `aud` is compared against the published audience.
+- [ ] `exp` is enforced with at most 60 seconds of clock skew.
+- [ ] Assertion lifetime is capped at five minutes.
+- [ ] `delegation.scopes` covers every `required_scopes` entry.
+- [ ] `human.verified` is `true`.
+- [ ] `delegation.accepted_rp_tos_hash` equals the current terms hash.
+- [ ] A repeated `jti` in the same context resolves; a conflicting one is `assertion_replayed`.
+
+## Accounts, replay and credentials
+
+- [ ] Account keys follow `(iss, human.id)` or `(iss, agent.id)` and are namespaced by issuer.
+- [ ] A `jti` can be used for one account creation only; a unique constraint backs the check.
+- [ ] A resolve returns no credential and sends no duplicate welcome or legal mail.
+- [ ] Credentials are returned only on creation and are never stored in the receipt, logs or broker.
+- [ ] A credential recovery path exists in the context guide.
+- [ ] Rate limits protect signup and return `429 rate_limited` with an honest delay.
+
+## Keys and rotation
+
+- [ ] You know which key the broker uses to verify your `signup_token`, and it is in a secret store.
+- [ ] Receipt signing keys have an owner, a rotation date and a compromise procedure.
+- [ ] JWKS caching refreshes on an unknown `kid` and has a timeout.
+- [ ] A key compromise plan exists: rotate, invalidate, notify the broker and the registry contact.
+- [ ] No private key, token or provider credential appears in the repository or a build artifact.
+
+## Logging and retention
+
+- [ ] Logs record the assertion `jti`, `agent.id`, `human.id`, account id, terms version and hash, and `signed_up_at`.
+- [ ] Logs do not record provider credentials, raw assertions beyond the audit window, or unnecessary personal data.
+- [ ] Error monitoring groups by stable code, not by prose.
+- [ ] Retention is documented and follows your legal obligations.
+- [ ] A request id or trace id links the agent request to the account event.
+
+## Receipt and context
+
+- [ ] The receipt is identity-only, with an opaque `service.account_id`.
+- [ ] `context.url` stays on the signup endpoint's registrable domain.
+- [ ] `context.sha256` matches the bytes served and is updated in the same deploy as the guide.
+- [ ] The guide contains no credentials and no protocol fields.
+- [ ] The broker is never asked to fetch the guide.
+
+## Abuse, support and incidents
+
+- [ ] `contact` in discovery is monitored and reaches a human.
+- [ ] The [abuse reporting](/providers/guides/abuse-reporting/) path is tested with a synthetic agent id and documented.
+- [ ] Support knows the difference between a protocol error and a vendor API error.
+- [ ] An incident plan covers: disable signup, rotate keys, invalidate credentials, contact the broker, update the registry.
+- [ ] The provider does not retaliate automatically against an agent; revocation and account action are separate decisions.
+- [ ] Known limits are stated to customers: `human.verified` is email verification, revocation does not delete your account, and the protocol does not prevent abuse.
+
+## Test plan
+
+- [ ] A staging discovery URL exists and is not in the registry.
+- [ ] Synthetic assertions cover every row in [Verify assertions](/providers/guides/verify-assertions/).
+- [ ] A create and a resolve are both exercised, including the no-credential rule.
+- [ ] The validator runs against staging before release.
+- [ ] A terms change is rehearsed end to end, including `tos_hash_mismatch`.
+- [ ] A guide change is rehearsed, including the hash update.
+
+## Next
+
+- [Stable error codes](/providers/guides/error-codes/): the envelope and retry rules.
+- [Abuse reporting](/providers/guides/abuse-reporting/): Contract D.2.
+- [Troubleshooting](/providers/troubleshooting/): symptom, cause and fix.

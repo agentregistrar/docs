@@ -1,0 +1,86 @@
+---
+title: Provider troubleshooting
+description: Symptom, cause and fix for discovery validation, assertion verification, hashes, JWKS, context guides and transport.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0 (d3fddc9), validator 1.0.0, 2026-10-21"
+---
+
+Find the symptom, fix the cause, then re-run the check. Each row links to the page that owns the step.
+
+## Discovery and validation
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| Validator fails `terms.sha256` | Hashed rendered HTML, a summary, or newline-normalized text | Hash the exact `terms.text` UTF-8 bytes. See [Compute the ToS hash](/providers/guides/compute-tos-hash/). |
+| Validator fails a forbidden field | Catalog, SKU, provisioning or OTP field under `endpoints` or `extensions` | Remove the capability surface; move it to the vendor guide. See [Identity-only discovery](/providers/concepts/identity-only-discovery/). |
+| Validator exits `2` | No usable document: DNS, TLS, timeout, redirect, wrong content type or oversize body | Fetch the URL with `curl -D -`; fix transport before changing the JSON. |
+| Validator warns on cache or CORS | Missing `Cache-Control` or `Access-Control-Allow-Origin` | Add `public, max-age=60` and `*` where appropriate. Warnings do not fail conformance. |
+| `protocol` rejected | A typo or a version such as `v1` | Use exactly `agent-identity-v1`. |
+| `issuer_allowlist` rejected | Empty, wildcard, path or trailing slash | Use exact origins such as `https://agentregistrar.dev`, no path. |
+| `audience` rejected | Whitespace, mixed case or a display name | Use a stable, case-sensitive service identifier. |
+| `agent_signup` rejected | Relative URL, or an `http` URL outside localhost | Use an absolute HTTPS URL. |
+| Document passes a file check but fails live | Wrong content type, a redirect, or an HTML error page | Compare `curl -D -` output with the file; fix the host, not the validator. |
+
+## Signature and JWKS
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| `invalid_assertion` on every request | Wrong JWKS URL, wrong key, `alg` mismatch or a proxy rewriting the body | Fetch `<iss>/.well-known/jwks.json`; check `alg: EdDSA`, `kid` and `typ: agent-id+jwt`. |
+| `invalid_assertion` after a broker key rotation | Cached JWKS with no refresh | Refresh once on an unknown `kid`; do not hard-code `broker-key-1`. |
+| JWKS fetch times out | Egress block, DNS or a slow issuer | Allow the issuer origin, apply a timeout and cache successful keys. |
+| `assertion_expired` immediately | Clock skew beyond 60 seconds | Use NTP; allow at most 60 seconds of skew. |
+| `audience_mismatch` | Discovery audience differs from the assertion `aud` | Re-discover and mint with the exact audience. |
+| `issuer_not_allowed` | Broker origin not in `issuer_allowlist` | Add the exact origin, with no path or trailing slash. |
+| `insufficient_scope` | The agent was not delegated every `required_scopes` entry | Ask the human to re-delegate; do not retry unchanged. |
+| `human_unverified` | `human.verified` is not `true` | Complete verification; do not create the account. |
+| A verified-looking token is rejected | You decoded the JWT instead of verifying it, or read identity from the body | Verify the signature and read claims only from the verified payload. |
+| `invalid_assertion` only in production | A local fixture key is still configured | Remove test JWKS overrides; use the issuer origin. |
+
+## ToS and replay
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| `tos_hash_mismatch` after a terms edit | The text changed without a new version and hash, or the assertion carries the old hash | Publish new text, version and hash atomically; the agent must re-discover and re-accept. |
+| `tos_hash_mismatch` only for some agents | A stale cache or an in-flight assertion from before the change | Honor the cache lifetime; document any bounded grace period outside discovery. |
+| `assertion_replayed` on a retry | The same `jti` is being used for a different agent, account or service | Same-context retries must resolve idempotently. Issue a new assertion only for a new context. |
+| Duplicate accounts | The account key is not unique, or the resolve path creates instead of looking up | Key on `(iss, human.id)` or `(iss, agent.id)` and enforce it in the database. |
+| A resolve returns an error | The code treats `resolution: "resolved"` as a failure | `resolved` is success; return `200` and omit the credential. |
+| A resolve returns a new credential | Credentials are minted on every call | Return credentials only on create; point at the recovery path otherwise. |
+| Duplicate welcome or legal email | Mail is sent on resolve | Send mail only on creation. |
+
+## Context guide
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| Context fetch fails | URL moved, redirect or a non-HTTPS host | Serve a stable HTTPS path on the signup endpoint's registrable domain. |
+| Context hash mismatch | The guide changed without a new `context.sha256` | Update bytes and hash in the same deploy. |
+| Broker rejects the pointer | Cross-domain URL, or the receipt omits `service.provider_url` | Use the signup endpoint's domain and include `provider_url` in the receipt. |
+| Agent acts on a guide that changed | The agent cached the guide and skipped the hash check | Re-fetch at the start of a provisioning task and verify on every fetch. |
+| Guide exposes a credential | A secret was pasted into vendor documentation | Remove it, rotate the credential and republish the hash. |
+
+## Transport and browser
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| CORS error in a browser | Discovery fetched from a page without CORS headers | Serve `Access-Control-Allow-Origin: *` where appropriate; agents should fetch server-side. |
+| `404` on `/.well-known/...` | The host treats dot-directories as hidden, or a rewrite strips the path | Add an explicit route; a Next.js route segment is `app/.well-known/agent-signup.json/route.js`. |
+| A CDN challenge page is returned | Bot protection in front of the well-known path | Exempt this path from challenges and redirects. |
+| JSON parses locally but not live | HTML error page or compression/proxy issue | Check the content type and the first bytes. |
+| The signup response is cached | A shared cache stored a credential response | Send `Cache-Control: no-store` on signup responses. |
+
+## Diagnostic sequence
+
+1. `curl -sS -D - https://<origin>/.well-known/agent-signup.json` and confirm status, content type, no redirect.
+2. Recompute the terms hash from the received `terms.text`.
+3. Run the validator with `--json` and read the failing check id.
+4. Fetch the issuer JWKS and compare `kid`, `alg` and `typ`.
+5. Reproduce the signup with a synthetic assertion and check the returned code.
+6. Only then change code. A conformance failure is usually the document, not the validator.
+
+## Next
+
+- [Validate and register](/providers/guides/validate-and-register/): commands and exit codes.
+- [Stable error codes](/providers/guides/error-codes/): code-to-action mapping.
+- [Verify assertions](/providers/guides/verify-assertions/): the full check list.

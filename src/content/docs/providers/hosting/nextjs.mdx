@@ -1,0 +1,262 @@
+---
+title: "Hosting: Next.js"
+description: A complete Next.js App Router recipe for discovery and brokered signup, tested with Next.js 16.4.2.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "Next.js 16.4.2, React 19.3.1, jose 6.2.13, Node 24.21.0, 2026-10-21"
+---
+
+**Tested:** this recipe ran end to end with Next.js 16.4.2 on Node 24.21.0 on 2026-10-21, using a local JWKS fixture. It is the one hosting recipe with a recorded platform run. The wire behavior is the same as any other host.
+
+## Create the app
+
+```bash
+mkdir provider-nextjs
+cd provider-nextjs
+npm init -y
+npm install next@16.4.2 react@19.3.1 react-dom@19.3.1 jose@6.2.13
+```
+
+Set the terms file and a guide. The guide is optional; omit `CONTEXT_SHA256` if you do not publish one.
+
+```bash
+printf 'Example RP Terms of Service\nVersion: 2026.1' > terms.txt
+mkdir -p app/.well-known/agent-signup.json app/api/signup/agent public/docs
+printf '# Example RP agent guide\n\nCall POST /api/provision with your API key.\n' > public/docs/SKILL.md
+```
+
+## Discovery route
+
+Save as `app/.well-known/agent-signup.json/route.js`:
+
+```js
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+// In a real deployment the terms text comes from your content store; this
+// example reads a file that ships with the app.
+const termsText = readFileSync(join(process.cwd(), "terms.txt"), "utf8");
+const sha256 = "sha256:" + createHash("sha256").update(termsText, "utf8").digest("hex");
+
+export function GET() {
+  return Response.json(
+    {
+      protocol: "agent-identity-v1",
+      audience: process.env.PROVIDER_AUDIENCE ?? "example-rp",
+      provider_name: "Example RP",
+      provider_url: process.env.PROVIDER_URL ?? "https://example.com",
+      contact: process.env.PROVIDER_CONTACT ?? "security@example.com",
+      issuer_allowlist: [process.env.BROKER_ORIGIN ?? "https://agentregistrar.dev"],
+      required_scopes: ["tos:accept"],
+      terms: {
+        version: process.env.TERMS_VERSION ?? "2026.1",
+        url: process.env.TERMS_URL ?? "https://example.com/terms",
+        sha256,
+        text: termsText,
+      },
+      endpoints: {
+        agent_signup: `${process.env.PROVIDER_URL ?? "https://example.com"}/api/signup/agent`,
+      },
+    },
+    {
+      headers: {
+        "cache-control": "public, max-age=60",
+        "access-control-allow-origin": "*",
+      },
+    },
+  );
+}
+```
+
+`Response.json` sets `content-type: application/json`. The route has no auth and no redirect.
+
+## Signup route
+
+Save as `app/api/signup/agent/route.js`. It verifies with `jose`, resolves accounts idempotently and returns credentials only on creation.
+
+```js
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
+const BROKER_ORIGIN = process.env.BROKER_ORIGIN ?? "https://agentregistrar.dev";
+const AUDIENCE = process.env.PROVIDER_AUDIENCE ?? "example-rp";
+const JWKS_URL = process.env.BROKER_JWKS_URL ?? `${BROKER_ORIGIN}/.well-known/jwks.json`;
+const termsText = readFileSync(join(process.cwd(), "terms.txt"), "utf8");
+const TERMS_SHA256 = "sha256:" + createHash("sha256").update(termsText, "utf8").digest("hex");
+const REQUIRED_SCOPES = ["tos:accept"];
+
+const jwks = createRemoteJWKSet(new URL(JWKS_URL), { timeoutDuration: 5000 });
+const accounts = new Map();
+const seenJti = new Map();
+
+function error(status, code, description) {
+  return Response.json({ error: code, error_description: description, retryable: false }, { status });
+}
+
+async function verifyAssertion(request) {
+  const header = request.headers.get("authorization") ?? "";
+  if (!header.startsWith("Bearer ")) {
+    return { error: error(400, "invalid_request", "Missing bearer assertion") };
+  }
+  let claims;
+  try {
+    const result = await jwtVerify(header.slice(7), jwks, {
+      algorithms: ["EdDSA"],
+      clockTolerance: 60,
+      typ: "agent-id+jwt",
+    });
+    claims = result.payload;
+  } catch (cause) {
+    const code = cause?.code === "ERR_JWT_EXPIRED" ? "assertion_expired" : "invalid_assertion";
+    return { error: error(401, code, "Assertion rejected") };
+  }
+
+  if (claims.iss !== BROKER_ORIGIN) return { error: error(403, "issuer_not_allowed", "Issuer not allowed") };
+  if (claims.aud !== AUDIENCE) return { error: error(403, "audience_mismatch", "Wrong audience") };
+  if (claims.exp - claims.iat > 300) return { error: error(401, "invalid_assertion", "Lifetime too long") };
+  if (!REQUIRED_SCOPES.every((scope) => claims.delegation?.scopes?.includes(scope))) {
+    return { error: error(403, "insufficient_scope", "Scopes do not cover required_scopes") };
+  }
+  if (claims.human?.verified !== true) return { error: error(403, "human_unverified", "Human not verified") };
+  if (claims.delegation?.accepted_rp_tos_hash !== TERMS_SHA256) {
+    return { error: error(409, "tos_hash_mismatch", "Accepted ToS hash is stale") };
+  }
+  return { claims };
+}
+
+export async function POST(request) {
+  const verified = await verifyAssertion(request);
+  if (verified.error) return verified.error;
+
+  const { claims } = verified;
+  const accountKey = `${claims.iss}:${claims.human.id}`;
+  const previous = seenJti.get(claims.jti);
+  if (previous !== undefined && previous !== accountKey) {
+    return error(409, "assertion_replayed", "Assertion id used in a conflicting context");
+  }
+  seenJti.set(claims.jti, accountKey);
+
+  const existing = accounts.get(accountKey);
+  if (existing) {
+    return Response.json({
+      resolution: "resolved",
+      account_id: existing.accountId,
+      context: {
+        url: `${process.env.PROVIDER_URL ?? "https://example.com"}/docs/SKILL.md`,
+        sha256: process.env.CONTEXT_SHA256,
+      },
+    });
+  }
+
+  const account = {
+    accountId: `acct_${crypto.randomUUID()}`,
+    apiKey: `sk_live_${crypto.randomUUID()}`,
+  };
+  accounts.set(accountKey, account);
+  return Response.json(
+    {
+      resolution: "created",
+      account_id: account.accountId,
+      api_key: account.apiKey,
+      context: {
+        url: `${process.env.PROVIDER_URL ?? "https://example.com"}/docs/SKILL.md`,
+        sha256: process.env.CONTEXT_SHA256,
+      },
+    },
+    { status: 201 },
+  );
+}
+```
+
+The in-memory maps are a demo. Use your database with a unique constraint on the account key and the `jti`.
+
+## Run it
+
+```bash
+export PROVIDER_URL=http://127.0.0.1:3003
+export CONTEXT_SHA256=$(node -e 'const {readFileSync}=require("fs");const {createHash}=require("crypto");console.log("sha256:"+createHash("sha256").update(readFileSync("public/docs/SKILL.md")).digest("hex"))')
+npx next dev -p 3003
+```
+
+Expected, in part:
+
+```text
+- Local:        http://localhost:3003
+- Ready in ...
+```
+
+Fetch the document:
+
+```bash
+curl -sS -D - http://127.0.0.1:3003/.well-known/agent-signup.json -o /dev/null
+```
+
+Recorded headers:
+
+```text
+HTTP/1.1 200 OK
+access-control-allow-origin: *
+cache-control: public, max-age=60
+content-type: application/json
+```
+
+Validate it:
+
+```bash
+pnpm --silent validate:discovery http://127.0.0.1:3003/.well-known/agent-signup.json \
+  --json --probe-jwks --probe-endpoints
+```
+
+Recorded result on 2026-10-21:
+
+```text
+valid: true, exitCode: 0, passed: 21, failed: 0, warnings: 0, probes: 2
+```
+
+The endpoint probe records `HEAD 405`, which the validator accepts as reachable without a side effect.
+
+## Test signup
+
+The local fixture in [Verify assertions](/providers/guides/verify-assertions/) writes `assertion.jwt` and runs a JWKS server on port 3015. Start it, then point the app at it with `BROKER_JWKS_URL` and restart:
+
+```bash
+export BROKER_JWKS_URL=http://127.0.0.1:3015/.well-known/jwks.json
+npx next dev -p 3003
+```
+
+Then, from the fixture directory:
+
+```bash
+curl -sS -X POST http://127.0.0.1:3003/api/signup/agent \
+  -H "Authorization: Bearer $(cat assertion.jwt)"
+curl -sS -X POST http://127.0.0.1:3003/api/signup/agent \
+  -H "Authorization: Bearer $(cat assertion.jwt)"
+```
+
+Recorded output:
+
+```json
+{"resolution":"created","account_id":"acct_fc349225-4e3b-49c9-92b7-f463c90d6f5a","api_key":"sk_live_436060bf-7625-4eba-81a2-dfa4a5ffbab1","context":{"url":"http://127.0.0.1:3003/docs/SKILL.md","sha256":"sha256:1fd6b456d9eba9fdf91ddee7691b70c9772ee52464d8ff36d2e0350c89c8d44e"}}
+{"resolution":"resolved","account_id":"acct_fc349225-4e3b-49c9-92b7-f463c90d6f5a","context":{"url":"http://127.0.0.1:3003/docs/SKILL.md","sha256":"sha256:1fd6b456d9eba9fdf91ddee7691b70c9772ee52464d8ff36d2e0350c89c8d44e"}}
+```
+
+The second call is a success and returns no credential. That is the resolve rule, not an error.
+
+## Notes for production
+
+- Replace the in-memory maps with durable storage and a unique constraint.
+- Read the terms from versioned content, not a file that can change under a running deploy.
+- Keep `BROKER_JWKS_URL` for local testing only; production uses `<issuer>/.well-known/jwks.json`.
+- Set the signing key for receipts in a secret manager; the sample does not include a receipt.
+- Do not cache the signup response. It contains a show-once credential.
+- The context hash has no default value here: if `CONTEXT_SHA256` is unset, remove `context` rather than shipping an empty digest.
+
+## Next
+
+- [Hosting: Cloudflare Worker](/providers/hosting/cloudflare-worker/): the same flow on Workers.
+- [Hosting: generic HTTP](/providers/hosting/generic-http/): framework-neutral code.
+- [Issue a signup receipt](/providers/guides/issue-signup-receipt/): add Contract E.

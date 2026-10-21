@@ -1,0 +1,181 @@
+---
+title: "Reference implementation: VaporCloud"
+description: A walkthrough of the live VaporCloud demo, separating the protocol from vendor capability.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0 (d3fddc9), validator 1.0.0, skdl.dev, 2026-10-21"
+---
+
+VaporCloud is the reference relying party at [skdl.dev](https://skdl.dev). It sells fictional appliances, which is exactly why it is useful: the vendor surface is obviously vendor scope, and the identity-only protocol is easy to see.
+
+This walkthrough separates what the protocol defines from what VaporCloud does as a product. The demo is not a production SLA and not a hosted service.
+
+## URLs
+
+| Path | Purpose |
+| :--- | :--- |
+| [`/.well-known/agent-signup.json`](https://skdl.dev/.well-known/agent-signup.json) | Identity-only discovery document |
+| [`/api/signup/agent`](https://skdl.dev/api/signup/agent) | Brokered signup endpoint |
+| [`/docs/SKILL.md`](https://skdl.dev/docs/SKILL.md) | Vendor guide, reached through the context pointer |
+| [`/terms`](https://skdl.dev/terms) | Human-readable terms page |
+| [`/admin`](https://skdl.dev/admin) | Vendor administration view |
+
+## The discovery document
+
+The live document was fetched on 2026-10-21. Shortened here; `terms.text` is the complete agreement served in the document.
+
+```json
+{
+  "protocol": "agent-identity-v1",
+  "audience": "vaporcloud",
+  "provider_name": "VaporCloud",
+  "spec": "https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md",
+  "provider_url": "https://skdl.dev",
+  "contact": "security@skdl.dev",
+  "issuer_allowlist": ["https://agentregistrar.dev"],
+  "required_scopes": ["tos:accept", "signup:free_tier"],
+  "terms": {
+    "version": "2026.1",
+    "url": "https://skdl.dev/terms",
+    "sha256": "sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5",
+    "text": "<complete terms text>"
+  },
+  "endpoints": {
+    "agent_signup": "https://skdl.dev/api/signup/agent"
+  },
+  "extensions": {
+    "dev.vaporcloud": {
+      "support_url": "https://skdl.dev/support"
+    }
+  }
+}
+```
+
+What to notice:
+
+- One audience, one issuer allowlist and one endpoint. The broker origin is `https://agentregistrar.dev`.
+- `required_scopes` includes `tos:accept`; the extra `signup:free_tier` is a VaporCloud scope, still a delegation requirement, not a catalog.
+- `terms.sha256` is a real digest of the text. Recompute it and it matches.
+- `extensions` carries a support URL under a reverse-DNS key. There is no catalog, no SKU, no provisioning endpoint and no OTP endpoint anywhere in the document.
+
+The transport checks also passed: `200`, `application/json`, a 60-second cache and permissive CORS.
+
+## Validation evidence
+
+```bash
+pnpm --silent validate:discovery https://skdl.dev/.well-known/agent-signup.json \
+  --json --probe-jwks
+```
+
+Recorded on 2026-10-21:
+
+```text
+valid: true, exitCode: 0, passed: 22, failed: 0, warnings: 0, probes: 1
+```
+
+The issuer JWKS probe passed with one verification key. The registry evidence format is in [Validate and register](/providers/guides/validate-and-register/).
+
+## The signup response
+
+A live signup requires a real agent assertion from the broker, so this walkthrough did not create an account. The response shape is documented in the live VaporCloud guide and is reproduced here as vendor documentation:
+
+```json
+{
+  "account_id": "<opaque vendor account reference>",
+  "resolution": "created",
+  "vapor_api_key": "vc_live_<32 lowercase hex>",
+  "signup_token": "<signed Contract E receipt>",
+  "signup_token_jti": "srp_<...>",
+  "context": {
+    "url": "https://skdl.dev/docs/SKILL.md",
+    "sha256": "sha256:<64 hex>"
+  },
+  "credential_recovery": {
+    "available": true,
+    "method": "rotate",
+    "endpoint": "https://skdl.dev/api/account/rotate-key",
+    "guide_url": "https://skdl.dev/docs/SKILL.md"
+  }
+}
+```
+
+Protocol fields and vendor fields are mixed in the HTTP response on purpose: `resolution`, `account_id` and `context` are protocol-adjacent; `vapor_api_key` and `credential_recovery` are vendor capability. The signed receipt carries only the identity facts, the opaque account id and the context pointer. It does not carry the key.
+
+On `"resolved"`, the credential is omitted. A repeated signup resolves the account; it does not reissue the key.
+
+## The context guide
+
+Fetch the guide and compute its digest:
+
+```bash
+curl -sS https://skdl.dev/docs/SKILL.md -o SKILL.md
+sha256sum SKILL.md
+```
+
+Recorded on 2026-10-21:
+
+```text
+93691b1998f6d6c0fdddf1ec8b65c9a735ae7fb5c48abca3e157b8e00dfc84c1  SKILL.md
+```
+
+The guide is 10792 bytes and is versioned in its own text. The authoritative comparison value is the `context.sha256` in the signup response or receipt; the digest above records the bytes served on that date.
+
+The guide documents the vendor API, including one provisioning call. Calling it without a credential shows the vendor error path:
+
+```bash
+curl -sS -X POST https://skdl.dev/api/provision \
+  -H 'Content-Type: application/json' \
+  -d '{"sku":"quantum-toaster-x1","name":"example"}'
+```
+
+Recorded output:
+
+```text
+{"error":"unauthorized","error_description":"Invalid VaporCloud API key or Agent Identity JWT"}
+```
+
+That error is VaporCloud's, not a protocol code. Provisioning is the vendor's API, called after signup and after the guide hash matches. The protocol ends before it.
+
+## The administration view
+
+`/admin` is a vendor page. It returns `200` HTML and is not part of discovery or the receipt. In the implementation it joins each provisioned resource to the agent id, agent email, human attribution and the accepted terms chain, and it can file a Contract D.2 abuse report.
+
+What it demonstrates:
+
+- an account can be traced to an agent and a human;
+- the terms version and hash recorded at signup are visible;
+- a vendor can act on abuse through the broker.
+
+What it does not prove:
+
+- that the human read the terms;
+- that the agent is trustworthy;
+- that the broker endorses the vendor or its product.
+
+The admin view is vendor tooling. It is not a protocol requirement, and a provider can implement attribution however it likes.
+
+## Vendor boundary
+
+| Protocol | Vendor |
+| :--- | :--- |
+| Discovery fields, terms hash, issuer allowlist | Catalog, SKUs, prices and quotas |
+| Assertion verification and stable errors | Provisioning and resource lifecycle |
+| Optional receipt with identity facts | Credential format, rotation and recovery |
+| Optional context pointer and digest | The guide's content, version and freshness |
+
+VaporCloud keeps the vendor surface in `/docs/SKILL.md`, including its vendor error catalog. None of it appears in discovery or the receipt. That is the pattern to copy; the appliances are optional.
+
+## Caveats
+
+- `skdl.dev` is a demo, not a production service. It has no SLA.
+- The registry entry is the reference implementation, but its recorded validation used the locally started implementation and its `.example` discovery URL. The live document above was validated separately on 2026-10-21. The exception is documented in the registry and is not a precedent.
+- The live terms text contains characters that are not ASCII. Hash the bytes you serve; do not normalize them.
+- A green validator result says the document conforms. It says nothing about the product.
+
+## Next
+
+- [Provider quickstart](/providers/quickstart/): build the same document from scratch.
+- [Publish a context guide](/providers/guides/publish-context-guide/): the guide and hash pattern.
+- [Abuse reporting](/providers/guides/abuse-reporting/): Contract D.2.
+- [Implementation registry](https://github.com/agentregistrar/spec/blob/main/registry/README.md): entry criteria.

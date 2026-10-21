@@ -1,0 +1,92 @@
+---
+title: Brokered signup handshake
+description: The discovery, assertion, verification, account and receipt sequence, and the trust boundary at each step.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0 (d3fddc9), broker c7ddfa7, 2026-10-21"
+---
+
+The handshake has one job: turn an agent's request into an account that is attributable to a verified human who accepted a specific terms hash. The provider performs one verification and one account operation; the broker is not in the request path.
+
+The normative sequence is [spec section 7](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake).
+
+## Sequence
+
+```text
+agent                         broker                     provider
+  |                             |                            |
+  |-- GET agent-signup.json -------------------------------->|
+  |<-- discovery (terms.text, sha256, audience, scopes) ----|
+  |                             |                            |
+  |-- recompute sha256 locally  |                            |
+  |-- identity_prove(aud, hash, accepted text) ------------->|
+  |<-- signed assertion (Ed25519 JWT) -----------------------|
+  |                             |                            |
+  |-- POST agent_signup, Authorization: Bearer <jwt> ------>|
+  |                             |            verify JWKS, aud, exp, jti,
+  |                             |            scopes, human, ToS hash
+  |                             |            create or resolve account
+  |<-- credentials, resolution, optional receipt/context ----|
+  |                             |                            |
+  |-- identity_record_signup(signup_token) ----------------->|
+  |<-- recorded --------------------------------------------|
+```
+
+Steps 1 to 3 are the agent's. Step 4 is yours. Step 5 is optional and records attribution after the fact.
+
+## What you receive
+
+The request body is empty or irrelevant. The proof is the `Authorization: Bearer` header, and the only trustworthy source of identity is the verified JWT:
+
+- `iss`, `sub`, `aud`, `jti`, `iat`, `exp`
+- `agent.id`, `agent.name`, `agent.email`, `agent.harness`
+- `human.id`, `human.name`, `human.email`, `human.verified`
+- `delegation.master_tos_version`, `delegation.accepted_rp_tos_hash`, `delegation.accepted_at`, `delegation.scopes`
+
+The full claim set is in [Assertion claims](/agent-identity/v1/assertion-claims/). Do not read identity from query parameters, a JSON body, a header such as `X-Agent-Id`, or anything else the caller controls.
+
+## What you must not trust
+
+- **An unverified JWT.** Parsing is not verification. Verify the signature against the issuer's `/.well-known/jwks.json` and never follow a `jku` or `x5u` header to another host.
+- **The caller's claim about the terms hash.** Compare the verified `delegation.accepted_rp_tos_hash` with your current `terms.sha256`.
+- **A stale assertion as consent.** The acceptance is the durable legal event. A fresh assertion that references an existing acceptance is not a new consent.
+- **A catalog in discovery.** You will not find one, and it would not be authoritative if you did.
+
+## Verify, then create or resolve
+
+After verification, key the account and make the operation idempotent:
+
+- Recommended keys are `(iss, human.id)` for human-scoped accounts and `(iss, agent.id)` for agent-scoped accounts. Namespace by `iss` when you accept more than one broker.
+- Return `resolution: "created"` when you created the account and `"resolved"` when it already existed. `"resolved"` is success.
+- Return provider credentials only on creation. They are show-once.
+- A repeated assertion for the same agent, account and service resolves; it is not a replay. `assertion_replayed` is reserved for a conflicting context.
+
+The account-key recommendation is [spec section 9.1](/agent-identity/v1/specification/#91-account-identity-keys). The response fields and credential rules are in [Receipt and context](/agent-identity/v1/receipt-and-context/).
+
+## Receipt and context
+
+On success you may return:
+
+- `resolution`, `account_id` and your provider credential (show-once);
+- a signed `signup_token` per Contract E, which the agent records with the broker;
+- a `context` object with a stable HTTPS `url` and the SHA-256 of the guide bytes.
+
+The receipt records identity facts, the accepted terms and an opaque account id. It does not record SKUs, resource endpoints or credentials. The context guide is where vendor capability lives. Implementation: [Issue a signup receipt](/providers/guides/issue-signup-receipt/) and [Publish a context guide](/providers/guides/publish-context-guide/).
+
+## Failure is part of the protocol
+
+Every rejected signup returns one of the fixed v1 codes with a JSON envelope. An agent must be able to tell "retry", "re-accept the terms", "get a new assertion" and "unsupported" apart without parsing prose. See [Stable error codes](/providers/guides/error-codes/).
+
+## Known limits
+
+- `human.verified` means the human owner's email address is verified. It is not a KYC or identity-document check.
+- The protocol has no relying-party allowlist. Any service can publish discovery and ask an agent to sign up.
+- Revocation is enforced by the broker when an assertion is minted. You do not receive a revocation feed in v1.
+- A resolved account does not return the old credential. The agent must use your documented recovery path.
+
+## Next
+
+- [Liability and ToS](/providers/concepts/liability-and-tos/): what the acceptance proves and what to retain.
+- [Verify assertions](/providers/guides/verify-assertions/): every check, with runnable code.
+- [Reference implementation](/providers/reference-vaporcloud/): the same flow on `skdl.dev`.

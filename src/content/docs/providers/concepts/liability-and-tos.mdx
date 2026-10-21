@@ -1,0 +1,79 @@
+---
+title: Liability and ToS
+description: What delegated acceptance proves, which checks the provider must enforce, and what to log for attribution.
+audience: human
+aiGenerated: true
+lastReviewed: 2026-10-21
+verifiedAgainst: "spec v1.1.0 (d3fddc9), 2026-10-21"
+---
+
+A verified human signs one master delegation agreement with the broker. Each agent acts under that delegation, and a brokered signup carries a specific acceptance of the provider's terms. The provider gets an attributable event, not an anonymous click.
+
+This page explains the model and the operational consequences. It is not legal advice, and it does not replace your own terms or counsel. The normative rules are [ToS binding](/agent-identity/v1/specification/#6-tos-binding) and [Contract E](/agent-identity/v1/specification/#11-contract-e-identity-facts--the-context-pointer).
+
+## The two agreements
+
+| Agreement | Who accepts it | What the provider sees |
+| :--- | :--- | :--- |
+| Master Agent Delegation Agreement | The human owner, once, with the broker | `delegation.master_tos_version` and optionally `delegation.master_tos_hash`. |
+| Provider terms | The agent, on the human's behalf, for an exact hash | `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash`, `delegation.accepted_at`. |
+
+The provider does not receive the master agreement text and does not need it. It receives evidence that the human is verified and that the agent was delegated the scope to accept the provider terms.
+
+## What the acceptance proves
+
+- The assertion was signed by a broker in your `issuer_allowlist`.
+- The agent is bound to a human owner whose email address is verified.
+- The delegated scopes cover your `required_scopes`, including `tos:accept`.
+- The agent accepted the exact bytes whose SHA-256 equals `delegation.accepted_rp_tos_hash`.
+- At the time the assertion was minted, the human had accepted the master agreement version in the claim.
+
+It does not prove that the human read your terms, that the service is lawful, or that the agent will behave. It is an attribution and consent record, not a guarantee.
+
+## Enforce the hash
+
+Your signup endpoint must compare the verified `delegation.accepted_rp_tos_hash` with the `terms.sha256` you currently advertise:
+
+- Equal: proceed.
+- Different: return `409` with `error: "tos_hash_mismatch"`. The agent must re-discover, re-read and re-accept. Do not accept the old hash silently.
+
+When you change the terms, publish the new text, version and hash atomically. A bounded grace period for assertions already in flight is a policy you document outside discovery; the document advertises only the current version. The recommended bound is 24 hours, but the protocol does not require a grace period.
+
+A fresh assertion that references an existing acceptance is not new consent. Do not send a second welcome or legal email because an agent called signup twice; resolve the account instead.
+
+## What to log and retain
+
+Keep enough to answer "who signed up, for whom, under which terms, when":
+
+- `jti` of the assertion, plus the account it was applied to;
+- `iss`, `agent.id`, `human.id` and the opaque `service.account_id`;
+- `tos.version`, `tos.sha256`, `delegation.accepted_at` and `signed_up_at`;
+- the receipt `jti` if you issue one;
+- the outcome: `created` or `resolved`.
+
+Do not retain:
+
+- provider credentials in logs, receipts or analytics;
+- the raw assertion beyond the verification window and your audit need;
+- the full human email in logs where an id is enough; store contact data in your account system, not in request logs;
+- the terms text in every log line. The hash and version identify it.
+
+Retention periods are your policy and may be constrained by law. The protocol does not set them.
+
+## Re-acceptance and revocation
+
+- **Terms change:** new version, new text, new hash, fresh acceptance. Never edit the text in place under the same version.
+- **Human revokes the agent:** the broker stops minting assertions for it. Your existing account remains until you act on it; revocation does not delete accounts a provider already created. Report abuse if the account is being misused.
+- **Human unverified:** `human.verified` is false, and you return `403 human_unverified`. Do not create the account.
+
+## What to tell the human
+
+Your own terms and welcome flow should say what the human is accountable for and how to reach you. The broker forwards the acceptance receipt to the human owner's verified email; your provider receipt and context guide should not duplicate the master agreement.
+
+The human-facing explanation of the master agreement lives in the portal section of this site, which ships after this page. In the meantime, the [specification](/agent-identity/v1/specification/) is the canonical description of the delegation claims.
+
+## Next
+
+- [Receipt and context](/agent-identity/v1/receipt-and-context/): the claims to return.
+- [Production checklist](/providers/guides/production-checklist/): retention, keys and incidents.
+- [Abuse reporting](/providers/guides/abuse-reporting/): what to do when attribution is not enough.
