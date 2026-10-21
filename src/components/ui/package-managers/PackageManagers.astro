@@ -1,6 +1,6 @@
 ---
 /**
- * PackageManagers — code block with a tab per package manager (npm,
+ * PackageManagers - code block with a tab per package manager (npm,
  * pnpm, yarn, bun). Selection syncs across instances via sessionStorage;
  * an inline custom element restores the saved tab before paint.
  */
@@ -18,7 +18,7 @@ const { pkg, type = "add", args, dev, comment } = Astro.props;
 const tabs = getTabs(type, pkg, { args, dev, comment });
 // Prop hash + a per-page counter (on Astro.locals) so two blocks with
 // identical props still get distinct ids. Counter order is stable within a
-// render, so incremental/warm builds match cold — unlike crypto.randomUUID().
+// render, so incremental/warm builds match cold - unlike crypto.randomUUID().
 const locals = Astro.locals as typeof Astro.locals & {
   __nbCounters?: Map<string, number>;
 };
@@ -80,7 +80,7 @@ const uid =
           aria-controls={`pm-panel-${uid}-${tab.mgr}`}
           id={`pm-tab-${uid}-${tab.mgr}`}
           data-nb-pm-tab
-          class="m-0 cursor-pointer rounded-md border-0 bg-transparent px-2 py-0.5 text-xs leading-5 font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-selected:bg-selected aria-selected:text-foreground"
+          class="m-0 cursor-pointer border-0 border-b-2 border-transparent bg-transparent px-3 py-1.5 text-sm leading-5 font-medium text-muted transition-colors duration-100 hover:text-foreground aria-selected:border-accent aria-selected:text-foreground"
         >
           {tab.mgr}
         </button>
@@ -101,18 +101,18 @@ const uid =
           aria-labelledby={`pm-tab-${uid}-${tab.mgr}`}
           hidden={i !== 0}
           data-nb-pm-panel
-          class="relative overflow-hidden rounded-lg bg-card text-inherit ring ring-border"
+          class="relative overflow-hidden bg-well text-inherit"
         >
           <div class="flex items-stretch">
-            <pre class="my-0 min-w-0 grow overflow-x-auto border-0 bg-transparent px-4 py-3 text-sm leading-relaxed whitespace-pre font-mono text-foreground"><code data-nb-pm-code>{commentPrefix && <span class="text-muted-foreground">{commentPrefix}</span>}<span class="text-success">{codeFirst}</span><span class="text-warning">{codeRest}</span></code></pre>
+            <pre class="my-0 min-w-0 grow overflow-x-auto border-0 bg-transparent px-4 py-3 text-sm leading-normal whitespace-pre font-mono text-foreground"><code data-nb-pm-code>{commentPrefix && <span class="text-faint">{commentPrefix}</span>}{codeFirst}{codeRest}</code></pre>
             <button
               type="button"
               data-nb-pm-copy
               data-nb-command={tab.cmd}
-              aria-label="Copy to clipboard"
-              class="m-0 flex shrink-0 cursor-pointer items-center justify-center border-0 border-l border-solid border-border bg-transparent px-3 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+              aria-label="copy command"
+              class="m-0 flex shrink-0 cursor-pointer items-center justify-center border-0 border-l border-solid border-line bg-transparent px-3 font-mono text-xs text-muted transition-colors duration-100 hover:text-foreground"
             >
-              Copy
+              copy
             </button>
           </div>
         </div>
@@ -120,9 +120,9 @@ const uid =
     })}
     <nb-pm-restore style="display:contents"></nb-pm-restore>
   </LayerCard>
-  <template data-nb-pm-icon-copy>Copy</template>
-  <template data-nb-pm-icon-check>Copied</template>
-  <template data-nb-pm-icon-fail>Failed</template>
+  <template data-nb-pm-icon-copy>copy</template>
+  <template data-nb-pm-icon-check>copied</template>
+  <template data-nb-pm-icon-fail>copy failed</template>
 </div>
 
 <script>

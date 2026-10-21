@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 64" width="360" height="64" role="img" aria-label="agentregistrar_">
+  <style>
+    @font-face {
+      font-family: "IBM Plex Mono";
+      src: url("/fonts/IBMPlexMono-SemiBold.ttf") format("truetype");
+      font-weight: 600;
+      font-style: normal;
+    }
+    text { font-family: "IBM Plex Mono", monospace; font-weight: 600; }
+  </style>
+  <text x="0" y="46" font-size="48" fill="#e8e8e8">agentregistrar<tspan fill="#3fb950">_</tspan></text>
+</svg>

@@ -20,7 +20,7 @@ function initToc(root: HTMLElement): () => void {
   const slugs = Array.from(links).map((l) => l.dataset.nbSlug!);
   // Observe only resolvable headings, each carrying its original index, so
   // scroll-spy stays aligned with the full-length links/segments even when a
-  // heading slugs to "" (e.g. emoji-only `## 🎉`) and has no DOM target.
+  // heading slugs to "" (e.g. emoji-only `## event`) and has no DOM target.
   const observed = slugs
     .map((slug, index) => ({ el: document.getElementById(slug), index }))
     .filter((o): o is { el: HTMLElement; index: number } => o.el !== null);
@@ -54,7 +54,7 @@ function initToc(root: HTMLElement): () => void {
 
     // Measure each command in isolation (O(1)) and accumulate, rather than
     // re-measuring the whole cumulatively-growing path with getTotalLength()
-    // on every iteration — the latter is O(n^2) and blocks the main thread on
+    // on every iteration - the latter is O(n^2) and blocks the main thread on
     // pages with hundreds of headings. Arc length is additive across
     // contiguous commands, so summing isolated sub-paths matches the total.
     // activePath doubles as the scratch measurer here; the full `d` is written
@@ -79,7 +79,7 @@ function initToc(root: HTMLElement): () => void {
         if (Math.abs(cur.x - prev.x) < 0.5) {
           connector = `L ${cur.x} ${cur.yTop} `;
         } else {
-          // Indent change → S-curve matching the static gap SVG.
+          // Indent change -> S-curve matching the static gap SVG.
           const midY = (prev.yBot + cur.yTop) / 2;
           connector = `C ${prev.x} ${midY}, ${cur.x} ${midY}, ${cur.x} ${cur.yTop} `;
         }

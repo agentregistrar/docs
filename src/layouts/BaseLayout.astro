@@ -1,6 +1,8 @@
 ---
-import "@fontsource-variable/inter";
-import "@fontsource-variable/jetbrains-mono";
+import "@fontsource/ibm-plex-mono/latin-400.css";
+import "@fontsource/ibm-plex-mono/latin-500.css";
+import "@fontsource/ibm-plex-mono/latin-600.css";
+import "@fontsource/ibm-plex-mono/latin-700.css";
 import "../styles/globals.css";
 import "../styles/prose.css";
 import { ClientRouter } from "astro:transitions";
@@ -66,6 +68,8 @@ const resolvedMarkdownUrl =
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="color-scheme" content="dark" />
     <WebMCP />
 
 
@@ -85,12 +89,12 @@ const resolvedMarkdownUrl =
     />
     <ClientRouter />
   </head>
-  <body class="min-h-screen bg-background text-foreground antialiased">
+  <body class="min-h-screen bg-background text-foreground">
     <a
       href="#main-content"
-      class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-100 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:no-underline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-100 focus:border focus:border-foreground focus:bg-foreground focus:px-3 focus:py-1 focus:text-sm focus:font-medium focus:text-background focus:no-underline"
     >
-      Skip to content
+      skip to content
     </a>
     {!isHiddenVersion && (
       <AgentDirective markdownUrl={resolvedMarkdownUrl ?? null} llmsUrl={llmsUrl} />
@@ -104,17 +108,45 @@ const resolvedMarkdownUrl =
 
       // Text-only copy button. Nimbus ships an icon version; the Terminal
       // identity forbids icon glyphs, so the starter behavior is kept with a
-      // text label. Issue 03 styles the button.
+      // text label and a header row on untitled blocks.
       mount("pre.astro-code", (pre) => {
         if (!(pre instanceof HTMLElement)) return () => {};
         if (pre.closest("[data-cg-panels-raw], [data-cg-row]")) return () => {};
 
-        const host = pre.closest<HTMLElement>(".nb-code-figure") ?? pre;
+        const figure = pre.closest<HTMLElement>(".nb-code-figure");
+        const host = figure ?? pre;
+        let bar: HTMLElement | null = null;
+        let createdAtBar = false;
+
         const button = document.createElement("button");
         button.type = "button";
         button.className = "nb-code-copy";
         button.textContent = "Copy";
         button.setAttribute("aria-label", "Copy code to clipboard");
+
+        // Titled blocks already have a header row; untitled blocks get one so
+        // every block shows its language label and the copy affordance.
+        const titled = host.querySelector<HTMLElement>(".nb-code-title");
+        if (titled) {
+          titled.appendChild(button);
+        } else if (figure) {
+          bar = document.createElement("div");
+          bar.className = "nb-code-bar";
+          const label = document.createElement("span");
+          label.className = "nb-code-bar-label";
+          const lang = figure.dataset.nbLang ?? pre.dataset.nbLang ?? "text";
+          label.textContent =
+            lang && !["text", "plaintext", "plain", "txt"].includes(lang)
+              ? lang
+              : "code";
+          bar.appendChild(label);
+          bar.appendChild(button);
+          figure.insertBefore(bar, pre);
+          createdAtBar = true;
+        } else {
+          host.style.position = "relative";
+          host.appendChild(button);
+        }
 
         let resetTimer: number | undefined;
 
@@ -138,13 +170,12 @@ const resolvedMarkdownUrl =
         };
 
         button.addEventListener("click", handleClick);
-        host.style.position = "relative";
-        host.appendChild(button);
 
         return () => {
           if (resetTimer) window.clearTimeout(resetTimer);
           button.removeEventListener("click", handleClick);
           button.remove();
+          if (createdAtBar && bar) bar.remove();
         };
       });
     </script>

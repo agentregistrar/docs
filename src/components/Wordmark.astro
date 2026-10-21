@@ -1,0 +1,19 @@
+---
+/**
+ * Wordmark - the product name, lowercase, with a trailing accent underscore.
+ *
+ * Docs use the static cursor (no blink): motion on docs is limited to
+ * color transitions. The docs lockup adds a muted `/ docs` label at the
+ * call site, not here.
+ *
+ * Recipe: docs/08-visual-identity/visual-identity.md section 2.1.
+ */
+interface Props {
+  class?: string;
+}
+const { class: className } = Astro.props;
+---
+
+<span class:list={["font-mono text-sm font-semibold text-foreground", className]}>
+  agentregistrar<span class="text-accent">_</span>
+</span>

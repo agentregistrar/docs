@@ -32,7 +32,12 @@ Authoring checks:
 pnpm check      # nimbus-docs check: environment, structure, authoring, types
 pnpm lint       # nimbus-docs lint: content rules
 pnpm typecheck  # astro check (TypeScript and .astro files)
+pnpm check:theme # Terminal theme QA gate (radius/shadow/gradient/icons/non-ASCII)
 ```
+
+The visual system, token map, component recipes, deviations and the review
+record are in [`THEME.md`](./THEME.md). Read it before adding a component or a
+color.
 
 Do not run the build and the dev server against the same `.nimbus/` cache at the
 same time.

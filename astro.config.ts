@@ -4,6 +4,7 @@ import nimbus, {
   defineConfig as defineNimbusConfig,
 } from "@cloudflare/nimbus-docs";
 import { tableScroll } from "@cloudflare/nimbus-docs/markdown";
+import { terminalShikiTheme } from "./src/styles/shiki-terminal";
 
 const nimbusConfig = defineNimbusConfig({
   site: "https://docs.agentregistrar.dev",
@@ -13,6 +14,12 @@ const nimbusConfig = defineNimbusConfig({
   locale: "en",
   github: "https://github.com/agentregistrar/docs",
   editPattern: "https://github.com/agentregistrar/docs/edit/main/{path}",
+  socialImage: "/og/docs-default.png",
+  socialImageAlt: "agentregistrar_ docs - agent identity, brokered.",
+  head: [
+    { tag: "link", attrs: { rel: "apple-touch-icon", href: "/apple-touch-icon.png" } },
+    { tag: "link", attrs: { rel: "manifest", href: "/site.webmanifest" } },
+  ],
   features: {
     sidebar: true,
     tableOfContents: true,
@@ -70,7 +77,11 @@ const nimbusConfig = defineNimbusConfig({
 export default defineConfig({
   output: "static",
   // The Terminal voice is ASCII-only; keep straight quotes in rendered text.
-  markdown: { smartypants: false },
+  // One neutral syntax theme: D8 tokens only, no rainbow highlighting.
+  markdown: {
+    smartypants: false,
+    shikiConfig: { theme: terminalShikiTheme },
+  },
   vite: {
     plugins: [tailwindcss()],
   },

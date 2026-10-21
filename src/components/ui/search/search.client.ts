@@ -49,9 +49,26 @@ export function initSearch(config: SearchConfig): SearchInstance {
   }
 
   function clearResults(): void {
-    for (const result of resultsContainer.querySelectorAll("[role='option']")) result.remove();
+    resultsContainer.replaceChildren();
     input.setAttribute("aria-expanded", "false");
     input.removeAttribute("aria-activedescendant");
+  }
+
+  /**
+   * Pagefind returns flat page hits. The listbox groups them by the first
+   * path segment (protocol, start, reference, ...) so the reader sees the
+   * docs sections; the client still drives one option list, so keyboard
+   * navigation and `aria-activedescendant` are unchanged.
+   */
+  function sectionLabel(url: string): string {
+    const path = new URL(url, window.location.origin).pathname;
+    const base = import.meta.env.BASE_URL.replace(/^\/+|\/+$/g, "");
+    const stripped =
+      base && (path === `/${base}` || path.startsWith(`/${base}/`))
+        ? path.slice(base.length + 1) || "/"
+        : path;
+    const segment = stripped.split("/").filter(Boolean)[0];
+    return segment ?? "docs";
   }
 
   function resultLink(title: string, href: string, className: string): HTMLAnchorElement {
@@ -67,23 +84,23 @@ export function initSearch(config: SearchConfig): SearchInstance {
     const option = document.createElement("div");
     option.id = `search-result-${resultIdCounter++}`;
     option.setAttribute("role", "option");
-    option.className = "rounded-lg px-2 py-2 transition-colors cursor-pointer hover:bg-accent focus-within:bg-accent data-[highlighted]:bg-accent";
+    option.className = "min-h-11 cursor-pointer border-l-2 border-transparent px-2 py-2 transition-colors duration-100 hover:bg-hover focus-within:bg-hover data-[highlighted]:bg-hover data-[highlighted]:border-accent";
 
     const link = resultLink(result.title, result.url, "block truncate text-sm font-medium text-foreground no-underline focus-visible:outline-none");
     option.appendChild(link);
 
     if (result.snippet) {
       const snippet = document.createElement("p");
-      snippet.className = "mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground";
+      snippet.className = "mt-1 line-clamp-2 text-xs leading-relaxed text-muted";
       snippet.innerHTML = result.snippet;
       option.appendChild(snippet);
     }
 
     if (result.subResults?.length) {
       const subList = document.createElement("div");
-      subList.className = "mt-2 border-l border-border pl-3";
+      subList.className = "mt-2 border-l border-line pl-3";
       for (const sub of result.subResults.slice(0, 3)) {
-        subList.appendChild(resultLink(sub.title, sub.url, "block truncate py-0.5 text-xs text-muted-foreground no-underline hover:text-foreground"));
+        subList.appendChild(resultLink(sub.title, sub.url, "block truncate py-3.5 text-xs text-muted no-underline hover:text-foreground md:py-1"));
       }
       option.appendChild(subList);
     }
@@ -104,8 +121,8 @@ export function initSearch(config: SearchConfig): SearchInstance {
       return true;
     } catch {
       emptyState.textContent = import.meta.env.DEV
-        ? "Search is available after a production build."
-        : "Search could not load. Check your connection and reload the page. If it persists, ask the site owner to rebuild and deploy the search index.";
+        ? "search is available after a production build."
+        : "search could not load. check your connection and reload the page. if it persists, ask the site owner to rebuild and deploy the search index.";
       return false;
     }
   }
@@ -116,7 +133,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
     const signal = activeController.signal;
 
     emptyState.style.display = "";
-    emptyState.textContent = "Searching...";
+    emptyState.textContent = "searching...";
     clearResults();
 
     if (!(await ensureInitialized()) || signal.aborted) return;
@@ -130,18 +147,37 @@ export function initSearch(config: SearchConfig): SearchInstance {
 
       if (results.length === 0) {
         emptyState.style.display = "";
-        emptyState.textContent = "No results found.";
+        emptyState.textContent = "no results.";
         return;
       }
 
       emptyState.style.display = "none";
       input.setAttribute("aria-expanded", "true");
-      for (const result of results) resultsContainer.appendChild(buildResult(result));
+      const groups = new Map<string, SearchResult[]>();
+      for (const result of results) {
+        const label = sectionLabel(result.url);
+        const bucket = groups.get(label);
+        if (bucket) bucket.push(result);
+        else groups.set(label, [result]);
+      }
+      for (const [label, bucket] of groups) {
+        const group = document.createElement("div");
+        group.setAttribute("role", "group");
+        group.setAttribute("aria-label", label);
+        group.className = "mb-1 last:mb-0";
+        const heading = document.createElement("p");
+        heading.className = "px-2 py-1 text-xs uppercase tracking-wider text-faint";
+        heading.setAttribute("aria-hidden", "true");
+        heading.textContent = label;
+        group.appendChild(heading);
+        for (const result of bucket) group.appendChild(buildResult(result));
+        resultsContainer.appendChild(group);
+      }
     } catch {
       if (signal.aborted) return;
       clearResults();
       emptyState.style.display = "";
-      emptyState.textContent = "Search is temporarily unavailable.";
+      emptyState.textContent = "search is temporarily unavailable.";
     }
   }
 
@@ -153,7 +189,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
         activeController?.abort();
         clearResults();
         emptyState.style.display = "";
-        emptyState.textContent = "Type to search...";
+        emptyState.textContent = "type to search.";
         return;
       }
       void runSearch(query);
@@ -192,7 +228,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
       activeIndex = -1;
       clearResults();
       emptyState.style.display = "";
-      emptyState.textContent = "Type to search...";
+      emptyState.textContent = "type to search.";
       await ensureInitialized();
     },
     destroy() {
@@ -205,7 +241,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
 }
 
 // ---------------------------------------------------------------------------
-// Bootstrap — imported for its side effects by SearchDialog.astro
+// Bootstrap - imported for its side effects by SearchDialog.astro
 // (`import "./search.client"`). Wires each dialog through mount() and binds the
 // global open shortcut once.
 // ---------------------------------------------------------------------------
@@ -219,7 +255,7 @@ function primaryDialog(): SearchDialogElement | null {
 }
 
 // The open shortcut and trigger delegation live on `document`, which survives
-// view transitions, so they are bound once for the page's lifetime — never
+// view transitions, so they are bound once for the page's lifetime - never
 // through mount()'s per-element setup/teardown. A module-scoped boolean (not an
 // <html> attribute) is the guard: ClientRouter resets <html> on every swap but
 // keeps document listeners, so an attribute guard would stack a duplicate

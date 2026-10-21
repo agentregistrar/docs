@@ -1,0 +1,35 @@
+---
+/**
+ * LinkCard - link-styled card with title, optional description, and an ASCII
+ * trailing arrow. 1px line, no shadow/radius/gradient; hover strengthens the
+ * border and lifts the title to accent.
+ *
+ *   <LinkCard title="Get started" description="5-min intro" href="/start" />
+ *   <LinkCard title="Title only" href="/x" />
+ */
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"a"> {
+  title: string;
+  description?: string;
+  href: string;
+}
+
+const { title, description, href, class: className, ...attrs } = Astro.props;
+---
+
+<a
+  href={href}
+  class={cn(
+    "group my-4 flex items-start justify-between gap-3 border border-line bg-surface p-4 text-inherit no-underline transition-colors duration-100 hover:border-line-strong",
+    className,
+  )}
+  {...attrs}
+>
+  <div class="min-w-0">
+    <h3 class="m-0 text-md font-medium leading-snug text-foreground transition-colors duration-100 group-hover:text-accent">{title}</h3>
+    {description && <p class="mt-1 text-base leading-normal text-muted">{description}</p>}
+  </div>
+  <span aria-hidden="true" class="shrink-0 text-sm text-faint transition-colors duration-100 group-hover:text-accent">-&gt;</span>
+</a>

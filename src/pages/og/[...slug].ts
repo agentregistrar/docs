@@ -11,7 +11,10 @@ export const { getStaticPaths, GET } = await OGImageRoute({
   pages: await getOgImagePages(),
   getImageOptions: (_path, page) => ({
     title: page.title,
-    description: page.description ?? "",
+    // Keep the docs host in the card; page descriptions are optional.
+    description: page.description
+      ? `${page.description} | docs.agentregistrar.dev`
+      : "docs.agentregistrar.dev",
     ...ogCardConfig,
   }),
 });

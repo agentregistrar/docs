@@ -1,15 +1,10 @@
 ---
 /**
- * MobileTOC — compact "jump to section" menu for narrow viewports.
+ * MobileTOC - compact "on this page" menu for narrow viewports.
  *
- * The desktop `TOC` rail only renders at `xl+` (right column). Below that
- * there's no on-this-page nav, so this native `<select>` fills the gap: it
- * sits under the page title, tracks the active heading via scroll-spy, and
- * jumps to a section on change.
- *
- * A native `<select>` whose options are the page headings, indented by depth.
- * The native caret is kept, and the client mirrors the active heading back
- * into the select value.
+ * A native <select> whose options are the page headings, indented by depth.
+ * The client mirrors the active heading back into the select value, so the
+ * Nimbus scroll-spy behavior is unchanged; only the visuals are themed.
  */
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
@@ -26,25 +21,23 @@ const hasHeadings = headings.length > 0;
 
 {
   hasHeadings && (
-    <nav
-      data-nb-mobile-toc
-      aria-label="On this page"
-      class={cn("relative", className)}
-      {...attrs}
-    >
+    <nav data-nb-mobile-toc aria-label="On this page" class={cn("relative", className)} {...attrs}>
+      <label class="mb-1 block text-xs uppercase tracking-wider text-faint" for="mobile-toc-select">
+        on this page
+      </label>
       <select
+        id="mobile-toc-select"
         data-nb-mobile-toc-select
         aria-label="Jump to section"
-        class="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:border-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        class="min-h-11 w-full border border-line-strong bg-well px-2 py-2 text-sm text-foreground transition-colors duration-100 focus-visible:border-accent focus-visible:outline-none"
       >
-        <option value="_top">Overview</option>
+        <option value="_top">top</option>
         {headings.filter((heading) => heading.slug).map((heading) => (
           <option value={heading.slug}>
             {`${"\t".repeat(Math.max(0, heading.depth - 2))}${heading.text}`}
           </option>
         ))}
       </select>
-
     </nav>
   )
 }

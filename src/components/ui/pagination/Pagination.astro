@@ -1,4 +1,8 @@
 ---
+/**
+ * Pagination - text-only previous/next row above a 1px rule.
+ * ASCII arrows, no cards, no buttons.
+ */
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 import type { PrevNext } from "@cloudflare/nimbus-docs/types";
@@ -15,21 +19,17 @@ const nextHref = next ? withBase(next.href, import.meta.env.BASE_URL) : undefine
 ---
 
 {(prev || next) && (
-  <nav aria-label="Pagination" class={cn("flex items-center justify-between mt-12 pt-6 border-t border-border", className)} {...attrs}>
+  <nav aria-label="Pagination" class={cn("mt-12 flex items-start justify-between gap-4 border-t border-line pt-4", className)} {...attrs}>
     {prev ? (
-      <a href={prevHref} class="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <span>
-          <span class="block text-xs text-muted-foreground">Previous</span>
-          <span class="font-medium text-foreground">{prev.label}</span>
-        </span>
+      <a href={prevHref} class="group flex min-h-11 flex-col gap-1 text-sm text-muted no-underline transition-colors duration-100 hover:text-foreground">
+        <span class="text-xs text-faint">&lt;- previous</span>
+        <span class="font-medium text-foreground">{prev.label}</span>
       </a>
     ) : <span />}
     {next ? (
-      <a href={nextHref} class="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors text-right">
-        <span>
-          <span class="block text-xs text-muted-foreground">Next</span>
-          <span class="font-medium text-foreground">{next.label}</span>
-        </span>
+      <a href={nextHref} class="group flex min-h-11 flex-col items-end gap-1 text-right text-sm text-muted no-underline transition-colors duration-100 hover:text-foreground">
+        <span class="text-xs text-faint">next -&gt;</span>
+        <span class="font-medium text-foreground">{next.label}</span>
       </a>
     ) : <span />}
   </nav>

@@ -1,5 +1,6 @@
 ---
 import SearchTrigger from "./ui/search/SearchTrigger.astro";
+import Wordmark from "./Wordmark.astro";
 import { config } from "virtual:nimbus/config";
 import { stripBase, withBase } from "@cloudflare/nimbus-docs/runtime";
 
@@ -10,7 +11,7 @@ interface Props {
   entryId?: string;
   /**
    * Whether the page has a sidebar to open. When `false`, the mobile
-   * menu button is hidden. Default `true`.
+   * sections disclosure is hidden. Default `true`.
    */
   showSidebar?: boolean;
 }
@@ -23,12 +24,13 @@ const homeHref = withBase("/", import.meta.env.BASE_URL);
 const resolveSectionHref = (href: string): string =>
   withBase(href, import.meta.env.BASE_URL);
 
+// Lowercase chrome labels; the docs tree itself is unchanged.
 const primaryNav = [
-  { label: "Docs", href: "/" },
-  { label: "Providers", href: "/providers/" },
-  { label: "Agents", href: "/agents/" },
-  { label: "Protocol", href: "/protocol/" },
-  { label: "Reference", href: "/reference/" },
+  { label: "start", href: "/start/" },
+  { label: "providers", href: "/providers/" },
+  { label: "agents", href: "/agents/" },
+  { label: "protocol", href: "/protocol/" },
+  { label: "reference", href: "/reference/" },
 ];
 
 const isActive = (href: string): boolean => {
@@ -38,27 +40,26 @@ const isActive = (href: string): boolean => {
 };
 ---
 
-<header class="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur-lg">
-  <div class="mx-auto flex items-center justify-between gap-3 h-14 px-4 lg:px-6">
-    <div class="flex items-center gap-3 min-w-0">
+<header class="sticky top-0 z-30 border-b border-line bg-background">
+  <div class="mx-auto flex h-12 w-full max-w-(--width-docs) items-center justify-between gap-3 px-4 lg:px-6">
+    <div class="flex min-w-0 items-center gap-3">
       <slot name="brand">
-        <a href={homeHref} class="group shrink-0 no-underline">
-          <span class="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
-            {config.title}
-          </span>
+        <a href={homeHref} class="inline-flex min-h-11 shrink-0 items-center no-underline" aria-label="Agent Registrar docs home">
+          <Wordmark />
+          <span class="ml-2 text-sm text-faint" aria-hidden="true">/ docs</span>
         </a>
       </slot>
 
-      <nav aria-label="Primary" class="hidden lg:flex items-center gap-1 ml-4 pl-4 border-l border-border h-6">
+      <nav aria-label="Primary" class="ml-2 hidden items-center gap-4 border-l border-line pl-4 lg:flex">
         {primaryNav.map((item) => (
           <a
             href={resolveSectionHref(item.href)}
             aria-current={isActive(item.href) ? "page" : undefined}
             class:list={[
-              "px-2 py-1 rounded-md text-[0.8125rem] font-medium no-underline transition-colors whitespace-nowrap",
+              "inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap text-sm no-underline transition-colors duration-100",
               isActive(item.href)
-                ? "text-foreground bg-accent"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent/60",
+                ? "text-foreground"
+                : "text-muted hover:text-foreground",
             ]}
           >
             {item.label}
@@ -67,7 +68,7 @@ const isActive = (href: string): boolean => {
       </nav>
     </div>
 
-    <div class="flex items-center gap-2 shrink-0">
+    <div class="flex shrink-0 items-center gap-1">
       <slot name="actions" />
       {config.search !== false && <SearchTrigger />}
       {config.github && (
@@ -75,14 +76,14 @@ const isActive = (href: string): boolean => {
           href={config.github}
           target="_blank"
           rel="noopener"
-          class="hidden sm:inline-flex px-2 py-1.5 text-[0.8125rem] font-medium text-muted-foreground no-underline transition-colors hover:text-foreground"
+          class="hidden min-h-11 items-center px-2 text-sm text-muted no-underline transition-colors duration-100 hover:text-foreground sm:inline-flex"
         >
-          GitHub
+          github
         </a>
       )}
       <a
         href="https://agentregistrar.dev"
-        class="hidden md:inline-flex px-2 py-1.5 text-[0.8125rem] font-medium text-muted-foreground no-underline transition-colors hover:text-foreground"
+        class="hidden min-h-11 items-center px-2 text-sm text-muted no-underline transition-colors duration-100 hover:text-foreground md:inline-flex"
       >
         agentregistrar.dev
       </a>
@@ -90,10 +91,10 @@ const isActive = (href: string): boolean => {
         <button
           type="button"
           data-menu-btn
-          aria-label="Open navigation"
-          class="md:hidden rounded-md border border-border px-2 py-1.5 text-[0.8125rem] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          aria-label="open sections"
+          class="flex min-h-11 items-center border border-line px-2 text-sm text-muted transition-colors duration-100 hover:border-line-strong hover:text-foreground lg:hidden"
         >
-          Menu
+          sections
         </button>
       )}
     </div>
