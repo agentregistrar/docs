@@ -4,11 +4,14 @@ description: "The normative definition of the agent-identity-v1 discovery docume
 audience: both
 source: "spec:v1.1.0#agent-identity-v1.md"
 specTag: "v1.1.0"
+sourceRef: "main"
+sourceNote: "Tag v1.1.0 is the protocol release; this commit is the docs-only refresh on main that corrects the package version and npm-published wording."
 generated: true
 lastReviewed: 2026-10-18
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md) at `v1.1.0`.
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/agent-identity-v1.md) at commit `d3fddc9178403778e5dc234df99fc12e0cc32d87` on `main` (protocol release `v1.1.0`).
+> Source note: Tag v1.1.0 is the protocol release; this commit is the docs-only refresh on main that corrects the package version and npm-published wording.
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Agent Identity Relying Party Discovery v1 (`agent-signup.json`)
@@ -55,16 +58,16 @@ MCP OAuth discovery (RFC 9728), the Broker MCP API, and the Broker signup-receip
 the conformance validator (`src/validate-discovery.ts`, `validatorVersion` `1.0.0`), the
 VaporCloud reference implementation, and this documentation were confirmed to agree. Release notes,
 including the release evidence and the change process, are in
-[`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/release-notes-v1.0.0.md). The published adoption surface is the
-implementation registry in [`registry/README.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/README.md) (machine-readable:
-[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/implementations.json)).
+[`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/release-notes-v1.0.0.md). The published adoption surface is the
+implementation registry in [`registry/README.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/registry/README.md) (machine-readable:
+[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/registry/implementations.json)).
 
 **Release record (`v1.1.0`).** `v1.1.0` was recorded on **2026-10-18** as a **text-only, additive**
 revision: it changes no schema/Zod/JSON-Schema, no validator, and no wire-protocol behaviour — it adds
 the optional `resolution` success field and clarifies replay vs resolve, acceptance lifetime,
 account identity keys, and credential handoff & recovery. Release notes, including the
 conformance-validator evidence and the change process, are in
-[`release-notes-v1.1.0.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/release-notes-v1.1.0.md). `v1.0.0` implementors remain conformant.
+[`release-notes-v1.1.0.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/release-notes-v1.1.0.md). `v1.0.0` implementors remain conformant.
 
 ### 1.3 Version identity
 
@@ -74,7 +77,7 @@ conformance-validator evidence and the change process, are in
   the `protocol` value; breaking changes require a new `protocol` value and a new discovery path (§13).
   Additive v1 changes are recorded in the changelog above and must pass the
   [`scope-boundaries.md`](https://docs.agentregistrar.dev/agent-identity/v1/scope-boundaries/) review checklist; the process is written down in
-  [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/release-notes-v1.0.0.md) §3.
+  [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/release-notes-v1.0.0.md) §3.
 - This repository is the **canonical location** of this specification (until a rendered copy exists in
   the documentation site). The optional `spec` field points at a versioned copy and **stays OPTIONAL**;
   implementations may omit it, and the placeholder `https://<canonical-spec-host>/…` is illustrative

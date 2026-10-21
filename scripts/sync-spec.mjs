@@ -1,22 +1,32 @@
 #!/usr/bin/env node
 /**
- * Sync the pinned `agentregistrar/spec` tag into the docs content tree.
+ * Sync the pinned `agentregistrar/spec` revision into the docs content tree.
  *
- * The spec repository is canonical. This script downloads the tag tarball,
- * resolves the tag's peeled commit through the GitHub API, verifies every
- * source file against `spec.lock.json`, and writes the generated pages.
+ * The spec repository is canonical. This script downloads a tag or commit
+ * tarball, verifies the commit through the GitHub API, verifies every source
+ * file against `spec.lock.json`, and writes the generated pages.
  *
  * Commands:
  *
- *   pnpm sync:spec                 # same as `node scripts/sync-spec.mjs --write`
+ *   pnpm sync:spec                 # re-sync the lock's pin and write
  *   pnpm sync:spec:check           # offline drift check (runs before the build)
  *   node scripts/sync-spec.mjs --tag v1.2.0
  *                                  # preview a tag in memory; writes nothing
  *   node scripts/sync-spec.mjs --write --tag v1.2.0
  *                                  # sync and update the lock to the new tag
+ *   node scripts/sync-spec.mjs --commit <sha> [--ref main] [--tag v1.1.0]
+ *                                  # preview an immutable commit pin
+ *   node scripts/sync-spec.mjs --write --commit <sha> --ref main
+ *                                  # pin the lock to that commit
+ *
+ * A tag pin is the normal release pin. A commit pin is for a docs-only refresh
+ * on a branch that is not published as its own tag: the lock keeps the protocol
+ * release identity in `tag`, records `ref`, `commit` and a `note`, and every
+ * generated page names the exact source commit. The archive is fetched by
+ * commit SHA in that mode, so a moving branch cannot change the bytes.
  *
  * `--check` never uses the network. It verifies the committed output hashes in
- * `spec.lock.json` against the generated files on disk. The tag, commit and
+ * `spec.lock.json` against the generated files on disk. The tag/commit and
  * source hashes are verified by the explicit sync (`--write`), not by the build.
  *
  * Allowed transforms, and nothing else:
@@ -124,8 +134,15 @@ function writeLock(lock) {
 }
 
 function parseArgs(argv) {
-  // `auto` means: check when no tag is given, preview when `--tag` is given.
-  const options = { mode: "auto", tag: null, write: false };
+  // `auto` means: check when no pin is given, preview when one is given.
+  const options = {
+    mode: "auto",
+    tag: null,
+    commit: null,
+    ref: null,
+    note: null,
+    write: false,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--check") options.mode = "check";
@@ -139,17 +156,41 @@ function parseArgs(argv) {
       }
       options.tag = tag;
       i += 1;
+    } else if (arg === "--commit") {
+      const commit = argv[i + 1];
+      if (!commit || commit.startsWith("--")) {
+        throw new Error("--commit needs a full 40-character commit SHA");
+      }
+      options.commit = commit;
+      i += 1;
+    } else if (arg === "--ref") {
+      const ref = argv[i + 1];
+      if (!ref || ref.startsWith("--")) {
+        throw new Error("--ref needs a value, for example --ref main");
+      }
+      options.ref = ref;
+      i += 1;
+    } else if (arg === "--note") {
+      const note = argv[i + 1];
+      if (!note || note.startsWith("--")) {
+        throw new Error("--note needs a value");
+      }
+      options.note = note;
+      i += 1;
     } else if (arg === "--help" || arg === "-h") {
       options.mode = "help";
     } else {
       throw new Error(`Unknown argument: ${arg}`);
     }
   }
+  if (options.commit && !/^[0-9a-f]{40}$/i.test(options.commit)) {
+    throw new Error("--commit needs a full 40-character commit SHA");
+  }
   return options;
 }
 
 function usage() {
-  console.log(`Sync the pinned agentregistrar/spec tag into the docs tree.
+  console.log(`Sync the pinned agentregistrar/spec revision into the docs tree.
 
   node scripts/sync-spec.mjs                 offline check (default)
   node scripts/sync-spec.mjs --check         offline check
@@ -157,6 +198,9 @@ function usage() {
   node scripts/sync-spec.mjs --tag <tag>     preview a tag; writes nothing
   node scripts/sync-spec.mjs --write --tag <tag>
                                              sync and update the lock to <tag>
+  node scripts/sync-spec.mjs --commit <sha>  preview a commit pin
+  node scripts/sync-spec.mjs --write --commit <sha> [--ref <ref>] [--tag <tag>]
+                                             pin the lock to that commit
 `);
 }
 
@@ -195,8 +239,11 @@ async function resolveTagCommit(tag) {
   return object.sha;
 }
 
-async function fetchTarball(tag) {
-  const url = `https://codeload.github.com/${SPEC_REPO}/tar.gz/refs/tags/${encodeURIComponent(tag)}`;
+async function fetchTarball(pin) {
+  const url =
+    pin.kind === "commit"
+      ? `https://codeload.github.com/${SPEC_REPO}/tar.gz/${pin.commit}`
+      : `https://codeload.github.com/${SPEC_REPO}/tar.gz/refs/tags/${encodeURIComponent(pin.tag)}`;
   const response = await fetch(url, {
     headers: { "User-Agent": USER_AGENT },
   });
@@ -204,6 +251,23 @@ async function fetchTarball(tag) {
     throw new Error(`Tarball download failed: ${response.status} for ${url}`);
   }
   return Buffer.from(await response.arrayBuffer());
+}
+
+/**
+ * Verify a commit pin through the GitHub API. A tag pin is resolved from the
+ * tag ref; a commit pin is immutable, so the API must echo the same SHA.
+ */
+async function resolveCommit(pin) {
+  if (pin.kind === "commit") {
+    const commit = await getJson(`${API_ROOT}/commits/${pin.commit}`);
+    if (commit?.sha !== pin.commit) {
+      throw new Error(
+        `Commit ${pin.commit} resolved to ${commit?.sha ?? "nothing"}`,
+      );
+    }
+    return pin.commit;
+  }
+  return resolveTagCommit(pin.tag);
 }
 
 function readString(buffer, offset, length) {
@@ -285,13 +349,13 @@ function archiveRoot(files) {
   return root;
 }
 
-function readSources(files, tag) {
+function readSources(files, label) {
   const root = archiveRoot(files);
   const sources = new Map();
   for (const path of SOURCE_FILES) {
     const bytes = files.get(`${root}/${path}`);
     if (!bytes) {
-      throw new Error(`Tag ${tag} is missing ${path}`);
+      throw new Error(`${label} is missing ${path}`);
     }
     sources.set(path, bytes);
   }
@@ -309,8 +373,12 @@ function docsUrl(path, anchor) {
   return `${DOCS_ORIGIN}${path}${anchor ? `#${anchor}` : ""}`;
 }
 
-function githubUrl(tag, path, anchor, kind = "blob") {
-  return `${SPEC_ORIGIN}/${kind}/${tag}/${path}${anchor ? `#${anchor}` : ""}`;
+/**
+ * Immutable GitHub URL for a spec file. Links point at the pinned commit, not a
+ * tag name, so the rendered page and the source bytes always agree.
+ */
+function githubUrl(commit, path, anchor, kind = "blob") {
+  return `${SPEC_ORIGIN}/${kind}/${commit}/${path}${anchor ? `#${anchor}` : ""}`;
 }
 
 /**
@@ -318,7 +386,7 @@ function githubUrl(tag, path, anchor, kind = "blob") {
  * and pure anchors are left alone. Everything else is resolved against the
  * source file's directory and mapped to a docs page or a GitHub tag URL.
  */
-function rewriteDestination(destination, sourcePath, tag) {
+function rewriteDestination(destination, sourcePath, commit) {
   if (
     !destination ||
     destination.startsWith("#") ||
@@ -350,10 +418,10 @@ function rewriteDestination(destination, sourcePath, tag) {
   const isDirectory =
     pathPart.endsWith("/") ||
     !posix.basename(clean).includes(".");
-  return githubUrl(tag, clean, anchor, isDirectory ? "tree" : "blob");
+  return githubUrl(commit, clean, anchor, isDirectory ? "tree" : "blob");
 }
 
-function transformLinks(text, sourcePath, tag) {
+function transformLinks(text, sourcePath, commit) {
   const lines = text.split("\n");
   const output = [];
   let fence = null;
@@ -374,7 +442,7 @@ function transformLinks(text, sourcePath, tag) {
       line.replace(
         /\]\(([^)\s]+)([^)]*)\)/g,
         (_match, destination, suffix) =>
-          `](${rewriteDestination(destination, sourcePath, tag)}${suffix})`,
+          `](${rewriteDestination(destination, sourcePath, commit)}${suffix})`,
       ),
     );
   }
@@ -421,14 +489,16 @@ function releaseDate(sources, tag) {
   return new Date().toISOString().slice(0, 10);
 }
 
-function frontmatter(page, tag, lastReviewed, extra = {}) {
+function frontmatter(page, pin, lastReviewed, extra = {}) {
   const fields = [
     "---",
     `title: ${JSON.stringify(page.title)}`,
     `description: ${JSON.stringify(page.description)}`,
     "audience: both",
     `source: ${JSON.stringify(page.source)}`,
-    `specTag: ${JSON.stringify(tag)}`,
+    `specTag: ${JSON.stringify(pin.tag)}`,
+    ...(pin.ref ? [`sourceRef: ${JSON.stringify(pin.ref)}`] : []),
+    ...(pin.note ? [`sourceNote: ${JSON.stringify(pin.note)}`] : []),
     "generated: true",
     `lastReviewed: ${lastReviewed}`,
     ...Object.entries(extra).map(([key, value]) => `${key}: ${value}`),
@@ -439,64 +509,75 @@ function frontmatter(page, tag, lastReviewed, extra = {}) {
   return fields.join("\n");
 }
 
-function banner(tag, sourceUrl) {
+function banner(pin, sourceUrl) {
+  const location =
+    pin.kind === "commit"
+      ? `commit \`${pin.commit}\`${pin.ref ? ` on \`${pin.ref}\`` : ""}`
+      : `\`${pin.tag}\``;
+  const identity =
+    pin.kind === "commit" ? `protocol release \`${pin.tag}\`` : `tag \`${pin.tag}\``;
   return [
-    `> Generated from [\`agentregistrar/spec\`](${sourceUrl}) at \`${tag}\`.`,
+    `> Generated from [\`agentregistrar/spec\`](${sourceUrl}) at ${location} (${identity}).`,
+    ...(pin.note ? [`> Source note: ${pin.note}`] : []),
     "> Do not edit this page; edit the spec and re-run `pnpm sync:spec`.",
     "",
     "",
   ].join("\n");
 }
 
-function buildPage(page, sources, tag, lastReviewed) {
+function buildPage(page, sources, pin, lastReviewed) {
   const sourceBytes = sources.get(page.source);
-  const body = transformLinks(sourceBytes.toString("utf8"), page.source, tag);
-  const sourceUrl = githubUrl(tag, page.source, "");
+  const body = transformLinks(
+    sourceBytes.toString("utf8"),
+    page.source,
+    pin.commit,
+  );
+  const sourceUrl = githubUrl(pin.commit, page.source, "");
   const pageForFrontmatter = {
     ...page,
-    source: `spec:${tag}#${page.source}`,
+    source: `spec:${pin.tag}#${page.source}`,
   };
   return [
-    frontmatter(pageForFrontmatter, tag, lastReviewed),
-    banner(tag, sourceUrl),
+    frontmatter(pageForFrontmatter, pin, lastReviewed),
+    banner(pin, sourceUrl),
     body,
   ].join("");
 }
 
-function buildChangelog(sources, tag, lastReviewed) {
+function buildChangelog(sources, pin, lastReviewed) {
   const body = CHANGELOG.sources
     .map((source) => {
       const text = sources.get(source).toString("utf8");
-      return demoteHeadings(transformLinks(text, source, tag)).trimEnd();
+      return demoteHeadings(transformLinks(text, source, pin.commit)).trimEnd();
     })
     .join("\n\n");
 
   const page = {
     ...CHANGELOG,
-    source: `spec:${tag}#release-notes`,
+    source: `spec:${pin.tag}#release-notes`,
   };
-  const sourceUrl = `${SPEC_ORIGIN}/tree/${tag}`;
+  const sourceUrl = `${SPEC_ORIGIN}/tree/${pin.commit}`;
   return [
-    frontmatter(page, tag, lastReviewed, {
+    frontmatter(page, pin, lastReviewed, {
       // The two canonical release notes share section titles. The combined
       // changelog keeps their text verbatim, so the duplicate-anchor rule is
       // disabled for this generated page only.
       nimbusDisableRules: '["nimbus/duplicate-heading-text"]',
     }),
-    banner(tag, sourceUrl),
+    banner(pin, sourceUrl),
     `${body}\n`,
   ].join("");
 }
 
-function buildOutputs(sources, tag) {
-  const lastReviewed = releaseDate(sources, tag);
+function buildOutputs(sources, pin) {
+  const lastReviewed = releaseDate(sources, pin.tag);
   const outputs = PAGES.map((page) => ({
     path: page.output,
-    content: buildPage(page, sources, tag, lastReviewed),
+    content: buildPage(page, sources, pin, lastReviewed),
   }));
   outputs.push({
     path: CHANGELOG.output,
-    content: buildChangelog(sources, tag, lastReviewed),
+    content: buildChangelog(sources, pin, lastReviewed),
   });
   outputs.push({
     path: SCHEMA_OUTPUT,
@@ -522,13 +603,16 @@ function verifySchema(schemaText) {
   }
 }
 
-function assertLockMatches(lock, tag, commit, hashes) {
+function assertLockMatches(lock, pin, hashes) {
   const problems = [];
-  if (lock.tag !== tag) {
-    problems.push(`tag: lock ${lock.tag} != fetched ${tag}`);
+  if (lock.tag !== pin.tag) {
+    problems.push(`tag: lock ${lock.tag} != fetched ${pin.tag}`);
   }
-  if (lock.commit !== commit) {
-    problems.push(`commit: lock ${lock.commit} != fetched ${commit}`);
+  if (lock.commit !== pin.commit) {
+    problems.push(`commit: lock ${lock.commit} != fetched ${pin.commit}`);
+  }
+  if (pin.ref && lock.ref !== pin.ref) {
+    problems.push(`ref: lock ${lock.ref ?? "(none)"} != fetched ${pin.ref}`);
   }
   if (lock.source !== SPEC_ORIGIN) {
     problems.push(`source: lock ${lock.source} != ${SPEC_ORIGIN}`);
@@ -551,8 +635,8 @@ function assertLockMatches(lock, tag, commit, hashes) {
   }
   if (problems.length > 0) {
     throw new Error(
-      `The fetched tag does not match spec.lock.json:\n  ${problems.join("\n  ")}\n` +
-        "If the tag moved, investigate before changing the lock. A new tag needs `--write --tag <tag>`.",
+      `The fetched revision does not match spec.lock.json:\n  ${problems.join("\n  ")}\n` +
+        "If the source changed, investigate before changing the lock. A new tag needs `--write --tag <tag>`; a commit pin needs `--write --commit <sha>`.",
     );
   }
 }
@@ -600,52 +684,77 @@ function checkOutputs(lock) {
   verifySchema(readFileSync(schemaPath, "utf8"));
 }
 
-function printSummary(tag, commit, outputs, generatedAt) {
-  console.log(`spec sync: ${tag} @ ${commit}`);
+function printSummary(pin, outputs, generatedAt) {
+  const pinLabel =
+    pin.kind === "commit"
+      ? `${pin.ref ?? "commit"}:${pin.commit}`
+      : pin.commit;
+  console.log(`spec sync: ${pin.tag} @ ${pinLabel}`);
   console.log(`  source: ${SPEC_ORIGIN}`);
+  if (pin.note) console.log(`  note: ${pin.note}`);
   console.log(`  generated_at: ${generatedAt}`);
   for (const output of outputs) {
     console.log(`  ${output.path}  ${output.sha256}`);
   }
 }
 
-async function sync({ tag, write }) {
+async function sync(inputPin, write) {
   const lock = existsSync(LOCK_PATH) ? readLock() : null;
-  const previousTag = lock?.tag ?? null;
+  const previousPin = lock ? `${lock.tag}@${lock.commit}` : null;
 
-  console.log(`Fetching ${SPEC_REPO} at ${tag} ...`);
+  if (inputPin.kind === "commit" && !inputPin.tag) {
+    throw new Error(
+      "A commit pin needs a protocol tag for the lock. Pass `--tag <tag>` or keep a lock with `tag`.",
+    );
+  }
+
+  const label =
+    inputPin.kind === "commit"
+      ? `commit ${inputPin.commit}`
+      : `tag ${inputPin.tag}`;
+  console.log(`Fetching ${SPEC_REPO} at ${label} ...`);
   const [commit, tarball] = await Promise.all([
-    resolveTagCommit(tag),
-    fetchTarball(tag),
+    resolveCommit(inputPin),
+    fetchTarball(inputPin),
   ]);
+  const pin = { ...inputPin, commit };
   const files = extractTarGz(tarball);
-  const sources = readSources(files, tag);
+  const sources = readSources(files, label);
   const hashes = sourceHashes(sources);
 
   verifySchema(sources.get("agent-signup.schema.json").toString("utf8"));
 
-  if (lock && tag === lock.tag) {
-    assertLockMatches(lock, tag, commit, hashes);
+  const samePin = lock
+    ? pin.kind === "commit"
+      ? lock.commit === pin.commit
+      : lock.tag === pin.tag && !lock.ref
+    : false;
+  if (samePin) {
+    assertLockMatches(lock, pin, hashes);
   }
 
-  const outputs = buildOutputs(sources, tag);
+  const outputs = buildOutputs(sources, pin);
   const generatedAt = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 
   if (!write) {
     console.log(
-      `Preview only: ${tag} @ ${commit}. Nothing was written and the lock was not changed.`,
+      `Preview only: ${pin.tag} @ ${commit}. Nothing was written and the lock was not changed.`,
     );
-    printSummary(tag, commit, outputs, generatedAt);
-    if (previousTag && previousTag !== tag) {
-      console.log(`  lock tag would change: ${previousTag} -> ${tag}`);
+    printSummary(pin, outputs, generatedAt);
+    if (previousPin && previousPin !== `${pin.tag}@${commit}`) {
+      console.log(
+        `  lock pin would change: ${previousPin} -> ${pin.tag}@${commit}`,
+      );
     }
     return;
   }
 
   writeOutputs(outputs);
   const nextLock = {
-    tag,
+    tag: pin.tag,
+    ...(pin.ref ? { ref: pin.ref } : {}),
     commit,
+    ...(pin.note ? { note: pin.note } : {}),
     source: SPEC_ORIGIN,
     generated_at: generatedAt,
     files: hashes,
@@ -653,11 +762,37 @@ async function sync({ tag, write }) {
   };
   writeLock(nextLock);
 
-  if (previousTag && previousTag !== tag) {
-    console.log(`Lock tag changed: ${previousTag} -> ${tag}`);
+  if (previousPin && previousPin !== `${pin.tag}@${commit}`) {
+    console.log(`Lock pin changed: ${previousPin} -> ${pin.tag}@${commit}`);
   }
-  printSummary(tag, commit, outputs, generatedAt);
+  printSummary(pin, outputs, generatedAt);
   console.log("Wrote generated pages and spec.lock.json.");
+}
+
+function pinFromOptions(options, lock) {
+  if (options.commit) {
+    return {
+      kind: "commit",
+      commit: options.commit,
+      tag: options.tag ?? lock?.tag ?? null,
+      ref: options.ref ?? lock?.ref ?? null,
+      note: options.note ?? lock?.note ?? null,
+    };
+  }
+  if (options.tag) return { kind: "tag", tag: options.tag };
+  if (lock?.ref) {
+    return {
+      kind: "commit",
+      commit: lock.commit,
+      tag: lock.tag,
+      ref: lock.ref,
+      note: lock.note ?? null,
+    };
+  }
+  if (lock?.tag) return { kind: "tag", tag: lock.tag };
+  throw new Error(
+    "No tag or commit and spec.lock.json is missing. Use `--write --tag <tag>` or `--write --commit <sha> --tag <tag>`.",
+  );
 }
 
 async function main() {
@@ -669,36 +804,32 @@ async function main() {
   }
 
   if (options.mode === "check") {
-    if (options.tag) {
+    if (options.tag || options.commit || options.ref || options.note) {
       throw new Error(
-        "--check uses the committed lock and cannot preview another tag. Use --tag <tag> without --check.",
+        "--check uses the committed lock and cannot preview another revision. Omit --check to preview.",
       );
     }
     const lock = readLock();
     checkOutputs(lock);
+    const pinLabel = lock.ref ?? "tag";
     console.log(
-      `spec sync check: ok (${lock.tag} @ ${lock.commit}, ${lock.outputs.length} generated files)`,
+      `spec sync check: ok (${lock.tag} @ ${pinLabel}:${lock.commit}, ${lock.outputs.length} generated files)`,
     );
     return;
   }
 
-  if (options.mode === "auto" && !options.tag) {
+  if (options.mode === "auto" && !options.tag && !options.commit) {
     const lock = readLock();
     checkOutputs(lock);
+    const pinLabel = lock.ref ?? "tag";
     console.log(
-      `spec sync check: ok (${lock.tag} @ ${lock.commit}, ${lock.outputs.length} generated files)`,
+      `spec sync check: ok (${lock.tag} @ ${pinLabel}:${lock.commit}, ${lock.outputs.length} generated files)`,
     );
     return;
   }
 
   const lock = existsSync(LOCK_PATH) ? readLock() : null;
-  const tag = options.tag ?? lock?.tag;
-  if (!tag) {
-    throw new Error(
-      "No tag given and spec.lock.json has no tag. Use --write --tag <tag>.",
-    );
-  }
-  await sync({ tag, write: options.write });
+  await sync(pinFromOptions(options, lock), options.write);
 }
 
 main().catch((error) => {

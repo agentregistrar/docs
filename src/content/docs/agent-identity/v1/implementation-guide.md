@@ -4,11 +4,14 @@ description: "A relying-party checklist for publishing discovery, verifying asse
 audience: both
 source: "spec:v1.1.0#implementing-agent-identity-v1.md"
 specTag: "v1.1.0"
+sourceRef: "main"
+sourceNote: "Tag v1.1.0 is the protocol release; this commit is the docs-only refresh on main that corrects the package version and npm-published wording."
 generated: true
 lastReviewed: 2026-10-18
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/v1.1.0/implementing-agent-identity-v1.md) at `v1.1.0`.
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/implementing-agent-identity-v1.md) at commit `d3fddc9178403778e5dc234df99fc12e0cc32d87` on `main` (protocol release `v1.1.0`).
+> Source note: Tag v1.1.0 is the protocol release; this commit is the docs-only refresh on main that corrects the package version and npm-published wording.
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Implementing `agent-identity-v1` (Relying Party Guide)
@@ -205,10 +208,10 @@ Exit codes: `0` valid, `1` invalid document, `2` could not fetch. The validator 
 capability fields at any depth (including under `extensions`) and recomputes the ToS hash. A
 validator-passing document is the objective entry criterion for the implementation registry.
 
-The validator is the source-first package `@agentregistrar/discovery` (`1.0.0`, **Apache-2.0**);
-**npm publishing is pending** (the `@agentregistrar` scope is reservation-only), so run it from a
+The validator is the source-first package `@agentregistrar/discovery` (`1.1.0`, **Apache-2.0**);
+it is published to npm (`latest` `1.1.0`), so you can install it or run it from a
 clone of this specification repository or through a pinned git dependency
-(`github:agentregistrar/spec#v1.0.0`). There is no `bin` entry — always invoke it with
+(`github:agentregistrar/spec#v1.1.0`). There is no `bin` entry — always invoke it with
 `pnpm validate:discovery`.
 
 Optionally, non-destructively probe your issuers/endpoint:
@@ -225,10 +228,12 @@ Probes never `POST`; they only check that the issuer publishes a usable JWKS and
 
 ## 8. Adoption / registry conventions
 
-The specification is released as **`v1.0.0` (2026-10-17)** — see
-[`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/release-notes-v1.0.0.md) — and the adoption surface is published in
-[`registry/README.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/README.md) with the machine-readable registry in
-[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/implementations.json).
+The specification is released as **`v1.1.0` (2026-10-18)** — see
+[`release-notes-v1.1.0.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/release-notes-v1.1.0.md); the initial **`v1.0.0`** release
+(2026-10-17) is recorded in [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/release-notes-v1.0.0.md). The adoption
+surface is published in
+[`registry/README.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/registry/README.md) with the machine-readable registry in
+[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/registry/implementations.json).
 
 - The implementation registry lists only implementations whose discovery document passes the
   validator. Entry criteria: the validator passes, you publish a stable discovery URL, your
@@ -239,7 +244,7 @@ The specification is released as **`v1.0.0` (2026-10-17)** — see
 - Record your `discovery_url` and read `audience` / `protocol` from the validator's `--json` output
   (`validator.md` §9).
 - To submit an entry, open a pull request against `registry/implementations.json` with your
-  validator evidence; see [`registry/README.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/README.md) §4. The conformance
+  validator evidence; see [`registry/README.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/registry/README.md) §4. The conformance
   badge snippet and its usage terms are in §5 of the same document.
 
 ---

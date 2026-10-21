@@ -1,8 +1,10 @@
 {
   "tag": "v1.1.0",
-  "commit": "70484aa08bf36bb2d18a95a5c07f00a0a09fcce8",
+  "ref": "main",
+  "commit": "d3fddc9178403778e5dc234df99fc12e0cc32d87",
+  "note": "Tag v1.1.0 is the protocol release; this commit is the docs-only refresh on main that corrects the package version and npm-published wording.",
   "source": "https://github.com/agentregistrar/spec",
-  "generated_at": "2026-10-21T17:26:47Z",
+  "generated_at": "2026-10-21T17:56:57Z",
   "files": [
     {
       "path": "agent-identity-v1.md",
@@ -14,11 +16,11 @@
     },
     {
       "path": "implementing-agent-identity-v1.md",
-      "sha256": "sha256:12c2951ef01a9a6f4885c14383bf5a337154570989d23214f38cec3bb59b68bf"
+      "sha256": "sha256:6268ca5499e6e8d4451fa5bbf62ab7cae607ea1bf48758d131da4ef931179366"
     },
     {
       "path": "validator.md",
-      "sha256": "sha256:f6e6ce54d1ce0b1bff933a5ab06fb8efa1a6fb062b02064ad6b3656e5f0cca0e"
+      "sha256": "sha256:b68a3f3ba5c5e70fc6f43b25ebb9396a22e9c1c1a789d1e6d0437f697537724f"
     },
     {
       "path": "release-notes-v1.0.0.md",
@@ -36,23 +38,23 @@
   "outputs": [
     {
       "path": "src/content/docs/agent-identity/v1/specification.md",
-      "sha256": "sha256:940f071f905b36f462b8efe2b04543b40ce3431b14b68a8d952a7d4262c8ead1"
+      "sha256": "sha256:c2bdab20389976f387c586e3f43e3d82e8abe036e034aa98ea6c1710fee91802"
     },
     {
       "path": "src/content/docs/agent-identity/v1/scope-boundaries.md",
-      "sha256": "sha256:f9c74cc1d6d88f7e7f138523dee2dcf12b68f1b5f5895f8f1cabec18a5842804"
+      "sha256": "sha256:d0dd3894be62a2cf02f59fb6b41fac259516a3231efc56c754c185e02bc1a877"
     },
     {
       "path": "src/content/docs/agent-identity/v1/implementation-guide.md",
-      "sha256": "sha256:1ca864b5ebd5f76b6c1a22cf45be10471116133973abba7c08596f1db0fb0015"
+      "sha256": "sha256:716ad0ecdba3223ebf44a738437aafb10e9149694361469e9396988b53a1806c"
     },
     {
       "path": "src/content/docs/agent-identity/v1/validator.md",
-      "sha256": "sha256:7ce3cd433fd4edc66b10f0aaee7bbc6a4ba0630c3bc911243a857a49902d96ae"
+      "sha256": "sha256:341b6a124d73fd99ee4364dc253e4f79b6145090cfceb6ba4e6ef30d2306c21b"
     },
     {
       "path": "src/content/docs/agent-identity/v1/changelog.md",
-      "sha256": "sha256:bad868681e64e46fa26f4d5e424f91f23b7f9999b53a50c4fad2ad611b17bca7"
+      "sha256": "sha256:f92e1cde77ef69ef07764919a06ec8e27a3786517c43f4ffe77b388edad541c8"
     },
     {
       "path": "public/agent-identity/v1/agent-signup.schema.json",

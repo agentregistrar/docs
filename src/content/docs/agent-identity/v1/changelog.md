@@ -4,12 +4,15 @@ description: "Release notes for agent-identity-v1 v1.1.0 and v1.0.0, newest firs
 audience: both
 source: "spec:v1.1.0#release-notes"
 specTag: "v1.1.0"
+sourceRef: "main"
+sourceNote: "Tag v1.1.0 is the protocol release; this commit is the docs-only refresh on main that corrects the package version and npm-published wording."
 generated: true
 lastReviewed: 2026-10-18
 nimbusDisableRules: ["nimbus/duplicate-heading-text"]
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/tree/v1.1.0) at `v1.1.0`.
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/tree/d3fddc9178403778e5dc234df99fc12e0cc32d87) at commit `d3fddc9178403778e5dc234df99fc12e0cc32d87` on `main` (protocol release `v1.1.0`).
+> Source note: Tag v1.1.0 is the protocol release; this commit is the docs-only refresh on main that corrects the package version and npm-published wording.
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 ## Release Notes — `agent-identity-v1` `v1.1.0`
@@ -18,7 +21,7 @@ nimbusDisableRules: ["nimbus/duplicate-heading-text"]
 - **Specification version:** `v1.1.0`
 - **Release date:** 2026-10-18
 - **Normative specification:** [`agent-identity-v1.md`](https://docs.agentregistrar.dev/agent-identity/v1/specification/)
-- **Change process:** [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/release-notes-v1.0.0.md) §3
+- **Change process:** [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/release-notes-v1.0.0.md) §3
 
 `v1.1.0` is an **additive, text-only** revision of the `agent-identity-v1` discovery contract. It adds
 clarifications that were implicit in `v1.0.0`, plus one **optional** success-response field. It removes
@@ -69,7 +72,7 @@ its version tag:
 
 ### 3. Change process
 
-Unchanged from [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/release-notes-v1.0.0.md) §3. `v1.1.0` was reviewed against
+Unchanged from [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/release-notes-v1.0.0.md) §3. `v1.1.0` was reviewed against
 the [scope-boundaries.md](https://docs.agentregistrar.dev/agent-identity/v1/scope-boundaries/) checklist: every change is identity-, delegation-,
 ToS-, traceability-, or handoff-related; none advertises a catalog, SKU, pricing, resource endpoint,
 credential, or vendor API usage; all changes are additive within v1. A breaking change **MUST** still
@@ -108,8 +111,8 @@ Other valid fixtures are also unchanged: `valid-minimal.json` and `valid-localho
 `valid: true`, exit code `0`, `{ passed: 16, failed: 0, warnings: 0, probes: 0 }`.
 
 The **`v1.0.0` release evidence remains as history** (see
-[`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/release-notes-v1.0.0.md) §4 and
-[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/implementations.json)); the runs above are the `v1.1.0`
+[`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/release-notes-v1.0.0.md) §4 and
+[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/registry/implementations.json)); the runs above are the `v1.1.0`
 counterparts. No live **production** origin was validated for this revision.
 
 ### 5. Release record
@@ -118,7 +121,7 @@ Per the repository `AGENTS.md`, the source-first package `@agentregistrar/discov
 specification version — `package.json` `version` bumped `1.0.2` → `1.1.0` — and published to npm using
 **trusted publishing (OIDC)** by dispatching `publish.yml` from `main`. No npm token is involved.
 
-- Workflow: [`.github/workflows/publish.yml`](https://github.com/agentregistrar/spec/blob/v1.1.0/.github/workflows/publish.yml) (`workflow_dispatch`) on
+- Workflow: [`.github/workflows/publish.yml`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/.github/workflows/publish.yml) (`workflow_dispatch`) on
   repository `agentregistrar/spec`, environment `npm-publish`, `id-token: write`.
 - Publish run: [`39168886677`](https://github.com/agentregistrar/spec/actions/runs/39168886677) —
   `Publish package` on `main`, conclusion **success**.
@@ -145,9 +148,9 @@ version tracks the specification version.
 - Scope rulebook: [`scope-boundaries.md`](https://docs.agentregistrar.dev/agent-identity/v1/scope-boundaries/)
 - Implementation guide: [`implementing-agent-identity-v1.md`](https://docs.agentregistrar.dev/agent-identity/v1/implementation-guide/)
 - Validator guide: [`validator.md`](https://docs.agentregistrar.dev/agent-identity/v1/validator/)
-- Registry: [`registry/README.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/README.md),
-  [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/implementations.json)
-- Previous release: [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/release-notes-v1.0.0.md)
+- Registry: [`registry/README.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/registry/README.md),
+  [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/registry/implementations.json)
+- Previous release: [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/release-notes-v1.0.0.md)
 
 ## Release Notes — `agent-identity-v1` `v1.0.0`
 
@@ -175,8 +178,8 @@ The release is recorded once the following artifacts agree on the same identity-
 | JSON Schema | [`agent-signup.schema.json`](https://docs.agentregistrar.dev/agent-identity/v1/agent-signup.schema.json) | Checked-in schema; the validator reports any divergence from Zod. |
 | Conformance validator | `src/validate-discovery.ts` (`pnpm validate:discovery …`) | Objective conformance check; `validatorVersion` `1.0.0`. |
 | Reference implementation | VaporCloud (reference Relying Party, maintained in the private repository) | Identity-only discovery document + post-signup `context` handoff. |
-| Implementation registry | [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/implementations.json) and [`registry/README.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/README.md) | Adoption surface and conformance badge. |
-| Public package | [`package.json`](https://github.com/agentregistrar/spec/blob/v1.1.0/package.json) — `@agentregistrar/discovery` `1.0.0` | Self-contained, source-first distribution of the canonical schema (`src/schema.ts`) and the validator CLI (`src/validate-discovery.ts`); **Apache-2.0**. npm publishing is **pending** (scope reservation only); consume it via this repository or `github:agentregistrar/spec#v1.0.0` (no `bin` entry). |
+| Implementation registry | [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/registry/implementations.json) and [`registry/README.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/registry/README.md) | Adoption surface and conformance badge. |
+| Public package | [`package.json`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/package.json) — `@agentregistrar/discovery` `1.0.0` | Self-contained, source-first distribution of the canonical schema (`src/schema.ts`) and the validator CLI (`src/validate-discovery.ts`); **Apache-2.0**. npm publishing is **pending** (scope reservation only); consume it via this repository or `github:agentregistrar/spec#v1.0.0` (no `bin` entry). |
 
 #### Protocol surface at v1.0.0 (summary)
 
@@ -245,7 +248,7 @@ pnpm validate:discovery fixtures/valid-full.json --json
 ```
 
 The same commands and results are recorded per entry in
-[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/implementations.json). No live **production** origin has
+[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/registry/implementations.json). No live **production** origin has
 been validated; the registry records a local reference-implementation run only, and live validation of
 a hosted implementation is an operational step performed by that implementer.
 
@@ -261,7 +264,7 @@ a hosted implementation is an operational step performed by that implementer.
 
 ### 6. Related artifacts
 
-- Adoption surface: [`registry/README.md`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/README.md) and
-  [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/v1.1.0/registry/implementations.json).
+- Adoption surface: [`registry/README.md`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/registry/README.md) and
+  [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/registry/implementations.json).
 - New-RP guide: [`implementing-agent-identity-v1.md`](https://docs.agentregistrar.dev/agent-identity/v1/implementation-guide/).
 - Validator guide: [`validator.md`](https://docs.agentregistrar.dev/agent-identity/v1/validator/).

@@ -34,7 +34,11 @@ pnpm check      # nimbus-docs check: environment, structure, authoring, types
 pnpm lint       # nimbus-docs lint: content rules
 pnpm typecheck  # astro check (TypeScript and .astro files)
 pnpm check:theme # Terminal theme QA gate (radius/shadow/gradient/icons/non-ASCII)
+pnpm check:links # postbuild gate: internal links and anchors in dist/
 ```
+
+`pnpm build` also runs `postbuild`, so a dead internal link in a hand-authored
+or generated page fails the build.
 
 The site rules for coding agents - provenance, lint, spec sync, verification,
 what not to change - are in [`AGENT.md`](./AGENT.md). Read it before editing a
@@ -82,7 +86,7 @@ Current pages:
   conformance and versioning
 - `/agent-identity/v1/specification/`, `/scope-boundaries/`,
   `/implementation-guide/`, `/validator/`, `/changelog/` - generated from the
-  pinned spec tag; never edit these by hand
+  pinned spec revision; never edit these by hand
 - `/agent-identity/v1/agent-signup.schema.json` - the JSON Schema served at its
   canonical `$id`
 - `/404.html` - not-found page
@@ -103,7 +107,8 @@ protocol pages.
 - Use the Nimbus components registered in `src/components.ts` (`Aside`, `Card`,
   `CardGrid`, `Steps`, `Tabs`, and the rest) rather than new one-off widgets.
 - Rendered text is ASCII, sentence case and free of icons. The site is dark-only
-  and has no theme toggle.
+  and has no theme toggle. Generated protocol pages are the documented exception:
+  they preserve canonical spec punctuation (see `AGENT.md` section 12).
 - The contribution guide (`CONTRIBUTING.md`) is not published yet. Until then,
   use the page templates and voice rules in [`AGENT.md`](./AGENT.md) sections 6
   and 7.
@@ -140,18 +145,24 @@ Content types and cache policy for these paths are in `public/_headers`.
 
 ## Spec sync
 
-The normative protocol pages are generated from a pinned tag of
-`agentregistrar/spec`. `spec.lock.json` records the tag, the peeled commit, the
-source file hashes, the generated output hashes and `generated_at`.
+The normative protocol pages are generated from a pinned revision of
+`agentregistrar/spec`. The normal pin is a release tag; a docs-only refresh that
+landed after the tag can be pinned by commit instead, so the rendered pages and
+the source bytes agree. `spec.lock.json` records the protocol `tag`, the `ref`
+and `commit` of a commit pin, an optional `note`, the source file hashes, the
+generated output hashes and `generated_at`.
 
 ```bash
-pnpm sync:spec          # fetch the pinned tag, verify it, write pages and lock
+pnpm sync:spec          # fetch the lock's pin, verify it, write pages and lock
 pnpm sync:spec:check    # offline drift check; runs before pnpm build
+node scripts/sync-spec.mjs --tag v1.2.0          # preview a tag, writes nothing
+node scripts/sync-spec.mjs --commit <sha> --ref main  # preview a commit pin
 ```
 
-`pnpm build` runs `prebuild`, which runs the offline check. A hand edit to a
+`pnpm build` runs `prebuild`, which runs the offline check, and `postbuild`,
+which checks every internal link and anchor in `dist/`. A hand edit to a
 generated page fails the build. The explicit sync is the only step that uses the
-network; it verifies the tag's commit and every source hash before writing.
+network; it verifies the pinned commit and every source hash before writing.
 
 Generated files:
 
@@ -166,7 +177,9 @@ Allowed transforms are frontmatter, relative-to-absolute link rewriting, and the
 generated banner. Nothing else. To bump the spec version, edit `tag` in
 `spec.lock.json`, run `pnpm sync:spec`, review the normative diff, update the
 hand-authored pages and cross-links, and commit the lock with the generated
-pages. The full runbook is in [`AGENT.md`](./AGENT.md) section 11.
+pages. For a commit pin, run
+`node scripts/sync-spec.mjs --write --commit <sha> --ref main --tag <tag>`.
+The full runbook is in [`AGENT.md`](./AGENT.md) section 11.
 
 ## Deployment
 

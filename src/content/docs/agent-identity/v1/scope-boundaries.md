@@ -4,11 +4,14 @@ description: "What the identity protocol owns, what the vendor owns, and the che
 audience: both
 source: "spec:v1.1.0#scope-boundaries.md"
 specTag: "v1.1.0"
+sourceRef: "main"
+sourceNote: "Tag v1.1.0 is the protocol release; this commit is the docs-only refresh on main that corrects the package version and npm-published wording."
 generated: true
 lastReviewed: 2026-10-18
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/v1.1.0/scope-boundaries.md) at `v1.1.0`.
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/d3fddc9178403778e5dc234df99fc12e0cc32d87/scope-boundaries.md) at commit `d3fddc9178403778e5dc234df99fc12e0cc32d87` on `main` (protocol release `v1.1.0`).
+> Source note: Tag v1.1.0 is the protocol release; this commit is the docs-only refresh on main that corrects the package version and npm-published wording.
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Identity vs Vendor Scope Boundaries

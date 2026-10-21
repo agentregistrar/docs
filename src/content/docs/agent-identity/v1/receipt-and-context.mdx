@@ -3,7 +3,7 @@ title: Receipt and context
 description: The Contract E signup receipt, the optional resolution field, the context pointer and credential handoff.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.1.0 (70484aa), broker c7ddfa7, 2026-10-21"
+verifiedAgainst: "spec v1.1.0 (d3fddc9), broker c7ddfa7, 2026-10-21"
 ---
 
 A successful signup can return two identity artifacts: a signed signup receipt (Contract E) and an optional `context` pointer to the vendor's post-signup guide. The receipt is proof of who signed up, for whom, under which ToS and when. The context pointer is an opaque, hash-pinned handoff to vendor documentation; it is not a capability catalog.
@@ -42,7 +42,7 @@ On success the relying party returns `200` or `201` with:
 | `tos.url` | string | The accepted relying party ToS URL. |
 | `tos.sha256` | string | The accepted relying party ToS hash. |
 | `tos.master_tos_version` | string, optional | The Master Terms of Service version the human accepted. |
-| `signed_up_at` | string | The signup timestamp. |
+| `signed_up_at` | integer (Unix seconds) | The signup timestamp. |
 
 The vendor resource claims `service.instance_sku` and `service.endpoint_url` are removed. No free-form vendor `metadata` object exists in v1.
 
@@ -98,7 +98,7 @@ Provider credentials are shown once, at the signup handoff. The protocol draws a
 ## Known limits
 
 - The receipt records identity and attribution only. It is not a resource inventory and must not be extended into one.
-- The broker does not verify the guide's contents. It verifies the pointer's domain and the hash, not the vendor's instructions.
+- The broker does not verify the guide's contents. It validates the pointer's form (`sha256:` plus 64 lowercase hex characters) and its domain, does not dereference the guide, and does not recompute the hash. The agent must fetch the guide and verify the digest before acting on it.
 - A receipt that omits `service.provider_url` cannot prove the context domain, so the broker rejects the pointer rather than skipping the check.
 - Credential recovery depends on the vendor publishing a recovery path. The protocol cannot recover a credential the agent failed to persist.
 

@@ -3,7 +3,7 @@ title: Discovery fields
 description: The agent-signup.json document field by field, with types, rules and the normative section for each.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.1.0 (70484aa), schema sha256:3711ccad8b4c98ba16f8f16259df1375ef34d4bba4ffa582892d99edadf2c2d1, validator 1.0.0, 2026-10-21"
+verifiedAgainst: "spec v1.1.0 (d3fddc9), schema sha256:3711ccad8b4c98ba16f8f16259df1375ef34d4bba4ffa582892d99edadf2c2d1, validator 1.0.0, 2026-10-21"
 ---
 
 A relying party publishes one identity-only document at `GET /.well-known/agent-signup.json`. This page is a lookup table for that document. The normative rules are in [the specification](/agent-identity/v1/specification/#5-discovery-document-reference-identity-only); this page does not replace them.
@@ -31,7 +31,7 @@ The machine-readable schema is served at [`/agent-identity/v1/agent-signup.schem
 | :--- | :--- | :--- | :--- |
 | `spec` | string | Absolute URL of the versioned specification. Optional; implementers may omit it. | [5.2](/agent-identity/v1/specification/#52-optional-fields) |
 | `provider_url` | string | Canonical service URL. If present, it must share the signup endpoint's registrable domain. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [11](/agent-identity/v1/specification/#11-contract-e-identity-facts--the-context-pointer) |
-| `contact` | string | Security, abuse or legal contact: an email address or an absolute http(s) URL. | [5.2](/agent-identity/v1/specification/#52-optional-fields) |
+| `contact` | string | Security, abuse or legal contact: an email address or an HTTPS URL. The localhost development exception (`http://localhost`, `http://127.0.0.1`) is the only `http` form allowed. | [5.2](/agent-identity/v1/specification/#52-optional-fields) |
 | `updated_at` | string | ISO 8601 timestamp for humans and debugging. Not a freshness signal for the ToS. | [5.2](/agent-identity/v1/specification/#52-optional-fields) |
 | `extensions` | object | Non-capability vendor metadata keyed by reverse-DNS namespace, for example `dev.example`. It must not advertise provisioning, catalogs, SKUs or resource endpoints. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [5.3](/agent-identity/v1/specification/#53-forbidden-fields-vendor-capability-surface) |
 
