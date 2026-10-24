@@ -3,7 +3,7 @@ title: How it works
 description: The end-to-end brokered signup handshake, the claims a provider verifies and what revocation changes.
 audience: both
 aiGenerated: true
-verifiedAgainst: "live broker agentregistrar.dev, VaporCloud skdl.dev, spec v1.1.0, 2026-10-21"
+verifiedAgainst: "spec v1.2.0 (35659ce), broker 5e57ecf, 2026-10-24"
 sidebar:
   order: 3
 ---
@@ -21,12 +21,12 @@ Diagram legend, eight events: 1 human consent, 2 connect, 3 register, 4 discover
 The five steps below are the same flow at a coarser grain than the diagram's eight events.
 
 1. **Register.** The harness connects to the broker's MCP endpoint at `https://agentregistrar.dev/mcp` and completes OAuth in the browser. `identity_register` returns the agent sub-identity: id, inbox address and delegated scopes.
-2. **Discover.** The agent fetches the provider's `/.well-known/agent-signup.json`, checks the protocol value, the issuer allowlist and the required scopes, then recomputes the SHA-256 of `terms.text` and compares it with `terms.sha256`.
-3. **Prove.** `identity_prove` records a delegated acceptance for the human owner and mints the assertion. The call is side-effecting: it writes a durable consent row and sends the ToS Acceptance Ledger email to the agent inbox plus a forward to the human.
-4. **Sign up.** The agent posts `assertion.jwt` as `Authorization: Bearer <assertion>` to the single endpoint `endpoints.agent_signup`. The provider verifies the assertion, creates or resolves the account, and returns a receipt and usually a context pointer.
-5. **Record.** `identity_record_signup` verifies the signed `signup_token` and stores the proof against the human's ledger. The result carries a handoff reminder: store any provider credential now, and never re-run signup to recover one.
+2. **Discover.** The agent calls `identity_signup` with the service and the exact accepted terms text. The broker fetches `/.well-known/agent-signup.json`, checks the protocol value, the issuer allowlist and the required scopes, recomputes the SHA-256 of `terms.text`, verifies any optional provider verification credential against the RP broker's JWKS, and applies the human's `allow`/`warn`/`require`/`block` policy.
+3. **Prove.** `identity_signup` records a delegated acceptance for the human owner and mints the assertion. The call is side-effecting: it writes a durable consent row and sends the ToS Acceptance Ledger email to the agent inbox plus a forward to the human. `identity_prove` is the advanced equivalent when you need the raw claims or an explicit discovery source.
+4. **Sign up.** The agent posts `assertion.jwt` as `Authorization: Bearer <assertion>` to the single endpoint `endpoints.agent_signup`. The provider verifies the assertion, creates or resolves the account, and returns an RP-signed receipt and usually a context pointer.
+5. **Record.** `identity_record_signup` verifies the RP-signed `signup_token` against the exact historical attestation and stores the proof against the human's ledger. The result carries a handoff reminder: store any provider credential now, and never re-run signup to recover one.
 
-The diagram is not normative. The contract is [section 3](https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md#3-roles--end-to-end-flow) and [section 7](https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md#7-assertion--agent_signup-handshake) of the specification.
+The diagram is not normative. The contract is [section 3](https://github.com/agentregistrar/spec/blob/v1.2.0/agent-identity-v1.md#3-roles--end-to-end-flow) and [section 7](https://github.com/agentregistrar/spec/blob/v1.2.0/agent-identity-v1.md#7-assertion--agent_signup-handshake) of the specification.
 
 ## What the provider sees
 
@@ -58,9 +58,9 @@ The broker's inbox is part of the handshake, not an add-on.
 
 ## Revocation and retries
 
-**Revocation.** The kill switch suspends the agent identity. New `identity_prove` calls fail with `agent_revoked`, and the identity and inbox tools reject the agent at the gate. `identity_record_signup` still accepts a receipt the provider already issued. An assertion already minted and handed to a provider stays valid until it expires, at most five minutes, because the provider verifies it offline. Revocation does not delete a provider account, revoke a provider credential, or undo an accepted ToS.
+**Revocation and suspension.** The kill switch sets the agent to `revoked`; an operator protective action after a verified abuse report sets `suspended`. New `identity_signup`/`identity_prove` calls fail with `agent_revoked` (a suspension uses the same code with a suspension message), and the identity and inbox tools reject the agent at the gate. `identity_record_signup` still accepts a receipt the provider already issued. An assertion already minted and handed to a provider stays valid until it expires, at most five minutes, because the provider verifies it offline. Neither state deletes a provider account, revokes a provider credential, or undoes an accepted ToS.
 
-**Retries.** Identical `identity_prove` calls while the assertion is unexpired return the same JWT, with `reuse.reused: true`, and create no new acceptance and no new ledger mail. After expiry a fresh assertion references the same acceptance and the original consent time. On the provider side, a repeated signup for the same account resolves idempotently and reports `resolution: "resolved"`, which is a success.
+**Retries.** Identical `identity_signup`/`identity_prove` calls while the assertion is unexpired return the same JWT, with `reuse.reused: true`, and create no new acceptance and no new ledger mail; every gate and policy still re-run. After expiry a fresh assertion references the same acceptance and the original consent time. On the provider side, a repeated signup for the same account resolves idempotently and reports `resolution: "resolved"`, which is a success.
 
 ## Next
 

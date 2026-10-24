@@ -1,10 +1,10 @@
 ---
 title: Production checklist
-description: A readiness checklist for HTTPS, terms lifecycle, keys, replay, logging, abuse and incident response.
+description: A v1.2 readiness checklist for HTTPS, terms lifecycle, keys and attestation, RP-signed receipts, authenticated abuse, logging, verification and incident response.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-21
-verifiedAgainst: "spec v1.1.0 (d3fddc9), validator 1.0.0, 2026-10-21"
+lastReviewed: 2026-10-24
+verifiedAgainst: "spec v1.2.0 (35659ce), validator 1.2.0, 2026-10-24"
 ---
 
 Use this before you take live traffic and again after any change to keys, terms or account handling. It is a checklist, not a second specification; each item links to the rule or the guide.
@@ -43,6 +43,29 @@ Use this before you take live traffic and again after any change to keys, terms 
 - [ ] `delegation.accepted_rp_tos_hash` equals the current terms hash.
 - [ ] A repeated `jti` in the same context resolves; a conflicting one is `assertion_replayed`.
 
+## Keys, attestation and rotation
+
+- [ ] You know that the receipt is signed by **your** RP key, named by
+      `service.key_id` and present in the exact attestation. The broker does not
+      sign v1.2 receipts.
+- [ ] The RP private key is in a secret store, never in the repository, logs or
+      a build artifact. It has an owner, a rotation date and a compromise
+      procedure.
+- [ ] The attestation is renewed on a 12-hour target against a 24-hour expiry
+      with 60-second skew. Serve the cached attestation until `exp`; omit it
+      after expiry (the provider becomes unverified, not invalid).
+- [ ] The exact attestation that contained the receipt key is retained for every
+      receipt, and Contract F receives that exact JWS. Never substitute the
+      current attestation.
+- [ ] Key rotation uses the 30-day overlap; revocation removes the key from new
+      attestations while old receipts remain verifiable through the snapshot.
+- [ ] `/.well-known/agent-broker.json` metadata and the signed
+      `attestation_status_uri` are implemented if you operate a broker; caching
+      is at most 1 hour for metadata and 5 minutes for status.
+- [ ] If you claim verification in the registry, the entry records `broker`,
+      `level`, `attestation_jti`, `checked_at`, and `status:"active"` from a live
+      check. The badge is a snapshot; only `active` gets it.
+
 ## Accounts, replay and credentials
 
 - [ ] Account keys follow `(iss, human.id)` or `(iss, agent.id)` and are namespaced by issuer.
@@ -52,13 +75,25 @@ Use this before you take live traffic and again after any change to keys, terms 
 - [ ] A credential recovery path exists in the context guide.
 - [ ] Rate limits protect signup and return `429 rate_limited` with an honest delay.
 
-## Keys and rotation
+## Receipts and Contract F
 
-- [ ] You know which key the broker uses to verify your `signup_token`, and it is in a secret store.
-- [ ] Receipt signing keys have an owner, a rotation date and a compromise procedure.
-- [ ] JWKS caching refreshes on an unknown `kid` and has a timeout.
-- [ ] A key compromise plan exists: rotate, invalidate, notify the broker and the registry contact.
-- [ ] No private key, token or provider credential appears in the repository or a build artifact.
+- [ ] The receipt header is `alg: EdDSA`, `typ: agent-signup-receipt+jwt`, and
+      `kid` equals `service.key_id`.
+- [ ] The payload has no `exp`; `iat` and `signed_up_at` fall inside the named
+      attestation's `[iat, exp]` window.
+- [ ] `iss` equals `service.origin` and the attestation `rp.origin`; `aud` is
+      the broker issuer.
+- [ ] `service.attestation_jti` names the exact attestation that contained the
+      key; `service.audience` equals the attestation `rp.audience`.
+- [ ] Contract F sends `{signup_token, rp_attestation}` with both fields; Tier 2
+      is the fallback. A missing exact attestation returns
+      `attestation_unavailable`; a transient outage is retryable
+      `rp_broker_unavailable`.
+- [ ] A duplicate `jti` with the same body dedupes; a different body is
+      `signup_conflict`. A different account for the same soft key is flagged,
+      not overwritten.
+- [ ] A self-report is only used for an RP that issued no receipt and is
+      visibly weaker (`agent_self_reported`).
 
 ## Logging and retention
 
@@ -68,29 +103,37 @@ Use this before you take live traffic and again after any change to keys, terms 
 - [ ] Retention is documented and follows your legal obligations.
 - [ ] A request id or trace id links the agent request to the account event.
 
-## Receipt and context
+## Context and abuse
 
-- [ ] The receipt is identity-only, with an opaque `service.account_id`.
 - [ ] `context.url` stays on the signup endpoint's registrable domain.
 - [ ] `context.sha256` matches the bytes served and is updated in the same deploy as the guide.
 - [ ] The guide contains no credentials and no protocol fields.
 - [ ] The broker is never asked to fetch the guide.
+- [ ] Abuse reporting uses `{rp_attestation, report}` with a five-minute JWS and
+      a current attestation. The legacy `{agent_id, reporter_service, reason}`
+      body is gone.
+- [ ] You understand that a verified, receipt-linked report may apply a
+      protective suspension pending review; an unverified report opens a case
+      and does not suspend.
+- [ ] A human report about a provider uses the portal path, not D.2.
 
 ## Abuse, support and incidents
 
 - [ ] `contact` in discovery is monitored and reaches a human.
-- [ ] The [abuse reporting](/providers/guides/abuse-reporting/) path is tested with a synthetic agent id and documented.
-- [ ] Support knows the difference between a protocol error and a vendor API error.
-- [ ] An incident plan covers: disable signup, rotate keys, invalidate credentials, contact the broker, update the registry.
+- [ ] The [abuse reporting](/providers/guides/abuse-reporting/) path is tested with a synthetic signed report and the exact current attestation.
+- [ ] Support knows the difference between a protocol error, a broker error and a vendor API error.
+- [ ] An incident plan covers: disable signup, rotate keys or revoke the attestation, invalidate credentials, contact the broker, update the registry.
 - [ ] The provider does not retaliate automatically against an agent; revocation and account action are separate decisions.
-- [ ] Known limits are stated to customers: `human.verified` is email verification, revocation does not delete your account, and the protocol does not prevent abuse.
+- [ ] Known limits are stated to customers: `human.verified` is email verification, verification is identity not safety, revocation does not delete your account, and the protocol does not prevent abuse.
 
 ## Test plan
 
 - [ ] A staging discovery URL exists and is not in the registry.
 - [ ] Synthetic assertions cover every row in [Verify assertions](/providers/guides/verify-assertions/).
+- [ ] The optional credential is tested absent, valid `domain`, valid `entity`, expired, invalid, untrusted, and unavailable.
 - [ ] A create and a resolve are both exercised, including the no-credential rule.
-- [ ] The validator runs against staging before release.
+- [ ] The validator runs against staging before release, once without and once with `--require-attestation`.
+- [ ] Contract F is exercised with the exact historical attestation and with a renewed current attestation (must not substitute).
 - [ ] A terms change is rehearsed end to end, including `tos_hash_mismatch`.
 - [ ] A guide change is rehearsed, including the hash update.
 

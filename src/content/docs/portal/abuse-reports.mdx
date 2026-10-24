@@ -1,114 +1,143 @@
 ---
 title: Abuse reports
-description: How a provider reports abuse, what the human receives and what the broker does and does not do.
+description: How an authenticated provider report becomes a case, when it can apply a protective suspension, what the human receives, and how a human reports a provider.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-21
-verifiedAgainst: "broker c7ddfa7, 2026-10-21"
+lastReviewed: 2026-10-24
+verifiedAgainst: "spec v1.2.0 (35659ce), broker 5e57ecf, 2026-10-24"
 sidebar:
   order: 8
 ---
 
-A relying party can report an agent through the broker's abuse endpoint. The report is a notification and revocation path, not a dispute process. This page describes what the broker actually does with a report and what the human should do next.
+A relying party can report an agent through the broker's authenticated abuse
+endpoint. The report is an attributable case path, not a dispute process and not
+an immediate revocation. This page describes what the broker actually does with a
+report and what the human should do next.
 
 ## How a provider reports abuse
 
-The provider sends a JSON request to `POST /api/broker/report-abuse` on the broker origin:
+The provider sends a v1.2 Contract D.2 request to
+`POST /api/broker/report-abuse`:
 
 ```json
 {
-  "agent_id": "agt_...",
-  "reporter_service": "provider.example",
-  "reason": "what the agent did",
-  "evidence_jti": "jti_..."
+  "rp_attestation": "<the provider's current broker-issued attestation>",
+  "report": "<compact agent-rp-abuse+jwt JWS>"
 }
 ```
 
-`agent_id`, `reporter_service` and `reason` are required. `evidence_jti` is optional and should carry the assertion or receipt identifier the provider is relying on.
+The report JWS has a five-minute window, names the agent and a factual reason,
+and is signed by a key in the attestation with `abuse` purpose. The legacy
+unsigned body (`agent_id`, `reporter_service`, `reason`) is rejected with
+`401 unauthenticated_report`.
 
-A successful response returns:
+A new accepted report returns `202` with a `case_id`, the report `jti`,
+`verification_status` (`verified` or `unverified`), `deduplicated`,
+`agent_suspended`, and `human_notified`. A duplicate returns `200` with the same
+case id. `human_notified` is best effort; a `false` value does not undo a case or
+a suspension.
 
-```json
-{
-  "ok": true,
-  "agent_id": "agt_...",
-  "agent_status": "revoked",
-  "human_notified": true
-}
-```
+## Verified versus unverified standing
 
-`human_notified` is best effort. A `false` value means the alert was not delivered; it does not mean the revocation failed.
+- **Verified** means the report is linked to a signup whose proof source is
+  `rp_callback` or `rp_signed`, the signup-time verification is valid, and the
+  attestation is current. Only a verified, receipt-linked report may apply a
+  **protective suspension pending operator review**.
+- **Unverified** means there is no linked signup, or the link is
+  `agent_self_reported` or `legacy_broker_signed`. The broker opens a case but
+  does not suspend.
+- A missing, expired, invalid, untrusted, or unavailable attestation is rejected
+  before a case is opened. A transient broker/JWKS outage is retryable.
+
+Reporting is not anonymous. The broker checks the RP broker's trust list, not the
+human's `distrust` list, so a human cannot suppress abuse evidence.
 
 ## What the broker does
 
-1. Validates the request and resolves the agent.
-2. Stores the report as an abuse report row.
-3. Revokes the agent immediately, with the reporter's reason as the revocation reason.
-4. Looks up the human owner and attempts to send an alert to the verified email.
-5. Returns the response above.
+1. Verifies the attestation and the report signature, with broker trust checked
+   before any JWKS fetch.
+2. Resolves the linked signup and records `verified` or `unverified` standing.
+3. Opens an abuse case and a case timeline.
+4. For a verified, receipt-linked report, may set the agent to `suspended`
+   pending operator review and notify the human owner.
+5. Keeps the evidence and notifies the operator.
 
-The revocation happens before the alert. A mail failure does not roll it back.
+A suspension is not an adjudication. An operator reviews the case, can restore
+the agent, and records the decision. The human cannot clear a suspension with the
+ordinary kill switch.
 
 ## What the human receives
 
 When delivery succeeds, the verified human owner receives an alert with:
 
-- The agent id and name.
-- The reporting service.
-- The reason.
-- The evidence JTI, if one was supplied.
-- A reply path for contacting the broker if the report is wrong.
+- the agent id and name;
+- the provider and the reason;
+- the evidence JTI, if one was supplied;
+- whether the agent was suspended or the report is an unverified case;
+- a reply path for contacting the broker if the report is wrong.
 
 The report also appears in the **Abuse reports** tab on the agent detail page.
 
-![Abuse reports: one report on a revoked agent showing the reporter, reason and evidence JTI - the report is a record, not an adjudication.](/screenshots/portal/portal-abuse-reports.png)
+![Abuse reports: an authenticated report on a suspended agent showing the provider, reason, standing and evidence JTI - the report is a case, not an adjudication.](/screenshots/portal/portal-abuse-reports.png)
 
 ## What the human can do
 
 - Read the report and check the agent's ledger and inbox for the activity described.
 - Contact the provider to resolve the account or resource.
 - Rotate any provider credentials the agent held.
-- Report the incident to [security@agentregistrar.dev](mailto:security@agentregistrar.dev) if you need the broker to know about it.
-- Keep the agent revoked, or reactivate it only after investigating.
-- Preserve the agent id, report timestamp, evidence JTI and related ledger rows.
+- Preserve the agent id, report timestamp, case id, evidence JTI and related ledger rows.
+- Reply through the alert or contact the broker if the report is wrong. A
+  suspension is restored by the operator, not by the human kill switch.
 
 ## What the broker does not do
 
 - It does not adjudicate the dispute or decide who is right.
 - It does not delete provider data, close a provider account or issue a refund.
 - It does not guarantee that the provider stops using data it already received.
+- It does not suspend on an unverified or unlinked report.
 - It does not guarantee delivery of the human alert.
+- It does not expose a report-status call in v1.2.
+
+## Report a provider
+
+A human who wants to report a bad provider uses the portal form, not the RP
+endpoint. `POST /api/broker/report-provider` is session-authenticated, takes the
+RP origin, audience, optional attestation `jti`, reason, optional evidence, and
+optional `distrust_broker`/`block_provider` flags, and opens a provider case. It
+can update that human's trust/policy; it does not change the provider's
+attestation or adjudicate a dispute.
+
+A provider listing or a verification badge is not an endorsement. If a provider
+misbehaves, report it and use your own account controls.
 
 ## Contact path
 
-The broker publishes one security address: [security@agentregistrar.dev](mailto:security@agentregistrar.dev). It is linked in the footer of every page on this docs site, so you can confirm the address here rather than in a message. This page does not promise a response time.
+The broker publishes one security address:
+[security@agentregistrar.dev](mailto:security@agentregistrar.dev). It is linked
+in the footer of every page on this docs site, so you can confirm the address
+here rather than in a message. This page does not promise a response time.
 
 Use that address for:
 
-- A security or abuse report that cannot go through `POST /api/broker/report-abuse`.
-- A suspected compromise of a human account.
-- A provider report you want the broker to see directly.
+- a security or abuse report that cannot go through the authenticated endpoint;
+- a suspected compromise of a human account;
+- a provider report you want the broker to see directly.
 
-Do not use it for provider signup requests, resource requests or support questions about a provider's product. The provider owns those.
+Do not use it for provider signup requests, resource requests or support
+questions about a provider's product. The provider owns those.
 
 Include in a report:
 
-- The agent id (`agt_...`) or the human account email, if known.
-- What happened, when, and the timestamps you have.
-- The reporting service, if a provider is affected.
-- The relevant assertion or receipt JTI (`jti_...`) and ledger rows.
-- What you have already done, such as revoking the agent or rotating credentials.
+- the agent id (`agt_...`) or the human account email, if known;
+- what happened, when, and the timestamps you have;
+- the reporting provider, if one is affected;
+- the relevant assertion or receipt JTI (`jti_...`), case id, and ledger rows;
+- what you have already done, such as revoking the agent or rotating credentials.
 
-Do not send provider API keys, passwords, session cookies or full message bodies. The broker cannot receive provider secrets and does not need them to act.
-
-The other paths remain:
-
-- The provider reports through `POST /api/broker/report-abuse`.
-- The human replies to the abuse alert sent to the verified email.
-- A human who suspects account compromise follows [Kill switch and revocation](/portal/kill-switch-and-revocation/).
-
-If you operate a provider and need the request and response contract, the endpoint behavior above is the current implementation. The assertion and receipt fields are defined under [Protocol](/protocol/); the broker's HTTP surface is summarized under [Reference](/reference/).
+Do not send provider API keys, passwords, session cookies or full message bodies.
+The broker cannot receive provider secrets and does not need them to act.
 
 ## Next step
 
-Read [Kill switch and revocation](/portal/kill-switch-and-revocation/) for the human-side controls and the compromise playbook.
+Read [Kill switch and revocation](/portal/kill-switch-and-revocation/) for the
+human-side controls and the compromise playbook.

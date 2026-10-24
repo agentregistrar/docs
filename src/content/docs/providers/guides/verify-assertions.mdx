@@ -1,15 +1,17 @@
 ---
 title: Verify assertions
-description: Verify the Ed25519 assertion against the issuer JWKS and enforce issuer, audience, expiry, scopes, human status and ToS hash checks.
+description: Verify the Ed25519 assertion against the issuer JWKS, enforce issuer, audience, expiry, scopes, human status and ToS hash checks, and verify an optional provider verification credential.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-21
-verifiedAgainst: "spec v1.1.0 (d3fddc9), jose 6.2.13, Node 24.21.0, 2026-10-21"
+lastReviewed: 2026-10-24
+verifiedAgainst: "spec v1.2.0 (35659ce), jose 6.2.13, Node 24.21.0, 2026-10-24"
 ---
 
 **Goal:** accept a compact Ed25519 JWT only when every check in [spec section 7.1](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake) passes, and map each failure to a fixed v1 code.
 
-The claim set is in [Assertion claims](/agent-identity/v1/assertion-claims/). This guide is the implementation step.
+The claim set is in [Assertion claims](/agent-identity/v1/assertion-claims/). This guide is the implementation step. Verifying an assertion needs **no account and no SDK**: it uses the human broker's public JWKS. An account is required only to be a verified provider, issue authenticated receipts, or report abuse with standing.
+
+In v1.2 a provider may also publish an optional **provider verification credential** (the RP attestation). It is a separate, local check; it does not change how the assertion is verified.
 
 ## Before you start
 
@@ -245,6 +247,74 @@ The verifier was run against synthetic variants of the same fixture. Each row is
 | Terms | `delegation.accepted_rp_tos_hash` equals the current `terms.sha256`. | `tos_hash_mismatch` (409) |
 
 Two checks are policy choices rather than fixed codes: the five-minute lifetime is the recommended maximum, and a JWKS transport failure is an operational error. Map the first to `invalid_assertion` and return a retryable `503`-style response for the second without inventing a core code. The normative table is [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes).
+
+## Verify the provider verification credential
+
+The credential is optional. Do this before signup when you want to check the
+provider's identity; skip it and the provider is `unverified`, not invalid. The
+normative steps are in [spec section 14](/agent-identity/v1/specification/).
+
+1. **Fetch discovery** from the provider's canonical origin, `GET
+   /.well-known/agent-signup.json`. The fetched origin is authoritative.
+2. **Read `rp_attestation`**, a compact JWS. If it is absent, record
+   `unverified` and apply policy.
+3. **Check the issuer against your trusted RP-broker list before any fetch.** Do
+   not contact an untrusted broker. If the issuer is not trusted, record
+   `attested_untrusted_broker`.
+4. **Resolve Broker B's JWKS.** Use `jwks_uri` from
+   `/.well-known/agent-broker.json` only when its `issuer` equals the
+   attestation `iss` and the URI is HTTPS and same-origin; otherwise use
+   `<iss>/.well-known/jwks.json`. Never merge JWKS from different issuers.
+5. **Verify the signature** with the key selected by `kid`. Require `typ:
+   agent-rp-attestation+jwt`, `alg: EdDSA`, and exactly one `kid`.
+6. **Check time and binding**: `iat`/`exp` with 60 seconds of skew, non-empty
+   `jti`, `rp.origin` equal to the fetched discovery origin, and `rp.audience`
+   equal to `discovery.audience`.
+7. **Record the level** (`domain` or `entity`) and apply your policy. In v1.2 both
+   levels are `verified`; the level is informational and displayed.
+
+```js
+import { createRemoteJWKSet, decodeJwt, jwtVerify } from "jose";
+
+export async function verifyProviderCredential(attestation, discovery, config) {
+  const { iss: issuer } = decodeJwt(attestation);
+  if (!config.trustedRpBrokers.includes(issuer)) {
+    return { status: "attested_untrusted_broker" };
+  }
+  const jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`), {
+    timeoutDuration: 5000,
+    cooldownDuration: 300000,
+  });
+  try {
+    const { payload } = await jwtVerify(attestation, jwks, {
+      algorithms: ["EdDSA"],
+      typ: "agent-rp-attestation+jwt",
+      clockTolerance: 60,
+    });
+    if (payload.rp.origin !== discovery.__fetched_origin) {
+      return { status: "invalid", reason: "origin_mismatch" };
+    }
+    if (payload.rp.audience !== discovery.audience) {
+      return { status: "invalid", reason: "audience_mismatch" };
+    }
+    return { status: "verified", level: payload.rp.verification.level, jti: payload.jti };
+  } catch (error) {
+    return { status: error.code === "ERR_JWT_EXPIRED" ? "expired" : "invalid" };
+  }
+}
+```
+
+`discovery.__fetched_origin` is a placeholder for the canonical origin of the
+document you actually fetched. Never infer it from `terms.url`, `provider_url`,
+or the attestation itself. A JWKS fetch failure is `unavailable`, not `invalid`.
+
+The broker's one-call `identity_signup` MCP tool does this check for you and
+returns `rp_verification` plus an optional `rp_verification_warning`. Use it when
+you do not need to inspect claims yourself. A provider does not need an account
+to accept an assertion; the credential only lets the agent check the provider.
+
+See [Trust and limits](/start/trust-and-limits/) for the trust list, policy
+matrix, and why verification is identity, not safety.
 
 ## JWKS caching and rotation
 

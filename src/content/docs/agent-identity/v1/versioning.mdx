@@ -3,7 +3,7 @@ title: Versioning
 description: Additive and breaking changes, the protocol id, the path policy and the release-notes process.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.1.0 (d3fddc9), 2026-10-21"
+verifiedAgainst: "spec v1.2.0 (35659ce), 2026-10-24"
 ---
 
 `agent-identity-v1` carries its major version in the discovery document's `protocol` field. This page explains how the protocol changes and how the docs site tracks it. The normative policy is [spec section 13](/agent-identity/v1/specification/#13-versioning-extension--deprecation-policy).
@@ -11,10 +11,10 @@ verifiedAgainst: "spec v1.1.0 (d3fddc9), 2026-10-21"
 ## Current version
 
 - Protocol id: `agent-identity-v1`.
-- Specification release: `v1.1.0`, released 2026-10-18.
-- Package: `@agentregistrar/discovery` `1.1.0`.
-- The `v1.1.0` release is additive and text-only. It adds the optional `resolution` success field and clarifies replay versus resolve, acceptance lifetime, account identity keys, and credential handoff and recovery. It removes and renames nothing.
-- `v1.0.0` implementations remain conformant.
+- Specification release: `v1.2.0`, released 2026-10-24.
+- Package: `@agentregistrar/discovery` `1.2.0`.
+- The `v1.2.0` release adds Contracts G/H/I, the optional `rp_attestation`, the trust model and policy matrix, RP-signed receipts, authenticated Contract F and D.2, and the separate conformance/verification validator result. It removes no required field.
+- `v1.0.0` and `v1.1.0` implementations remain conformant. Absence of `rp_attestation` means **unverified**, never invalid.
 
 The full release history is in the [changelog](/agent-identity/v1/changelog/).
 
@@ -24,7 +24,7 @@ Additive identity fields and clarifications are allowed within v1. They do not c
 
 - Consumers must ignore unknown fields.
 - Producers should namespace non-capability vendor metadata under `extensions.<reverse-dns>`.
-- An additive change must pass the [scope-boundaries review checklist](/agent-identity/v1/scope-boundaries/#6-future-change-review-checklist).
+- An additive change must pass the [scope-boundaries review checklist](/agent-identity/v1/scope-boundaries/#7-future-change-review-checklist).
 - Additive changes are recorded in the specification changelog and the release notes.
 - The schema, the JSON Schema and the validator are updated together so they cannot drift.
 
@@ -50,7 +50,7 @@ The docs site follows the protocol path:
 
 ## Deprecation and release notes
 
-- v1.1.0 does not deprecate v1.0.0. It is an additive revision.
+- v1.2.0 does not deprecate v1.0.0 or v1.1.0. It is an additive revision.
 - The specification's changelog records every additive v1 change with its date.
 - Release notes record the release evidence, the change process and any non-blocking follow-ups.
 - v1 has no formal sunset date. A future breaking change would be dual-published during a migration window; v1 would stay published for that window.

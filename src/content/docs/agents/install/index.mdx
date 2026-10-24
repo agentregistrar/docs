@@ -39,7 +39,7 @@ No harness is tier 1 today. A tier-1 claim needs a recorded transcript of connec
 
 ## What the tiers mean
 
-- **Tier 1:** a recorded end-to-end transcript on the live broker: connect, `identity_whoami`, `identity_prove`, a provider signup, `identity_record_signup` and an inbox check, with client version, operating system, date, commands and output.
+- **Tier 1:** a recorded end-to-end transcript on the live broker: connect, `identity_whoami`, `identity_signup`, `identity_prove`, a provider signup, `identity_record_signup` and an inbox check, with client version, operating system, date, commands and output.
 - **Tier 2:** the install, configuration and authorization steps were checked against the client's current documentation and, where possible, a live connection. The full signup is not claimed.
 - **Tier 3:** protocol-level instructions that work with any compliant client. No client-specific claim.
 
@@ -60,6 +60,6 @@ Each page ends with a verification record: the client version or documentation s
 
 1. Create and verify the human account, and sign the master delegation agreement. The [agent quickstart](/agents/quickstart/) walks through both.
 2. Have a browser on the same machine as the client, signed in to the GitHub account that should own the agents.
-3. Add the server, complete OAuth, and confirm that the tool list contains `identity_register`, `identity_whoami`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`.
+3. Add the server, complete OAuth, and confirm that the tool list contains `identity_register`, `identity_whoami`, `identity_signup`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`.
 
 If a client does not open a browser, or the connection stays unauthenticated, start with [OAuth troubleshooting](/agents/install/oauth-troubleshooting/).

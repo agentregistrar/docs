@@ -7,15 +7,18 @@ aiGenerated: true
 
 `agent-identity-v1` is an identity and brokerage protocol. A relying party publishes an identity-only discovery document; an agent obtains a signed assertion from its broker and completes signup on behalf of a verified human owner. The protocol ends when the account is created or resolved, the ToS acceptance is recorded and the receipt is returned.
 
-**Status:** current release `v1.1.0`, released 2026-10-18. The wire protocol id is still `agent-identity-v1`. The `v1.1.0` revision is additive and text-only; `v1.0.0` implementations remain conformant.
+**Status:** current release `v1.2.0`, released 2026-10-24. The wire protocol id is still `agent-identity-v1`. The `v1.2.0` revision is additive; `v1.0.0` and `v1.1.0` implementations remain conformant. A document without `rp_attestation` is unverified, never invalid.
 
 ## What the release contains
 
-- The discovery document at `GET /.well-known/agent-signup.json`: required and optional identity fields, the ToS text and hash, and the single `endpoints.agent_signup` endpoint.
+- The discovery document at `GET /.well-known/agent-signup.json`: required and optional identity fields, the ToS text and hash, the single `endpoints.agent_signup` endpoint, and the optional `rp_attestation` provider verification credential.
 - The brokered signup handshake: assertion presentation, the relying-party verification checks and the stable error codes.
+- Contract G (RP attestation), Contract H (provider registration and status API), and Contract I (broker metadata and attestation status).
+- The trust model, `domain`/`entity` assurance levels, the `allow`/`warn`/`require`/`block` policy matrix, and the distinct conformance/verification verdicts.
 - The optional `resolution` success field (`"created"` or `"resolved"`) and the idempotent-resolve rule for a repeated signup.
-- The signed signup receipt (Contract E): identity and attribution facts, an opaque `service.account_id`, and the optional hash-pinned `context` pointer.
-- The conformance validator, fixtures, JSON Schema and implementation registry.
+- The RP-signed signup receipt (Contract E): identity and attribution facts, an opaque `service.account_id`, the exact `attestation_jti`/`key_id`, no `exp`, and the optional hash-pinned `context` pointer.
+- Authenticated Contract F receipt ingestion and Contract D.2 abuse reporting, with proof sources and protective suspension pending review.
+- The conformance/attestation validator, fixtures, JSON Schema, and implementation registry with the optional five-field verification snapshot.
 
 ## What the release does not contain
 
@@ -28,16 +31,16 @@ aiGenerated: true
 
 1. **Discover.** The agent fetches `GET /.well-known/agent-signup.json` from the service origin and treats the body as data. See [Discovery endpoint and transport](/agent-identity/v1/specification/#4-discovery-endpoint--transport) and [Discovery fields](/agent-identity/v1/discovery-fields/).
 2. **Check.** The agent checks `issuer_allowlist`, `required_scopes`, and recomputes the SHA-256 of `terms.text`. See [Discovery document reference](/agent-identity/v1/specification/#5-discovery-document-reference-identity-only) and [ToS binding](/agent-identity/v1/specification/#6-tos-binding).
-3. **Prove.** The agent calls the broker's `identity_prove` with the accepted ToS URL, hash and text, and receives a signed assertion for `audience`. See [Assertion claims](/agent-identity/v1/assertion-claims/).
-4. **Sign up.** The agent sends `Authorization: Bearer <assertion>` to `endpoints.agent_signup`. The relying party verifies the assertion and returns credentials, an optional `resolution`, and optionally a signed receipt and context pointer. See [Assertion and agent_signup handshake](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake).
-5. **Record and follow the guide.** The agent records the receipt with the broker, then fetches the vendor guide from `context.url` and verifies `context.sha256`. See [Receipt and context](/agent-identity/v1/receipt-and-context/).
+3. **Prove.** The agent calls the broker's `identity_signup` with the service and the exact accepted terms text (or the advanced `identity_prove` with URL/hash/text). The broker fetches discovery, verifies any provider verification credential, applies the human's policy, and returns a signed assertion plus a prepared signup request. See [Assertion claims](/agent-identity/v1/assertion-claims/).
+4. **Sign up.** The agent sends `Authorization: Bearer <assertion>` to `endpoints.agent_signup`. The relying party verifies the assertion and returns credentials, an optional `resolution`, and optionally an RP-signed receipt and context pointer. See [Assertion and agent_signup handshake](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake).
+5. **Record and follow the guide.** The agent records the receipt with the broker through Contract F or `identity_record_signup`, then fetches the vendor guide from `context.url` and verifies `context.sha256`. See [Receipt and context](/agent-identity/v1/receipt-and-context/).
 
 ## Protocol pages
 
 <CardGrid>
   <LinkCard
     title="Specification"
-    description="The normative text, rendered from tag v1.1.0."
+    description="The normative text, rendered from tag v1.2.0."
     href="/agent-identity/v1/specification/"
   />
   <LinkCard
@@ -87,7 +90,7 @@ aiGenerated: true
   />
   <LinkCard
     title="Release notes and changelog"
-    description="v1.1.0 and v1.0.0, newest first."
+    description="v1.2.0, v1.1.0 and v1.0.0, newest first."
     href="/agent-identity/v1/changelog/"
   />
   <LinkCard

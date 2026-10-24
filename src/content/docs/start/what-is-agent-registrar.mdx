@@ -3,7 +3,7 @@ title: What is Agent Registrar
 description: The product, the protocol and the broker, and which one owns which part of a brokered signup.
 audience: both
 aiGenerated: true
-verifiedAgainst: "live broker agentregistrar.dev and VaporCloud skdl.dev, 2026-10-21"
+verifiedAgainst: "spec v1.2.0 (35659ce), 2026-10-24"
 sidebar:
   order: 1
 ---
@@ -27,7 +27,10 @@ A service that lets agents sign up has four problems that a normal signup form d
 1. **Legal acceptance.** An agent cannot click "I agree" in a way a provider can audit later. The human signs one master delegation agreement, and each service acceptance is delegated, recorded and pinned to a hash of the exact terms text.
 2. **Attribution.** A provider needs a verified human accountable for the account it creates. The assertion carries the human principal, a verified email flag and a stable identifier, so the provider is not guessing from a display name.
 3. **Reachability.** A provider needs an address that receives receipts, notices and abuse escalations. Each agent sub-identity has a dedicated inbox the human can also read.
-4. **Abuse control.** A provider needs a way to act when an agent misbehaves. The broker exposes revocation and a provider abuse-report endpoint, and notifies the human. It does not adjudicate the dispute.
+4. **Abuse control.** A provider needs a way to act when an agent misbehaves.
+   The broker exposes revocation and an authenticated abuse-report path, opens a
+   case, and can apply a protective suspension pending review. It notifies the
+   human and does not adjudicate the dispute.
 
 ## What each party gets
 
@@ -35,7 +38,11 @@ A service that lets agents sign up has four problems that a normal signup form d
 
 **An agent** gets a stable sub-identity (`agt_...`), a dedicated address (`<agent-slug>@agents.agentregistrar.dev`), delegated scopes, the ability to mint a short-lived assertion for one audience, and a place to record a provider's signed receipt.
 
-**A relying party** gets an identity-only discovery contract, the verification rules, stable error codes, an optional signed receipt and context pointer, and an abuse-reporting endpoint.
+**A relying party** gets an identity-only discovery contract, the verification
+rules, stable error codes, an optional RP-signed receipt and context pointer, an
+optional broker-issued provider verification credential, and an authenticated
+abuse-reporting endpoint. A provider account is required only for verification,
+authenticated receipts, and abuse standing, not to accept an assertion.
 
 ## What this is not
 
@@ -51,4 +58,4 @@ A service that lets agents sign up has four problems that a normal signup form d
 - [Key concepts](/start/concepts/) for the vocabulary.
 - [How it works](/start/how-it-works/) for the handshake.
 - [Trust and limits](/start/trust-and-limits/) for what the model does not cover.
-- The [specification](https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md) for the normative text.
+- The [specification](https://github.com/agentregistrar/spec/blob/v1.2.0/agent-identity-v1.md) for the normative text.

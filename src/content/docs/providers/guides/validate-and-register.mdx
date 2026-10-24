@@ -1,15 +1,21 @@
 ---
 title: Validate and register
-description: Run the conformance validator against a file or a live URL, read its exit codes, and submit registry evidence.
+description: Run the v1.2 conformance and attestation validator, read its two verdicts and exit codes, and submit registry evidence including the optional verification snapshot.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-21
-verifiedAgainst: "spec v1.1.0 (d3fddc9), validator 1.0.0, @agentregistrar/discovery 1.1.0, skdl.dev, 2026-10-21"
+lastReviewed: 2026-10-24
+verifiedAgainst: "spec v1.2.0 (35659ce), validator 1.2.0, @agentregistrar/discovery 1.2.0, 2026-10-24"
 ---
 
-**Goal:** prove the document conforms, then get the implementation listed with reproducible evidence.
+**Goal:** prove the discovery document conforms, optionally prove the provider
+verification credential verifies, then get the implementation listed with
+reproducible evidence.
 
-The validator reference is [Conformance validator](/agent-identity/v1/validator/). The registry criteria and the entry schema are in the [implementation registry](https://github.com/agentregistrar/spec/blob/main/registry/README.md).
+Conformance and verification are **two independent results**. The validator
+reference is [Conformance validator](/agent-identity/v1/validator/). The registry
+criteria and entry schema are in the [implementation
+registry](https://github.com/agentregistrar/spec/blob/main/registry/README.md).
+This page is the `/registry` target; there is no separate registry page.
 
 ## Run the validator
 
@@ -22,10 +28,11 @@ pnpm install
 pnpm --silent validate:discovery https://example.com/.well-known/agent-signup.json --json
 ```
 
-From any project, using the published package. There is no `bin` entry, so invoke the TypeScript source with `tsx`:
+From any project, using the published package. There is no `bin` entry, so
+invoke the TypeScript source with `tsx`:
 
 ```bash
-npm install @agentregistrar/discovery@1.1.0 tsx@4.23.15
+npm install @agentregistrar/discovery@1.2.0 tsx@4.23.15
 npx tsx node_modules/@agentregistrar/discovery/src/validate-discovery.ts \
   https://example.com/.well-known/agent-signup.json --json
 ```
@@ -36,99 +43,150 @@ File mode needs no network:
 pnpm --silent validate:discovery ./agent-signup.json --json
 ```
 
-Use `pnpm --silent` (or `pnpm -s`) so pnpm's banner does not pollute stdout. The validator itself writes only JSON.
+Use `pnpm --silent` (or `pnpm -s`) so pnpm's banner does not pollute stdout. The
+validator itself writes only JSON.
 
-## Flags and exit codes
+## Flags added in v1.2
 
 | Flag | Effect |
 | :--- | :--- |
-| `--json` | Print one machine-readable result on stdout. |
-| `--probe-jwks` | Fetch `GET <issuer>/.well-known/jwks.json` for every allowlisted issuer and require at least one verification key. |
-| `--probe-endpoints` | Non-destructively `HEAD` then `OPTIONS` the advertised signup endpoint. Never `POST`. |
-| `--timeout <ms>` | Per-fetch timeout. |
-| `--max-bytes <n>` | Bounded read size. |
-| `--help` | Print usage. |
+| `--verify-attestation` | Parse and verify `rp_attestation` if present. Opt-in issuer JWKS fetch; an absent field is `unverified` plus a warning and does not change the exit code. |
+| `--require-attestation` | Implies `--verify-attestation`; any non-`verified` result fails the run. Use it as a CI gate. |
+| `--trusted-rp-broker <issuer>` | Repeatable trusted RP-broker list. Flags override the `AGENT_IDENTITY_TRUSTED_RP_BROKERS` env fallback; an empty effective list trusts nothing. |
+| `--jwks <path-or-url>` | Pin exactly one issuer's JWKS for an offline run. It never bypasses signature checks and never merges issuers. |
+| `--at <rfc3339\|epoch>` | Freeze the clock for deterministic fixture runs. Not for production. |
 
-| Exit code | Meaning |
-| :--- | :--- |
-| `0` | Valid conformant document. Warnings do not change the code. |
-| `1` | A document was obtained and parsed, but failed conformance, including a failed opt-in probe. |
-| `2` | No usable document: unreadable file, network or timeout failure, redirect problem, non-`200`, wrong content type, size cap or unparseable JSON. |
+The existing `--json`, `--probe-jwks`, `--probe-endpoints`, `--timeout`, and
+`--max-bytes` flags keep their meanings.
 
-The distinction matters in CI: `2` is an operational failure, `1` is a document failure. Both are non-zero.
+## Two verdicts and exit codes
 
-## Recorded fixture runs
+The JSON result has `conformance` (document-only) and `attestation` (separate).
+`valid` remains the run result: `valid === (exitCode === 0)`.
 
-The shipped fixtures were run in file mode on 2026-10-21 with validator `1.0.0`:
+| Exit | Meaning | Next action |
+| :--- | :--- | :--- |
+| `0` | The document was fetched, parsed, and is conformant; no required check failed. Warnings do not change the code. | Publish. Verification may still be `unverified`, `expired`, or `invalid` without `--require-attestation`. |
+| `1` | A conformance error (including unparseable JSON or a malformed `rp_attestation` field), or a failed attestation under `--require-attestation`. | Read the `errors` array and fix the document or the credential. |
+| `2` | The run could not obtain what it needed: document read/fetch failure, or JWKS unavailable under `--require-attestation`. The conformance verdict is not evaluated. | Fix hosting, the URL, the timeout, or the JWKS, then re-run. |
 
-| Fixture | Exit | Valid | Passed | Failed |
-| :--- | :--- | :--- | :--- | :--- |
-| `valid-minimal.json` | 0 | true | 16 | 0 |
-| `valid-localhost.json` | 0 | true | 16 | 0 |
-| `valid-full.json` | 0 | true | 17 | 0 |
-| `invalid-bad-tos-hash.json` | 1 | false | 12 | 2 |
-| `invalid-missing-terms-text.json` | 1 | false | 12 | 2 |
-| `invalid-empty-issuer-allowlist.json` | 1 | false | 13 | 2 |
-| `invalid-unknown-protocol.json` | 1 | false | 13 | 2 |
-| `invalid-missing-agent-signup.json` | 1 | false | 13 | 2 |
-| `invalid-vendor-catalog.json` | 1 | false | 13 | 2 |
-| `invalid-vendor-endpoints.json` | 1 | false | 13 | 2 |
-| `invalid-broker-receipt-endpoint.json` | 1 | false | 13 | 2 |
+A malformed `rp_attestation` field is a **conformance** error with
+`attestation.status: "not_checked"`, not `invalid`. An expired attestation is a
+verification warning by default. A bad signature, origin mismatch, or audience
+mismatch is a verification failure. An absent credential is `unverified`.
 
-Every `valid-*` fixture passes and every `invalid-*` fixture fails. The `__fixture_note` field is an unknown top-level field, so it produces a warning, not a failure.
+## Recorded v1.2 runs
 
-## Recorded live run
+The v1.2.0 release notes record the fixture matrix and validator output. The
+headline cases:
 
-The VaporCloud reference document was validated live on 2026-10-21:
+| Case | Command shape | Result |
+| :--- | :--- | :--- |
+| Conformant, no credential | `validate:discovery fixtures/valid-minimal.json --json` | `valid true`, exit `0`, `attestation.status "unverified"`. |
+| Valid `domain` credential | `--verify-attestation --require-attestation --trusted-rp-broker ... --at ...` | `verified`, level `domain`, exit `0`. |
+| Expired credential, advisory | `--verify-attestation --at <after exp>` | `expired`, exit `0`. |
+| Expired credential, gate | same plus `--require-attestation` | exit `1`. |
+| Malformed field | no flags needed | conformance error, exit `1`, `not_checked`. |
+| Untrusted broker | `--verify-attestation` without trust | `attested_untrusted_broker`; exit `0` unless required. |
+| Broker unavailable | `--require-attestation` with a missing JWKS | exit `2`, `unavailable`. |
+
+Run `pnpm validate:fixtures` and `pnpm validate:registry` for the full matrix
+and the registry schema.
+
+## Validate a live provider
 
 ```bash
-pnpm --silent validate:discovery https://skdl.dev/.well-known/agent-signup.json \
-  --json --probe-jwks
+pnpm --silent validate:discovery https://example.com/.well-known/agent-signup.json \
+  --verify-attestation \
+  --trusted-rp-broker https://agentregistrar.dev \
+  --json
 ```
 
-Result: `valid: true`, exit `0`, 22 checks passed, 0 failed, 0 warnings, 1 probe. The issuer `https://agentregistrar.dev` served a usable JWKS.
+Add `--require-attestation` for a gate. Do not add a trusted broker you have not
+decided to trust: the check happens before any JWKS fetch, and the validator
+never contacts an untrusted issuer.
 
 ## Registry criteria
 
 To be listed, an implementation must:
 
 1. Pass the identity-only validator with zero errors. Warnings are permitted.
-2. Publish a public, stable HTTPS `/.well-known/agent-signup.json` on its canonical origin, not a per-deploy or throwaway URL.
+2. Publish a public, stable HTTPS `/.well-known/agent-signup.json` on its
+   canonical origin, not a per-deploy or throwaway URL.
 3. Provide a reachable security, abuse or legal contact that someone monitors.
 4. Publish a post-signup context guide if it has vendor capabilities to document.
+5. **Optionally**, carry a five-field `verification` snapshot if it claims
+   verification.
 
-The registry lists protocol capabilities only: `agent_signup` and `post_signup_context`. A catalog, a SKU or a provisioning endpoint is not a registry capability.
+The registry lists protocol capabilities only: `agent_signup` and
+`post_signup_context`. A catalog, a SKU or a provisioning endpoint is not a
+registry capability. Listing is a statement about the discovery document, not an
+endorsement of the product, its security, its uptime or its pricing.
 
-Listing is a statement about the discovery document. It is not an endorsement of the product, its security, its uptime or its pricing.
+## The optional verification snapshot
+
+Verification is a separate statement from conformance. To claim it, the entry
+carries all five fields:
+
+```json
+"verification": {
+  "broker": "https://agentregistrar.dev",
+  "level": "domain",
+  "attestation_jti": "rpa_01j...",
+  "checked_at": "2026-10-24T00:00:00Z",
+  "status": "active"
+}
+```
+
+- `level` is `domain` or `entity`.
+- `status` is `active`, `suspended`, or `revoked` **at `checked_at`**.
+- The attestation must be live at `checked_at`, and `checked_at` must fall inside
+  its lifetime.
+- The provider must have a real provider account with the attesting broker.
+
+The registry is a **snapshot**, not a live feed. A later suspension or revocation
+does not rewrite the static entry or badge until a new check is recorded.
+Only `status:"active"` at `checked_at` renders the verified badge. The badge is
+separate from the conformance badge; there is no second verified badge.
+
+A provider account is required only for this verified listing, attestation
+issuance, authenticated receipts, and abuse standing. It is not required to
+accept assertions, and there is no pricing or checkout in this release.
 
 ## Submit an entry
 
 1. Make the document conformant using [Publish discovery](/providers/guides/publish-discovery/).
 2. Run the validator against the public URL and keep the JSON.
-3. Open a pull request against `agentregistrar/spec` that adds one object to the `implementations` array in `registry/implementations.json` with:
-   - `name`, `url`, `discovery_url`, `audience`, `protocol`, `capabilities`, `contact`, `validated_at`, `validator_version`;
-   - a `validator_evidence` object with the exact command and the resulting counts.
+3. Open a pull request against `agentregistrar/spec` that adds one object to the
+   `implementations` array in `registry/implementations.json` with:
+   - `name`, `url`, `discovery_url`, `audience`, `protocol`, `capabilities`,
+     `contact`, `validated_at`, `validator_version`;
+   - a `validator_evidence` object with the exact command and resulting counts;
+   - optionally, the five-field `verification` object above.
 4. Update the table in `registry/README.md` so it stays in lockstep.
-5. The pull request is reviewed against the criteria above.
+5. Run `pnpm --silent validate:registry registry/implementations.json --json`;
+   it must report `valid: true`, exit `0`.
+6. The pull request is reviewed against the criteria above.
 
-Read `audience` and `protocol` from the validator's `--json` output rather than retyping them. The field reference is in the [validator guide](/agent-identity/v1/validator/).
+Read `audience` and `protocol` from the validator's `--json` output rather than
+retyping them. The field reference is in the [validator
+guide](/agent-identity/v1/validator/).
 
 An entry whose document stops passing is removed or updated with fresh evidence.
-
-## The reference-entry exception
-
-The VaporCloud entry in the registry records the intended production `.example` discovery URL, while the recorded validation ran against the locally started reference implementation. The exception is documented in the registry and is not a precedent. New third-party entries must be publicly re-validatable.
 
 ## Verify your work
 
 - [ ] The file-mode run exits `0` with zero errors.
 - [ ] The live URL run exits `0` and the content type is `application/json`.
-- [ ] `--probe-jwks` passes for every issuer you allow.
+- [ ] `--verify-attestation` is `verified` if and only if the credential is present and you trust the broker.
+- [ ] `--require-attestation` fails closed on absent, invalid, expired, untrusted, or unavailable.
 - [ ] The registry object contains no vendor capability fields.
+- [ ] Any `verification` object has all five fields, a live `checked_at`, and only an `active` snapshot gets a badge.
 - [ ] The table and the JSON stay in lockstep.
 
 ## Next
 
 - [Production checklist](/providers/guides/production-checklist/): what to do before and after listing.
 - [Troubleshooting](/providers/troubleshooting/): common validator failures.
-- [Reference implementation](/providers/reference-vaporcloud/): a live document and its evidence.
+- [Reference implementation](/providers/reference-vaporcloud/): the reference document and its evidence.
+- [Trust and limits](/start/trust-and-limits/): policy, unverified providers, and what verification does not mean.

@@ -3,7 +3,7 @@ title: Key concepts
 description: The vocabulary of a brokered signup, as short summaries that link to the canonical glossary.
 audience: both
 aiGenerated: true
-verifiedAgainst: "broker dec84d9 and spec v1.1.0, 2026-10-21"
+verifiedAgainst: "spec v1.2.0 (35659ce), broker 5e57ecf, 2026-10-24"
 sidebar:
   order: 2
 ---
@@ -16,14 +16,15 @@ The [glossary](/reference/glossary/) holds the canonical definition of every ter
 - **Agent (sub-identity)**: a broker record with an id (`agt_...`), a dedicated inbox address and delegated scopes; the identity the model acts under. [Glossary](/reference/glossary/#roles-and-records)
 - **Harness**: the client that connects to the broker's MCP endpoint and runs the agent. [Glossary](/reference/glossary/#roles-and-records)
 - **Broker**: the service that verifies the human, holds the sub-identity and inbox, mints assertions, records acceptances and receipts, and exposes the MCP tools. [Glossary](/reference/glossary/#roles-and-records)
-- **Relying party (provider)**: a service that accepts brokered agent signups by publishing discovery and verifying an assertion. [Glossary](/reference/glossary/#roles-and-records)
+- **Relying party (provider)**: a service that accepts brokered agent signups by publishing discovery and verifying an assertion. It may publish an optional broker-issued verification credential. [Glossary](/reference/glossary/#roles-and-records)
+- **Provider verification credential**: the broker-issued RP attestation binding origin, audience, identity, level and keys. [Glossary](/reference/glossary/#protocol-artifacts)
 - **Delegated scopes**: the permissions the agent holds, embedded in `delegation.scopes`. [Glossary](/reference/glossary/#roles-and-records)
 
 ## Artifacts
 
 - **Discovery document**: the identity-only JSON at `/.well-known/agent-signup.json` on the provider's origin. [Glossary](/reference/glossary/#protocol-artifacts)
 - **Assertion**: a short-lived Ed25519-signed JWT that proves the agent, the verified human owner and the delegated ToS acceptance. [Glossary](/reference/glossary/#protocol-artifacts)
-- **Receipt (`signup_token`)**: the provider's signed proof of signup, recording the identity facts, the accepted ToS and an optional context pointer. [Glossary](/reference/glossary/#protocol-artifacts)
+- **Receipt (`signup_token`)**: the provider's RP-signed proof of signup, recording the identity facts, the accepted ToS and an optional context pointer. No `exp` in v1.2. [Glossary](/reference/glossary/#protocol-artifacts)
 - **Context guide**: a hash-pinned URL to the provider's post-signup guide, usually a `SKILL.md`. [Glossary](/reference/glossary/#protocol-artifacts)
 - **Ledger**: the acceptance ledger and the service signups ledger, two records with one name. [Glossary](/reference/glossary/#protocol-artifacts)
 - **Kill switch**: the per-agent revocation control in the portal. [Glossary](/reference/glossary/#operations)
@@ -37,15 +38,17 @@ The [glossary](/reference/glossary/) holds the canonical definition of every ter
 | Harness | MCP client holding the session | Your machine |
 | Discovery | Identity-only JSON | Provider origin, `/.well-known/agent-signup.json` |
 | Terms | Exact legal text plus hash | `terms` in discovery |
-| Assertion | Short-lived signed JWT | Returned by `identity_prove`, sent to the provider |
-| Receipt | Provider proof of signup | `signup_token` in the signup response |
+| Assertion | Short-lived signed JWT | Returned by `identity_signup` or `identity_prove`, sent to the provider |
+| Receipt | RP-signed proof of signup | `signup_token` in the signup response |
+| Provider verification credential | Optional broker-signed identity | `rp_attestation` in discovery |
 | Context guide | Hash-pinned vendor guide | Provider origin, linked by `context.url` |
 | Acceptance | Durable consent event | Broker ledger, one per agent and terms hash |
-| Signup proof | Recorded account attribution | Broker ledger, written by `identity_record_signup` |
-| Revocation | Suspension of the agent identity | Broker, via the portal kill switch or an abuse report |
+| Signup proof | Recorded account attribution | Broker ledger, written by Contract F or `identity_record_signup` |
+| Revocation | Human kill switch | Broker, sets `revoked` |
+| Suspension | Operator protective action | Broker, sets `suspended` |
 
 ## Next
 
 - [How it works](/start/how-it-works/) puts these terms in order.
 - [Trust and limits](/start/trust-and-limits/) explains what revocation and the ledger do not cover.
-- The [specification](https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md) defines the field-level contract.
+- The [specification](https://github.com/agentregistrar/spec/blob/v1.2.0/agent-identity-v1.md) defines the field-level contract.

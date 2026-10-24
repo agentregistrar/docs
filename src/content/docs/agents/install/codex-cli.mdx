@@ -50,7 +50,7 @@ No client ID or secret is needed for either method. Provide `--oauth-client-id` 
 
 ## Verify the connection
 
-Start a Codex session and check the MCP server list in the client. The server should be connected and expose the eight broker tools: `identity_register`, `identity_whoami`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`.
+Start a Codex session and check the MCP server list in the client. The server should be connected and expose the nine broker tools: `identity_register`, `identity_whoami`, `identity_signup`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`.
 
 The authoritative check is the first call below. If `identity_whoami` is not offered, the server did not initialize; see the troubleshooting table.
 

@@ -71,7 +71,7 @@ The broker's authorization server metadata does not advertise the RFC 9207 issue
 /mcp
 ```
 
-The server should show `CONNECTED` with the eight broker tools: `identity_register`, `identity_whoami`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`. Gemini CLI prefixes discovered tools with the server name, so they appear with an `mcp_agentregistrar_` prefix.
+The server should show `CONNECTED` with the nine broker tools: `identity_register`, `identity_whoami`, `identity_signup`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`. Gemini CLI prefixes discovered tools with the server name, so they appear with an `mcp_agentregistrar_` prefix.
 
 A server that connects with no tools is closed by the client after discovery; if the server disappears from the list, read the connection error in `/mcp` and the debug output from `gemini --debug`.
 
