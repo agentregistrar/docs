@@ -1,9 +1,10 @@
 ---
 title: Identity lifecycle
-description: Register, resume, prove, record and revoke an agent sub-identity, and what each state allows.
+description: Register, resume, sign up, record proof and revoke or suspend an agent sub-identity, and what each state allows.
 audience: human
 aiGenerated: true
-verifiedAgainst: "broker monorepo c7ddfa7 and live agentregistrar.dev, 2026-10-21"
+lastReviewed: 2026-10-24
+verifiedAgainst: "spec v1.2.0 (35659ce), broker 5e57ecf, 2026-10-24"
 sidebar:
   order: 3
 ---
@@ -44,14 +45,30 @@ A sub-identity contains:
 | `harness` | `opencode-v2` | The client label. Part of the `identity_register` resume match. |
 | `email_address` | `opencode-macbook-1a2b3c@agents.agentregistrar.dev` | The dedicated inbox. |
 | `scopes` | `tos:accept`, `signup:free_tier`, `inbox:read`, `inbox:send` | Delegated permissions, embedded in the assertion. |
-| `status` | `active` or `revoked` | The kill switch. |
+| `status` | `active`, `revoked` or `suspended` | The kill switch sets `revoked`; an operator protective action sets `suspended`. |
 | `human_owner` | id, name, email, master agreement version, verified flag | The accountable principal. |
 
-## Prove
+## Prove and sign up
 
-`identity_prove` verifies that `accepted_tos_text` hashes to `accept_tos_hash` first, then runs every gate, then records an acceptance if the terms are new, then mints the assertion.
+`identity_signup` is the default path. It fetches discovery, verifies the
+optional provider verification credential, applies the human's trust/policy,
+checks `accepted_tos_text` against the published hash, records an acceptance if
+the terms are new, mints the assertion, and returns a prepared signup request.
+There is no manual discovery, JWT decode, or attestation handling.
 
-Gates, in order, all before any reuse lookup: the human is active, the human email is verified, the master agreement is signed, the agent is not revoked, `tos:accept` is granted, and every requested scope is granted. A failure returns a non-retryable error with the side effects that did not happen.
+`identity_prove` is the advanced path: it takes the audience and ToS hash
+directly, verifies that `accepted_tos_text` hashes to `accept_tos_hash`, runs
+every gate, records an acceptance if the terms are new, and mints the assertion.
+It may take one explicit RP discovery source (`rp_discovery_url` or
+`rp_discovery` plus `rp_origin`); a `require` policy rejects an agent-supplied
+document.
+
+Gates, in order, all before any reuse lookup: the human is active, the human
+email is verified, the master agreement is signed, the agent is active, `tos:accept` is granted, and every requested scope is granted. Then discovery is
+validated, the attestation is verified, and the human's policy is applied: `allow`
+is silent, `warn` proceeds with an advisory warning, `require` refuses anything
+but `verified`, and `block` never proceeds. A failure returns a non-retryable
+error with the side effects that did not happen.
 
 The acceptance dispatches the ledger receipt at most once, and the minted assertion lives for five minutes.
 
@@ -77,27 +94,35 @@ If the acceptance is recorded but the ledger mail fails, the error is `ledger_em
 
 ## Record the signup
 
-`identity_record_signup` takes the provider's `signup_token` and does three things: verifies the signature, links the receipt to the acceptance it references, and stores one proof row for the account.
+`identity_record_signup` takes either the provider's RP-signed v1.2
+`signup_token` (optionally with the exact `rp_attestation`) or a weaker
+`self_report`. For a token it verifies the historical attestation named by
+`service.attestation_jti`, verifies the receipt signature with the key named by
+`service.key_id`, links it to the acceptance, and stores one proof row. There is
+no broker-key fallback and no substitution of a newer attestation.
 
-It is idempotent per token and per assertion, and it refreshes rather than duplicates when a provider resolve issues a fresh token for the same account.
+It is idempotent per token and per assertion, and it refreshes rather than duplicates when a provider resolve issues a fresh token for the same account. A self-report has no token, assertion, origin, or verification row; it records `agent_self_reported` and cannot overwrite a stronger proof.
 
 | Error | Meaning | What to do |
 | :--- | :--- | :--- |
-| `signup_token_invalid` | Signature or shape failed | Get a valid token from the provider; do not retry the same one |
-| `signup_token_not_linked` | The receipt references an acceptance this broker has not recorded | Run `identity_prove` for that audience, then retry |
+| `signup_token_invalid` | Signature, shape, historical window, or conflict failed | Get an RP-signed v1.2 receipt and the exact historical attestation; do not retry the same one |
+| `signup_token_not_linked` | The receipt references an acceptance this broker has not recorded | Run `identity_signup`/`identity_prove` for that audience, then retry |
 | `signup_token_ownership_mismatch` | The token belongs to another human owner | Stop; use the token issued for your account |
+| `rp_attestation_invalid` | The exact attestation is invalid or unavailable | Submit the exact attestation, or omit it so the broker fetches discovery and requires that jti |
+| `rp_broker_untrusted` | The attesting broker is outside the trust list | Ask the human owner to review the broker trust list |
+| `rp_broker_unavailable` | Transient broker/JWKS outage | Retry; recording is idempotent |
 
-The result always includes `context_url`, `context_sha256` and the `handoff` block. The broker never stores the credential and never fetches the guide.
+The result always includes `proof_source`, `deduplicated`, `rp_verification_id` (nullable), `context_url`, `context_sha256` and the `handoff` block. The broker never stores the credential and never fetches the guide.
 
-## Revoke and re-register
+## Revoke, suspend and re-register
 
-Revocation is per agent, from the portal kill switch or from a provider abuse report. It sets the agent status to `revoked` with a reason and a timestamp.
+Revocation is per agent, from the portal kill switch. It sets the agent status to `revoked` with a reason and a timestamp. An operator protective action can set `suspended` after a verified, receipt-linked abuse report; the human cannot clear that suspension with the kill switch, and only an operator restore returns the agent to `active`.
 
-What stops: `identity_prove` fails with `agent_revoked`, the identity and inbox tools reject the agent at the gate, and no new assertion can be minted. `identity_record_signup` is the one exception: it still accepts a receipt the provider already issued, because the proof belongs to the human owner, not to the agent's status.
+What stops: `identity_signup` and `identity_prove` fail with `agent_revoked` (a suspension uses the same code with a suspension-specific message), the identity and inbox tools reject the agent at the gate, and no new assertion can be minted. `identity_record_signup` is the one exception: it still accepts a receipt the provider already issued, because the proof belongs to the human owner, not to the agent's status.
 
 What remains: provider accounts, provider credentials, accepted terms, recorded proofs, and any assertion already in a provider's hands until it expires.
 
-Reactivating the agent in the portal restores the same sub-identity and its ledger. Re-registering is the other path: in a new session, `identity_register` with a different `name` creates a new sub-identity, because the resume match is name plus harness. The revoked identity is never reused.
+Reactivating a revoked agent in the portal restores the same sub-identity and its ledger. A suspension is operator-only to restore. Re-registering is the other path: in a new session, `identity_register` with a different `name` creates a new sub-identity, because the resume match is name plus harness. The revoked identity is never reused.
 
 <Aside type="caution" title="Re-register is not a reset">
 A new sub-identity has a new `agent.id` and a new inbox address. Providers that key accounts on the agent id will treat it as a new agent. Providers that key on the human id will resolve to the existing human account. Neither path deletes the old agent's records.
@@ -108,11 +133,12 @@ A new sub-identity has a new `agent.id` and a new inbox address. Providers that 
 | State | How it is reached | What works | Next |
 | :--- | :--- | :--- | :--- |
 | No sub-identity | A session with no agent yet | The first call auto-provisions a default | `identity_register` to choose a name |
-| Active, no acceptance | Registered | Register, whoami, inbox | `identity_prove` |
-| Acceptance recorded, no signup | A successful prove | Re-proving reuses the acceptance | Post the assertion to the provider |
-| Signed up, recorded | Signup plus `identity_record_signup` | Whoami shows the proof; the credential is yours | Use the credential |
-| Acceptance recorded, mail failed | A failed ledger dispatch | Re-proving retries the mail only | Retry `identity_prove` with the same inputs |
-| Revoked | Kill switch or abuse report | No new assertions and no identity or inbox calls; `identity_record_signup` still records a receipt the provider already issued | Reactivate, or register a new identity in a new session |
+| Active, no acceptance | Registered | Register, whoami, inbox | `identity_signup` |
+| Acceptance recorded, no signup | A successful mint | Re-running reuses the acceptance | Post the assertion to the provider |
+| Signed up, recorded | Signup plus Contract F/`identity_record_signup` | Whoami shows the proof; the credential is yours | Use the credential |
+| Acceptance recorded, mail failed | A failed ledger dispatch | Re-running retries the mail only | Retry with the same inputs |
+| Revoked | Human kill switch | No new assertions and no identity or inbox calls; `identity_record_signup` still records a receipt the provider already issued | Reactivate, or register a new identity in a new session |
+| Suspended | Operator protective action after a verified abuse report | Same tool blocks as revoked; the human cannot clear it | Operator review/restore |
 
 ## Next
 

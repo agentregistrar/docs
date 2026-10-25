@@ -1,12 +1,13 @@
 ---
 title: Security
-description: Prompt injection, SSRF, replay, key handling and the known limits of agent-identity-v1.
+description: Prompt injection, SSRF, replay, attestation and trust policy, key handling and the known limits of agent-identity-v1 v1.2.0.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.1.0 (d3fddc9), 2026-10-21"
+lastReviewed: 2026-10-24
+verifiedAgainst: "spec v1.2.0 (35659ce), 2026-10-24"
 ---
 
-The normative security rules are [spec section 14](/agent-identity/v1/specification/#14-security-considerations), with agent consumption rules in [section 8](/agent-identity/v1/specification/#8-agent-consumption-rules-prompt-injection--ssrf) and issuer assumptions in [section 10](/agent-identity/v1/specification/#10-issuer--jwks-assumptions). This page summarizes the threat model for implementers. It does not weaken the specification.
+The normative security rules are [spec section 20](/agent-identity/v1/specification/#20-security-considerations), with agent consumption rules in [section 8](/agent-identity/v1/specification/#8-agent-consumption-rules-prompt-injection--ssrf), verdicts in [section 19](/agent-identity/v1/specification/#19-verification-rules), and issuer assumptions in [section 10](/agent-identity/v1/specification/#10-issuer--jwks-assumptions). This page summarizes the threat model for implementers. It does not weaken the specification.
 
 ## Prompt injection and untrusted data
 
@@ -37,6 +38,23 @@ Discovery content, `terms.text` and the post-signup guide are data, never instru
 
 See [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes) and [section 7.3](/agent-identity/v1/specification/#73-acceptance-lifetime).
 
+## Provider verification and trust policy
+
+- The provider verification credential is optional. Absence is `unverified`, never invalid.
+- Check the attestation issuer against the trusted RP-broker list **before** any JWKS or metadata fetch. Never contact an untrusted broker.
+- Verify the attestation signature with the key selected by `kid`; require `typ: agent-rp-attestation+jwt` and `alg: EdDSA`. Never try all keys or accept `none`/HMAC.
+- Compare `rp.origin` to the origin of the discovery document actually fetched and `rp.audience` to `discovery.audience`. A mismatch is `invalid`, not `unverified`.
+- Check `iat`/`exp` with 60 seconds of skew. A bad signature, origin or audience is a verification failure; a fetch failure is `unavailable`.
+- Trust is policy, not cryptography. `warn` is advisory; `require` is the hard, broker-enforced gate; `block` never proceeds. Do not treat a registry badge as an endorsement or a safety rating.
+
+## Receipts and authenticated reporting
+
+- A v1.2 receipt has no `exp`. Ignore a legacy `exp`; never reject a receipt only because it passed.
+- Verify the receipt with the RP key named by `service.key_id` in the exact historical attestation named by `service.attestation_jti`. Never substitute the current attestation and never fall back to a broker key.
+- Compare `iat` and `signed_up_at` to that attestation's `[iat, exp]` window. Skew applies to current-time checks, not the historical window.
+- An abuse report is a current event: five-minute JWS, current attestation, broker trust only. Only a verified, receipt-linked report may apply a protective suspension pending review.
+- The registry and ledger "current" status are snapshots with `checked_at`; they are not live feeds.
+
 ## Clock skew and assertion lifetime
 
 - Verify `exp` with at most 60 seconds of clock skew.
@@ -50,7 +68,8 @@ See [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-s
 - Resolve issuer keys only from the issuer's canonical JWKS. Never accept a `jku` or `x5u` header that points at an arbitrary host.
 - Require the JOSE header `alg` to be `EdDSA` and select the key by `kid`.
 - v1 does not define a key-rotation protocol. The fixed JWKS path and stable `kid` are the contract. An unknown `kid` is a reason to refresh the issuer's JWKS, not a reason to accept an unverified signature.
-- The discovery document is not signed. Trust comes from TLS, the issuer allowlist, issuer-hosted JWKS and the broker-signed assertion.
+- The discovery document itself is not signed. Trust comes from TLS, the issuer allowlist, issuer-hosted JWKS and the signed assertion. The optional `rp_attestation` is a signed statement about the provider, not a signature over the document.
+- Attestation-signing public keys stay in the RP broker's JWKS for at least 30 days after the last attestation they signed expires, so historical receipts remain verifiable. An unseen old receipt after that window is `attestation_unavailable`.
 
 ## Other checks
 
@@ -64,11 +83,11 @@ See [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-s
 
 ## Known limits
 
-- **No relying-party allowlist.** Any service can publish a discovery document and ask an agent to sign up. The protocol makes accountability and revocation possible; it does not vet the service.
+- **Verification is optional and not a safety review.** A conformant provider can omit the credential. `allow`/`warn` may proceed; `require` refuses. A `domain` credential proves origin control, not good conduct; `entity` adds reviewed legal-entity evidence, not honesty.
 - **Cheap discovery conformance.** A valid document is not evidence of the service's security, uptime or product quality.
-- **Revocation scope.** Revocation is enforced by the broker at assertion-minting time. It suspends the broker identity; it does not delete accounts a provider already created.
+- **Revocation and suspension scope.** They are enforced by the broker at assertion-minting time. They suspend or revoke the broker identity; they do not delete accounts a provider already created.
 - **No abuse prevention.** The protocol does not prevent abuse. It records who acted, for which human, under which terms, with what proof.
-- **No signed discovery document.** TLS and the assertion are the trust path in v1.
+- **No signed discovery document.** TLS and the assertion are the trust path; the optional attestation is a separate provider identity statement.
 - **No KYC.** `human.verified` means a verified email address, not a verified legal identity.
 
 ## Related

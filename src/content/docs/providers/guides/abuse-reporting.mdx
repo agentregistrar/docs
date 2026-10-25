@@ -1,95 +1,150 @@
 ---
 title: Report abuse
-description: Report a misbehaving agent to the broker with Contract D.2, and understand what the broker does and does not do.
+description: Send an authenticated Contract D.2 abuse report with the RP attestation and a signed report JWS, and understand verified standing, protective suspension and cases.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-21
-verifiedAgainst: "spec v1.1.0 (d3fddc9), broker c7ddfa7, live endpoint 2026-10-21"
+lastReviewed: 2026-10-24
+verifiedAgainst: "spec v1.2.0 (35659ce), 2026-10-24"
 ---
 
-**Goal:** report a compromised or abusive agent sub-identity to the broker so it can be revoked and its human owner notified.
+**Goal:** report a compromised or abusive agent sub-identity to the broker with an
+authenticated, attributable request so it can open a case and, where warranted,
+apply a protective suspension pending review.
 
-This is Contract D.2. It is an identity action, not a billing dispute process and not a way to delete your account.
+This is Contract D.2. It is an identity action, not a billing dispute process and
+not a way to delete your account. Reporting a bad provider is a separate,
+portal-only human path.
 
 ## When to report
 
 - The agent is compromised and is acting outside its owner's intent.
-- The agent is using your service for fraud, cryptomining, spam or other abusive resource use.
+- The agent is using your service for fraud, cryptomining, spam or other abusive
+  resource use.
 - A chargeback or legal notice points at a specific agent identity.
-- You need the broker to suspend the identity while you investigate.
+- You need the broker to consider a protective suspension while you investigate.
 
-Do not use it for ordinary support, a failed payment, a normal account cancellation or a disagreement about your product.
+Do not use it for ordinary support, a failed payment, a normal account
+cancellation or a disagreement about your product.
 
-## Request
+## Request shape
 
-Send a JSON `POST` to the broker:
-
-```bash
-curl -sS -X POST https://agentregistrar.dev/api/broker/report-abuse \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "agent_id": "agt_01j00000000000000000000000",
-    "reporter_service": "example-rp",
-    "reason": "Synthetic example: repeated provisioning after account termination",
-    "evidence_jti": "jti_01j00000000000000000000000"
-  }'
-```
-
-| Field | Required | Meaning |
-| :--- | :--- | :--- |
-| `agent_id` | yes | The agent sub-identity id (`agt_...`) from the assertion or receipt. |
-| `reporter_service` | yes | Your service identifier, normally your `audience`. |
-| `reason` | yes | Short factual description. Include dates and account ids, not speculation. |
-| `evidence_jti` | no | The `jti` of the assertion or receipt that supports the report. |
-
-The request schema is `agent_id` starting with `agt_`, a non-empty reporter and reason, and an optional evidence JTI.
-
-## Responses
-
-An invalid request returns `400` with the broker's error envelope. Recorded on 2026-10-21 with a malformed agent id:
-
-```text
-HTTP 400
-{"error":"invalid_request","error_description":"Invalid input: must start with \"agt_\""}
-```
-
-A well-formed but unknown agent returns `404`. Recorded with a synthetic id:
-
-```text
-HTTP 404
-{"error":"agent_not_found","error_description":"Agent agt_00000000000000000000000000 not found"}
-```
-
-A successful report returns `200` with:
+`POST /api/broker/report-abuse` accepts exactly:
 
 ```json
 {
-  "ok": true,
-  "agent_id": "agt_01j00000000000000000000000",
-  "agent_status": "revoked",
+  "rp_attestation": "<compact provider attestation JWS>",
+  "report": "<compact report JWS>"
+}
+```
+
+The `report` header is `{"alg":"EdDSA","typ":"agent-rp-abuse+jwt","kid":"<rp key>"}`.
+Its claims are:
+
+| Claim | Required | Meaning |
+| :--- | :--- | :--- |
+| `iss` | yes | Your RP origin. It must equal the attestation `rp.origin`. |
+| `aud` | yes | The human broker origin, for example `https://agentregistrar.dev`. |
+| `jti` | yes | `abr_` + 26-character lowercase Crockford base32 ULID. |
+| `iat`, `exp` | yes | `exp - iat` is exactly 300 seconds. This is a current event, not a receipt. |
+| `agent_id` | yes | The agent sub-identity id from the assertion or receipt. |
+| `reason` | yes | 1-500 characters, factual. |
+| `evidence` | no | Optional `{assertion_jti, signup_token_jti}`. |
+
+The signing key must be in the attached attestation `keys[]` with `abuse` in its
+purposes. The attestation must be **current at report time**, within the standard
+60-second skew. Expiry is the primary bound, and the report's own five-minute
+window is never extended.
+
+## Broker checks
+
+The broker applies the full Contract G verification to `rp_attestation`:
+
+1. Parse the JWS; require `typ`, `alg: EdDSA`, and exactly one `kid`.
+2. Check `iss` against the **broker's** trusted RP-broker list before any JWKS
+   fetch. A human's `distrust` does not suppress abuse evidence; D.2 has no human
+   session.
+3. Verify against the RP broker's JWKS and check `iat`/`exp` with 60 seconds of
+   skew.
+4. Require `rp.origin` and `rp.audience` to match the discovery binding recorded
+   for the provider.
+5. Verify the report signature with the named key, then check `iss`/`aud` and the
+   report freshness.
+
+There is no status-endpoint call and no discovery fetch in this path. A transient
+JWKS/metadata outage is `503` with `rp_broker_unavailable` (retryable), not an
+authentication failure.
+
+## Verified versus unverified standing
+
+| Condition | `verification_status` | Effect |
+| :--- | :--- | :--- |
+| Linked signup with `proof_source` `rp_callback` or `rp_signed`, and a verified attestation | `verified` | Opens a case and may apply a protective suspension pending operator review. |
+| No linked signup, `agent_self_reported`, or `legacy_broker_signed` link | `unverified` | Opens a case; does **not** suspend. |
+| Missing, expired, invalid, untrusted, or unavailable attestation | rejected | No case; fix the credential or retry a transient failure. |
+
+A protective suspension is not an adjudication. The operator reviews the case and
+can restore the agent. The human owner cannot clear a suspension with the
+ordinary kill switch; a suspension is operator-only to restore.
+
+## Responses
+
+A new accepted report returns `202`:
+
+```json
+{
+  "case_id": "0d5f6a7c-...",
+  "report_jti": "abr_01j...",
+  "verification_status": "verified",
+  "deduplicated": false,
+  "agent_suspended": true,
   "human_notified": true
 }
 ```
 
-The success shape is the broker's Contract D.2 response schema. It was not executed against a live agent because that would revoke a real identity; the two error responses above were.
+A duplicate `jti` with the same body returns `200` with the same `case_id` and
+`deduplicated: true`. A same-`jti`/different-body replay is `409`. A legacy
+unauthenticated body is:
 
-`human_notified` reports whether the broker's alert email was sent. A false value does not undo the revocation.
+```text
+HTTP 401
+{"error":"unauthorized","error_description":"...","code":"unauthenticated_report"}
+```
+
+Other errors use `{error, error_description, code}`. The body limit is 64 KiB and
+the endpoint is rate-limited to 60 requests per minute per IP; excess requests
+get `429 rate_limited`. Every accepted report opens a case; the response never
+includes key material or internal paths.
 
 ## What the broker does
 
-- Validates the report and writes an immutable audit record.
-- Immediately sets the agent identity to `revoked` with the reason and timestamp.
-- Alerts the human owner by email, best effort.
-- Stops minting new assertions for that agent.
+- Verifies the RP identity and the report signature.
+- Resolves the linked signup and records `verified` or `unverified` standing.
+- Opens an abuse case and an operator notification.
+- For a verified, receipt-linked report, may apply a protective suspension
+  pending operator review and notify the human owner.
+- Keeps the evidence and the case timeline.
 
 ## What the broker does not do
 
-- It does not adjudicate the dispute, decide who is right, or reverse your account action.
-- It does not delete the account you created or the resources the agent provisioned.
-- It does not guarantee that an in-flight assertion is rejected; assertions are short-lived and revocation is enforced at minting time.
-- It does not notify you of the outcome beyond the response.
+- It does not adjudicate the dispute, decide who is right, issue refunds, or
+  reverse your account action.
+- It does not delete the account you created or the resources the agent
+  provisioned.
+- It does not guarantee that an in-flight assertion is rejected; assertions are
+  short-lived and revocation/suspension is enforced at minting time.
+- It does not suspend on an unverified or unlinked report.
+- It does not expose a report-status call in v1.2.
 
 Your own termination, credential rotation and data-retention policy still apply.
+
+## Human report about a provider
+
+A human who wants to report a bad provider uses the portal, not this endpoint:
+`POST /api/broker/report-provider` is session-authenticated, 16 KiB, and takes
+the RP origin, audience, optional attestation `jti`, reason, optional evidence,
+and optional `distrust_broker`/`block_provider` flags. It opens a provider case
+and can update that human's trust/policy. It does not change the provider's
+attestation or adjudicate a dispute.
 
 ## Evidence and privacy
 
@@ -99,25 +154,33 @@ Include the minimum needed to identify the event:
 - the assertion or receipt `jti` as evidence;
 - a factual reason with no speculation about the human.
 
-Do not send credentials, full request bodies, payment data or personal data beyond what the report requires. Do not paste secrets into the reason field.
+Do not send credentials, full request bodies, payment data or personal data
+beyond what the report requires. Do not paste secrets into the reason field.
 
 ## Safety
 
-- Report one agent per request. Do not use the endpoint as a bulk messaging channel.
+- Report one agent per request. Do not use the endpoint as a bulk messaging
+  channel.
 - Do not automate retaliation against an agent or its owner.
-- If you need a provider-wide block, use your own access controls; the broker revokes identities, not accounts.
+- If you need a provider-wide block, use your own access controls; the broker
+  suspends or revokes identities, not your accounts.
 - Keep a monitored abuse contact in discovery and in your context guide.
 
 ## Verify your work
 
-- [ ] The request uses an `agt_...` id from a verified assertion or receipt.
-- [ ] `reporter_service` matches your audience.
-- [ ] The reason is factual and contains no secrets or unnecessary personal data.
-- [ ] You understand that revocation does not delete your account or resources.
+- [ ] The request is exactly `{rp_attestation, report}`; there is no
+      `reporter_service` or unsigned body.
+- [ ] The report key is in the attestation with `abuse` purpose and the
+      attestation is current at report time.
+- [ ] `iss` is your origin, `aud` is the broker, and `exp - iat` is 300 seconds.
+- [ ] The agent id and any evidence JTI come from a real assertion or receipt.
+- [ ] You understand verified standing, unverified cases, and protective rather
+      than immediate/adjudicated suspension.
 - [ ] Your own incident steps (disable, rotate, preserve evidence) are recorded.
 
 ## Next
 
-- [Production checklist](/providers/guides/production-checklist/): incidents and contacts.
+- [Production checklist](/providers/guides/production-checklist/): incidents, keys and contacts.
 - [Liability and ToS](/providers/concepts/liability-and-tos/): attribution and retention.
-- [Specification](/agent-identity/v1/specification/): the relying-party publication rules.
+- [Trust and limits](/start/trust-and-limits/): what suspension and revocation do and do not do.
+- [Specification](/agent-identity/v1/specification/): the normative D.2 rules.

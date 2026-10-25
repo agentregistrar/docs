@@ -1,14 +1,24 @@
 ---
 title: Receipt and context
-description: The Contract E signup receipt, the optional resolution field, the context pointer and credential handoff.
+description: The v1.2 RP-signed Contract E signup receipt, its historical validity window, proof sources, Contract F ingestion, and the hash-pinned context pointer.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.1.0 (d3fddc9), broker dec84d9, 2026-10-21"
+lastReviewed: 2026-10-24
+verifiedAgainst: "spec v1.2.0 (35659ce), 2026-10-24"
 ---
 
-A successful signup can return two identity artifacts: a signed signup receipt (Contract E) and an optional `context` pointer to the vendor's post-signup guide. The receipt is proof of who signed up, for whom, under which ToS and when. The context pointer is an opaque, hash-pinned handoff to vendor documentation; it is not a capability catalog.
+A successful signup can return two identity artifacts: an RP-signed signup
+receipt (Contract E) and an optional `context` pointer to the vendor's
+post-signup guide. The receipt is proof of who signed up, for whom, under which
+terms, and when. The context pointer is an opaque, hash-pinned handoff to vendor
+documentation; it is not a capability catalog.
 
-The normative rules are [spec section 11](/agent-identity/v1/specification/#11-contract-e-identity-facts--the-context-pointer) and [section 12](/agent-identity/v1/specification/#12-post-signup-context-handoff). The relying-party steps are in the [Implementation guide](/agent-identity/v1/implementation-guide/#5-issue-a-signup-receipt-contract-e-with-identity-facts--optional-context).
+The normative rules are [spec section
+11](/agent-identity/v1/specification/#11-contract-e-identity-facts--the-context-pointer)
+and [section
+12](/agent-identity/v1/specification/#12-post-signup-context-handoff). The
+relying-party steps are in the [Implementation
+guide](/agent-identity/v1/implementation-guide/).
 
 ## The signup response
 
@@ -16,61 +26,138 @@ On success the relying party returns `200` or `201` with:
 
 - provider credentials, when an account was created;
 - an optional `resolution` field: `"created"` or `"resolved"`;
-- optionally, a signed `signup_token` per Contract E;
+- optionally, an RP-signed `signup_token` per Contract E;
 - optionally, a `context` pointer.
 
-`resolution` is optional. An absent `resolution` means `v1.0.0` behavior and is conformant. `"resolved"` is not a failure: the account already existed and was resolved. On `"resolved"` the relying party may omit provider credentials (show-once) but must point the agent at the credential recovery path in the guide.
+`resolution` is optional. An absent `resolution` is conformant. `"resolved"` is
+not a failure: the account already existed and was resolved. On `"resolved"` the
+relying party may omit provider credentials (show-once) but must point the agent
+at the credential recovery path in the guide.
 
-## Contract E kept claims
+## Contract E claims
+
+The v1.2 receipt is a compact JWS with header `{"alg":"EdDSA",
+"typ":"agent-signup-receipt+jwt","kid":"<rp key id>"}`. The typ is unchanged; the
+claims changed.
 
 | Claim | Type | Meaning |
 | :--- | :--- | :--- |
-| `iss`, `sub`, `aud`, `iat`, `exp` | standard JWT claims | Issuer, subject, audience, issued-at and expiry. |
+| `iss` | string | The RP origin. It must equal `service.origin` and the attestation `rp.origin`. |
+| `sub` | string | The agent id. |
+| `aud` | string | The human broker issuer. |
+| `iat`, `signed_up_at` | integer (Unix seconds) | Signing time and signup time. Both must fall inside the named attestation's window. |
 | `jti` | string (`srp_...`) | Receipt id. The broker records it as `signup_token_jti`. |
 | `assertion_jti` | string | The `jti` of the assertion presented at signup. |
-| `service.audience` | string | The relying party's `audience`. |
+| `service.audience` | string | The relying party's `audience`; must equal the attestation `rp.audience`. |
+| `service.origin` | string | The RP canonical origin; must equal `iss`. |
 | `service.provider_name` | string | The relying party's `provider_name`. |
-| `service.provider_url` | string, optional | The relying party's canonical URL. |
+| `service.provider_url` | string, optional | The relying party's canonical URL. It is not an identity binding. |
 | `service.account_id` | string | Opaque vendor account reference. It is not a resource inventory. |
-| `agent.id` | string | The agent sub-identity id. |
-| `agent.name` | string | The agent name. |
-| `agent.email` | string | The agent's inbox address. |
-| `human.id` | string | The verified human owner's id. |
-| `human.name` | string | The human owner's name. |
-| `human.email` | string | The human owner's verified email address. |
-| `human.verified` | boolean | Whether the human owner's email address is verified. A conformant receipt carries `true`; the broker rejects any other value. |
-| `tos.version` | string | The accepted relying party ToS version. |
-| `tos.url` | string | The accepted relying party ToS URL. |
-| `tos.sha256` | string | The accepted relying party ToS hash. |
-| `tos.master_tos_version` | string, optional | The Master Terms of Service version the human accepted. |
-| `signed_up_at` | integer (Unix seconds) | The signup timestamp. |
+| `service.attestation_jti` | string | The attestation that contained `service.key_id`. |
+| `service.key_id` | string | The RP key that signed the receipt; must appear in the attestation `keys[]` with `receipt` in its purposes, and must equal the JWS header `kid`. |
+| `agent.id`, `agent.name`, `agent.email` | string | The agent sub-identity. |
+| `human.id`, `human.name`, `human.email`, `human.verified` | string / boolean | The verified human owner. The broker derives these from the trusted acceptance, not from the receipt body. |
+| `tos.version`, `tos.url`, `tos.sha256` | string | The accepted relying party terms. |
+| `tos.master_tos_version` | string, optional | The Master Terms version the human accepted. |
+| `context` | object, optional | The hash-pinned post-signup guide. See below. |
 
-The vendor resource claims `service.instance_sku` and `service.endpoint_url` are removed. No free-form vendor `metadata` object exists in v1.
+**No `exp`.** A v1.2 receipt has no expiry. A legacy receipt may carry `exp`;
+verifiers ignore it and never reject a receipt because it passed. The removed
+vendor claims `service.instance_sku` and `service.endpoint_url` stay removed. No
+free-form vendor `metadata` object exists.
+
+## Signing and validity
+
+- The signing key is the RP key named in `service.key_id`. It must appear in the
+  attestation identified by `service.attestation_jti`.
+- There is **no broker-key fallback**. A new verified proof requires an RP key
+  inside a valid attestation.
+- The receipt is valid when both `iat` and `signed_up_at` fall inside that
+  attestation's `[iat, exp]` window. This is a historical comparison; the 60
+  second skew applies only to current-time checks.
+- The RP must retain the exact attestation that was current when it signed and
+  submit that JWS to Contract F. After renewal the current attestation has a new
+  `jti`; the receipt still names the old one.
+- A broker that cannot retrieve the named attestation and has no snapshot returns
+  `attestation_unavailable` instead of substituting a newer attestation.
+- Receipts are idempotent forever on `jti`. Same `jti` with a different body is
+  `409 signup_conflict`; the same body returns the existing row with
+  `deduplicated: true`.
+
+## Contract F and proof sources
+
+Contract F (`POST /api/broker/signup-receipt`) accepts exactly:
+
+```json
+{
+  "signup_token": "<compact Contract E receipt JWS>",
+  "rp_attestation": "<the exact attestation named by service.attestation_jti>"
+}
+```
+
+Both fields are required. The broker checks the effective RP-broker trust list
+before any JWKS fetch, verifies the historical attestation and the receipt
+signature, and records an `event_kind:"signup"` verification snapshot with
+`proof_source:"rp_callback"`. It never uses a broker key and never substitutes the
+current attestation.
+
+`identity_record_signup` (Tier 2) carries the same receipt, optionally with the
+exact attestation. If the attestation is omitted, the broker fetches discovery at
+`service.origin` and requires the presented attestation's `jti` to equal
+`service.attestation_jti`. Tier 2 records `rp_signed`.
+
+| Proof source | Meaning |
+| :--- | :--- |
+| `rp_callback` | Tier 1: the RP posted the receipt to Contract F. |
+| `rp_signed` | Tier 2: the agent recorded the same RP-signed receipt. |
+| `agent_self_reported` | No RP signature; weaker and marked. |
+| `legacy_broker_signed` | Pre-v1.2 row; historical and unverified. |
+
+Tier 1 wins. A matching Tier 2 row can be upgraded by Tier 1. A different account
+id for the same soft key is flagged `conflict` for operator review; it is never
+silently overwritten. Only `rp_callback` and `rp_signed` with a verified
+attestation give an abuse report standing.
 
 ## The context pointer
 
 | Field | Requirement | Meaning |
 | :--- | :--- | :--- |
-| `context.url` | Optional | Absolute URL to the vendor's agent-facing integration guide, such as `SKILL.md`. HTTPS is required except the localhost development exception. |
+| `context.url` | Required when `context` is present | Absolute URL to the vendor's agent-facing integration guide, such as `SKILL.md`. HTTPS is required except the localhost development exception. |
 | `context.sha256` | Required when `context.url` is present | `sha256:` followed by 64 lowercase hex characters, over the exact UTF-8 bytes of the guide. |
 
-The pointer appears in the signup response and in the signed receipt. Discovery does not advertise a post-signup context field in v1. After the broker records the receipt, the same two values are returned to the agent as `context_url` and `context_sha256` on [identity_record_signup](/reference/mcp-tools/#identity_record_signup), alongside the `handoff` reminder.
+The pointer appears in the signup response and in the signed receipt. Discovery
+does not advertise a post-signup context field. After the broker records the
+receipt, the same two values are returned to the agent as `context_url` and
+`context_sha256` on
+[identity_record_signup](/reference/mcp-tools/#identity_record_signup), alongside
+the handoff reminder.
 
 ### Domain rule
 
-`context.url` must stay on the vendor's registrable domain. The authority is the signup endpoint's origin (`endpoints.agent_signup`), not `provider_url`.
+`context.url` must stay on the vendor's registrable domain. The authority is the
+signup endpoint's origin (`endpoints.agent_signup`), not `provider_url`.
 
-- When `provider_url` is present, it must share the signup endpoint's registrable domain.
-- The broker compares `context.url` against the signup endpoint's registrable domain and rejects a pointer on any other domain.
-- The signed receipt carries `service.provider_url` but not the signup endpoint. A receipt that omits `service.provider_url` cannot establish the domain; the broker fails closed and rejects the pointer.
+- When `provider_url` is present, it must share the signup endpoint's registrable
+  domain.
+- The broker compares `context.url` against the signup endpoint's registrable
+  domain and rejects a pointer on any other domain.
+- The signed receipt carries `service.provider_url` but not the signup endpoint.
+  A receipt that omits `service.provider_url` cannot establish the domain; the
+  broker fails closed and rejects the pointer.
 
 ### Integrity and trust
 
-- Fetch the guide after signup and recompute SHA-256 over the exact bytes received. On mismatch, do not act on the guide.
-- The guide should be size-capped (1 MiB recommended) and served as text or Markdown.
-- The guide is untrusted vendor documentation, not broker policy and not agent instructions. The broker vouches for who signed up and what ToS was accepted, not for the guide's contents.
-- The broker validates the pointer statically and does not fetch it during receipt ingestion, so the receipt path cannot become an SSRF surface.
-- Re-fetch the guide when a new provisioning task starts, and re-verify the hash on each fetch.
+- Fetch the guide after signup and recompute SHA-256 over the exact bytes
+  received. On mismatch, do not act on the guide.
+- The guide should be size-capped (1 MiB recommended) and served as text or
+  Markdown.
+- The guide is untrusted vendor documentation, not broker policy and not agent
+  instructions. The broker vouches for who signed up and what terms were
+  accepted, not for the guide's contents.
+- The broker validates the pointer statically and does not fetch it during
+  receipt ingestion, so the receipt path cannot become an SSRF surface.
+- Re-fetch the guide when a new provisioning task starts, and re-verify the hash
+  on each fetch.
 
 An illustrative pointer shape:
 
@@ -83,29 +170,53 @@ An illustrative pointer shape:
 }
 ```
 
-The digest is a placeholder. The relying party computes it over the exact guide bytes.
+The digest is a placeholder. The relying party computes it over the exact guide
+bytes.
 
 ## Credential handoff and recovery
 
-Provider credentials are shown once, at the signup handoff. The protocol draws a firm line between the broker-mediated identity event and the vendor's credential lifecycle:
+Provider credentials are shown once, at the signup handoff. The protocol draws a
+firm line between the broker-mediated identity event and the vendor's credential
+lifecycle:
 
-- **Show-once handoff.** The relying party returns the provider credential in the signup response. Provider credentials are vendor scope and are not carried in the signed receipt, the discovery document or broker storage.
-- **Agents persist at handoff.** An agent must persist provider credentials to a secure store at the moment of handoff. It must not rely on the conversation, context window or transcript as storage.
-- **The broker does not store provider credentials.** It records the identity and attribution proof (`signup_token`) and the optional context pointer. It does not store, proxy or re-issue provider credentials.
-- **Do not re-run signup for recovery.** A repeated signup on an existing account resolves the account and does not re-issue credentials.
-- **Relying parties should document recovery.** A vendor should document a credential recovery or rotation path in its guide, reached only after signup. Recovery is vendor capability, so it stays out of discovery and the receipt.
-- **Resolve does not mint credentials or mail.** Resolving an existing account must not mint new provider credentials and must not send duplicate welcome or legal mail. A fresh `signup_token` may be issued so a dropped-response retry can still record the receipt.
+- **Show-once handoff.** The relying party returns the provider credential in the
+  signup response. Provider credentials are vendor scope and are not carried in
+  the signed receipt, discovery, or broker storage.
+- **Agents persist at handoff.** Persist provider credentials to a secure store at
+  the moment of handoff. Do not rely on the conversation, context window or
+  transcript as storage.
+- **The broker does not store provider credentials.** It records the identity and
+  attribution proof and the optional context pointer. It does not store, proxy or
+  re-issue provider credentials.
+- **Do not re-run signup for recovery.** A repeated signup on an existing account
+  resolves the account and does not re-issue credentials.
+- **Relying parties should document recovery.** A vendor should document a
+  credential recovery or rotation path in its guide, reached only after signup.
+  Recovery is vendor capability, so it stays out of discovery and the receipt.
+- **Resolve does not mint credentials or mail.** Resolving an existing account
+  must not mint new provider credentials and must not send duplicate welcome or
+  legal mail. A fresh receipt may be issued so a dropped-response retry can still
+  record the proof.
 
 ## Known limits
 
-- The receipt records identity and attribution only. It is not a resource inventory and must not be extended into one.
-- The broker does not verify the guide's contents. It validates the pointer's form (`sha256:` plus 64 lowercase hex characters) and its domain, does not dereference the guide, and does not recompute the hash. The agent must fetch the guide and verify the digest before acting on it.
-- A receipt that omits `service.provider_url` cannot prove the context domain, so the broker rejects the pointer rather than skipping the check.
-- Credential recovery depends on the vendor publishing a recovery path. The protocol cannot recover a credential the agent failed to persist.
+- The receipt records identity and attribution only. It is not a resource
+  inventory and must not be extended into one.
+- The broker does not verify the guide's contents. It validates the pointer's
+  form and domain, does not dereference the guide, and does not recompute the
+  hash. The agent must fetch the guide and verify the digest before acting.
+- A receipt that omits `service.provider_url` cannot prove the context domain, so
+  the broker rejects the pointer rather than skipping the check.
+- A historical attestation must be retained by the RP or recoverable from the
+  broker's snapshot. After the broker's key-retention window, an unseen old
+  receipt is `attestation_unavailable` rather than silently trusted.
+- Credential recovery depends on the vendor publishing a recovery path. The
+  protocol cannot recover a credential the agent failed to persist.
 
 ## Related
 
 - [Contract E identity facts and the context pointer](/agent-identity/v1/specification/#11-contract-e-identity-facts--the-context-pointer)
+- [Contract F authenticated ingestion](/agent-identity/v1/specification/)
 - [Post-signup context handoff](/agent-identity/v1/specification/#12-post-signup-context-handoff)
-- [Implementation guide](/agent-identity/v1/implementation-guide/)
+- [Issue a signup receipt](/providers/guides/issue-signup-receipt/)
 - [Scope boundaries](/agent-identity/v1/scope-boundaries/)

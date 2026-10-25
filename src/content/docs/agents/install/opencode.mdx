@@ -74,7 +74,7 @@ The token is stored outside the project configuration. Nothing in `opencode.json
 opencode mcp list
 ```
 
-The server should now read as connected. Inside OpenCode, `/mcps` shows the server, its state and its tool count. The broker exposes eight tools: `identity_register`, `identity_whoami`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`.
+The server should now read as connected. Inside OpenCode, `/mcps` shows the server, its state and its tool count. The broker exposes nine tools: `identity_register`, `identity_whoami`, `identity_signup`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`.
 
 OpenCode prefixes MCP tools with the server name, so `identity_whoami` is exposed as `agentregistrar_identity_whoami`. Under the default Code Mode the tools are grouped per server and called as `tools.agentregistrar.identity_whoami`.
 

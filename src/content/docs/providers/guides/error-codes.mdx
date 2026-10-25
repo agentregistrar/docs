@@ -1,10 +1,10 @@
 ---
 title: Stable error codes
-description: Return the fixed v1 error envelope, with the right status, retryability and agent action for each failed check.
+description: Return the fixed v1 provider-handshake error envelope, keep it distinct from MCP and broker-route codes, and map each failed assertion check to the right status and retryability.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-21
-verifiedAgainst: "spec v1.1.0 (d3fddc9), generic HTTP sample, 2026-10-21"
+lastReviewed: 2026-10-24
+verifiedAgainst: "spec v1.2.0 (35659ce), generic HTTP sample, 2026-10-24"
 ---
 
 **Goal:** every rejected signup returns a JSON envelope with one fixed v1 code, so an agent can act without reading prose.
@@ -108,6 +108,29 @@ Only `rate_limited` is retryable in the core table. An agent should back off on 
 - `tos_hash_mismatch`: re-discover and re-accept. This is a hard stop until the agent accepts the current hash.
 
 If you send `Retry-After` on `429`, set `retryable: true` and keep the delay honest.
+
+## Keep the families separate
+
+This table is only for your `POST endpoints.agent_signup` response. Do not reuse
+these codes for other surfaces:
+
+- **MCP tool errors** use the broker's `McpToolErrorCodeSchema` envelope
+  (`rp_unverified`, `rp_attestation_invalid`, `discovery_source_not_allowed`,
+  and the rest). They are returned inside an MCP result, not by your endpoint.
+- **Contract F** (`/api/broker/signup-receipt`) returns broker codes such as
+  `invalid_attestation`, `attestation_not_valid_at_signing`,
+  `attestation_unavailable`, `signup_conflict`, and `rp_broker_unavailable`.
+- **Contract D.2** (`/api/broker/report-abuse`) returns
+  `unauthenticated_report` for a legacy body and `rp_broker_unavailable` for a
+  transient outage. It does not use your signup codes.
+- **Provider API** routes use `invalid_api_key`, `provider_suspended`,
+  `provider_not_eligible`, the key/challenge/PoP errors, and `rate_limited`.
+
+A v1.2 receipt has no `exp`. Do not reject a receipt because a legacy `exp`
+passed, and do not expect a `receipt_expired` code: validity is the historical
+`[attestation.iat, attestation.exp]` window. A provider that adds its own
+implementation code outside this core flow must keep it distinguishable and still
+return the fixed code for the corresponding core failure.
 
 ## Verify your work
 

@@ -1,14 +1,23 @@
 ---
 title: Assertion claims
-description: The Contract A claim set, a worked example, and the checks a relying party performs on a signed assertion.
+description: The Contract A claim set, a worked example, the relying-party checks, and why v1.2 adds no relying-party claim to the assertion.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.1.0 (d3fddc9), broker dec84d9, 2026-10-21"
+lastReviewed: 2026-10-24
+verifiedAgainst: "spec v1.2.0 (35659ce), broker 5e57ecf, 2026-10-24"
 ---
 
-An agent obtains a signed Agent Identity assertion from its broker with `identity_prove`. The assertion is a compact Ed25519-signed JWT. It is the proof the agent presents at `endpoints.agent_signup`; the discovery document and the assertion are separate artifacts.
+An agent obtains a signed Agent Identity assertion from its broker with
+`identity_signup` (default) or `identity_prove` (advanced). The assertion is a
+compact Ed25519-signed JWT. It is the proof the agent presents at
+`endpoints.agent_signup`; the discovery document and the assertion are separate
+artifacts.
 
-This page is a reference for the claims and the relying-party checks. The normative handshake is [spec section 7](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake); the assertion format itself is Contract A and is referenced, not redefined, by the discovery specification.
+This page is a reference for the claims and the relying-party checks. The
+normative handshake is [spec section
+7](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake); the
+assertion format itself is Contract A and is referenced, not redefined, by the
+discovery specification.
 
 ## Claim set
 
@@ -35,7 +44,17 @@ This page is a reference for the claims and the relying-party checks. The normat
 | `delegation.accepted_at` | integer | Acceptance time, Unix seconds. |
 | `delegation.scopes` | array of strings | Scopes delegated for this signup. |
 
-The claim names and types are validated by `AgentAssertionClaimsSchema` in the shared broker package. `identity_prove` returns the exact signed payload as `assertion.claims` for inspection; the full result contract is on [MCP tools](/reference/mcp-tools/#identity_prove).
+The claim names and types are validated by `AgentAssertionClaimsSchema` in the
+shared broker package. `identity_prove` returns the exact signed payload as
+`assertion.claims` for inspection. `identity_signup` returns the assertion
+(jwt, `jti`, `kid`, `typ`, expiry) without a claims block and returns the
+verification summary separately. The full result contracts are on [MCP
+tools](/reference/mcp-tools/).
+
+**No relying-party claim is added in v1.2.** Verification status, policy,
+attestation `jti`, and the assurance level live in `rp_verifications` and the
+tool result, not in the assertion. The assertion stays about the agent, the
+human, and the accepted terms. `identity_signup` returns no claims block at all.
 
 ## Worked example
 
@@ -99,9 +118,16 @@ Never decode, re-encode or modify the compact JWT to guess fields. Send `asserti
 ## Known limits
 
 - `human.verified` means the human owner's email address is verified. It is not a KYC or identity-document check, and a relying party must not represent it as one.
-- Revocation is enforced by the broker when an assertion is minted. A relying party that only verifies signatures learns about revocation when it next asks for an assertion or through an out-of-band feed it chooses to support.
-- The protocol has no relying-party allowlist. Any service can publish a discovery document and ask an agent to sign up.
-- An assertion proves identity, delegation and ToS acceptance for its audience. It does not prove that the service is trustworthy or that its guide is safe.
+- Revocation is enforced by the broker when an assertion is minted. A relying
+  party that only verifies signatures learns about revocation when it next asks
+  for an assertion or through an out-of-band feed it chooses to support.
+- The instruction "no relying-party allowlist" is a v1.1 statement. In v1.2 the
+  provider may publish an optional verification credential and the human applies
+  a trust list and policy before minting, but a conformant provider without a
+  credential still exists and is unverified. That is policy, not an assertion
+  claim.
+- An assertion proves identity, delegation and ToS acceptance for its audience.
+  It does not prove that the service is trustworthy or that its guide is safe.
 
 ## Related
 

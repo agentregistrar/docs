@@ -1,38 +1,58 @@
 ---
 title: Issue a signup receipt
-description: Sign a Contract E signup_token with identity facts and an opaque account id, and record it with the broker.
+description: Sign a v1.2 Contract E signup_token with the RP key from the exact attestation, then record it through Contract F or identity_record_signup.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-21
-verifiedAgainst: "spec v1.1.0 (d3fddc9), broker c7ddfa7, jose 6.2.13, 2026-10-21"
+lastReviewed: 2026-10-24
+verifiedAgainst: "spec v1.2.0 (35659ce), jose 6.2.13, 2026-10-24"
 ---
 
-**Goal:** after an account is created or resolved, optionally return a signed `signup_token` that proves who signed up, for whom, under which terms and when.
+**Goal:** after an account is created or resolved, optionally return an RP-signed
+`signup_token` that proves who signed up, for whom, under which terms and when.
 
-The receipt is optional. If you issue one, the broker records it as attribution evidence. The claim set is defined in [spec section 11](/agent-identity/v1/specification/#11-contract-e-identity-facts--the-context-pointer); the field reference is [Receipt and context](/agent-identity/v1/receipt-and-context/).
+The receipt is optional. If you issue one, the broker records it as attribution
+evidence. The claim set is defined in [spec section
+11](/agent-identity/v1/specification/#11-contract-e-identity-facts--the-context-pointer);
+the field reference is [Receipt and
+context](/agent-identity/v1/receipt-and-context/).
+
+A v1.2 receipt is signed by **your** relying-party key, not the broker. The key
+must be present in the exact provider attestation named by
+`service.attestation_jti`. There is no broker-key fallback.
 
 ## What goes in the receipt
 
 | Claim | Value |
 | :--- | :--- |
-| `iss` | Your service audience. The broker pins it to `service.audience`. |
+| `iss` | Your canonical RP origin, for example `https://example.com`. It must equal `service.origin`. |
 | `sub` | The agent id (`agt_...`). |
-| `aud` | The broker origin, for example `https://agentregistrar.dev`. |
-| `jti` | A unique receipt id (`srp_...`). |
-| `iat`, `exp` | Issued-at and expiry. The reference implementation uses one year for audit proof. |
+| `aud` | The human broker origin, for example `https://agentregistrar.dev`. |
+| `jti` | A unique receipt id (`srp_` + 26-character lowercase Crockford base32 ULID). |
+| `iat`, `signed_up_at` | Unix seconds. Both must fall inside the named attestation's `[iat, exp]` window. |
 | `assertion_jti` | The `jti` of the assertion presented at signup. |
-| `service.*` | `audience`, `provider_name`, optional `provider_url`, and an opaque `account_id`. |
+| `service.audience` | Your discovery `audience`. |
+| `service.origin` | Your canonical origin; must equal `iss`. |
+| `service.provider_name` | Your `provider_name`. |
+| `service.provider_url` | Optional canonical URL. It is not an identity binding. |
+| `service.account_id` | An opaque account reference. It is not a resource inventory. |
+| `service.attestation_jti` | The `jti` of the attestation that contained the signing key. |
+| `service.key_id` | The key id that signs the receipt. It must equal the JWS header `kid`. |
 | `agent.*` | `id`, `name`, `email`. |
 | `human.*` | `id`, `name`, `email`, `verified`. |
 | `tos.*` | `version`, `url`, `sha256`, optional `master_tos_version`. |
 | `context` | Optional `{ url, sha256 }` pointer to your guide. |
-| `signed_up_at` | Unix seconds. |
+| `exp` | **Do not add one.** A v1.2 receipt has no expiry. A legacy `exp` is ignored. |
 
-Do not add `service.instance_sku`, `service.endpoint_url`, a free-form `metadata` object, resource credentials or API usage. The receipt is not a resource inventory. Vendor capability belongs in the context guide.
+Do not add `service.instance_sku`, `service.endpoint_url`, a free-form `metadata`
+object, resource credentials or API usage. The receipt is not a resource
+inventory. Vendor capability belongs in the context guide.
 
 ## Sign it
 
-This fixture signs with a throwaway Ed25519 key so the claims and the JWT shape can be inspected offline. In production, use the signing key registered with the broker for your integration and keep it in a secret store.
+Use the RP key registered with your broker and the exact attestation that
+contained it. If you use the shared implementation, `signRpSignupReceipt` builds
+the frozen header and payload and rejects a missing attestation key. The
+equivalent `jose` flow is below.
 
 ```bash
 mkdir provider-receipt
@@ -41,37 +61,43 @@ npm init -y
 npm install jose@6.2.13
 ```
 
-Save as `mint-receipt.mjs`:
+Save as `sign-receipt.mjs`. `rp-private.jwk.json` is your private key;
+`attestation.jws` is the exact attestation that was current at signup.
 
 ```js
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { exportJWK, generateKeyPair, importJWK, jwtVerify, SignJWT } from "jose";
+import { importJWK, SignJWT } from "jose";
 
-const { publicKey, privateKey } = await generateKeyPair("Ed25519", { extractable: true });
-const privateJwk = await exportJWK(privateKey);
-const publicJwk = await exportJWK(publicKey);
-
-const guide = readFileSync("SKILL.md");
-const context = {
-  url: "https://example.com/docs/SKILL.md",
-  sha256: "sha256:" + createHash("sha256").update(guide).digest("hex"),
-};
+const privateJwk = JSON.parse(readFileSync("rp-private.jwk.json", "utf8"));
+const attestation = readFileSync("attestation.jws", "utf8").trim();
+const payload = JSON.parse(
+  Buffer.from(attestation.split(".")[1], "base64url").toString("utf8"),
+);
+const key = payload.keys.find((candidate) => candidate.kid === privateJwk.kid);
+if (!key || !key.purposes.includes("receipt")) {
+  throw new Error("the key is not a receipt key in this attestation");
+}
 const now = Math.floor(Date.now() / 1000);
+if (now < payload.iat || now > payload.exp) {
+  throw new Error("the attestation is not valid at signing time");
+}
 
 const claims = {
-  iss: "example-rp",
+  iss: payload.rp.origin,
   sub: "agt_01j00000000000000000000000",
   aud: "https://agentregistrar.dev",
   jti: "srp_01j00000000000000000000000",
   iat: now,
-  exp: now + 31536000,
+  signed_up_at: now,
   assertion_jti: "jti_01j00000000000000000000000",
   service: {
-    audience: "example-rp",
+    audience: payload.rp.audience,
+    origin: payload.rp.origin,
     provider_name: "Example RP",
     provider_url: "https://example.com",
     account_id: "acct_opaque_0001",
+    attestation_jti: payload.jti,
+    key_id: privateJwk.kid,
   },
   agent: {
     id: "agt_01j00000000000000000000000",
@@ -90,74 +116,30 @@ const claims = {
     sha256: "sha256:6c18126f93de8d1972589ca94633ca82e76bd9ba1f0592618b0105753f3501d6",
     master_tos_version: "2026.1",
   },
-  context,
-  signed_up_at: now,
+  context: {
+    url: "https://example.com/docs/SKILL.md",
+    sha256: "sha256:a3307e1b3904c7671f341730017f21bed656a85241b645c854b4f2887e7976ac",
+  },
 };
 
 const signupToken = await new SignJWT(claims)
-  .setProtectedHeader({ alg: "EdDSA", typ: "agent-signup-receipt+jwt", kid: "provider-key-1" })
+  .setProtectedHeader({
+    alg: "EdDSA",
+    typ: "agent-signup-receipt+jwt",
+    kid: privateJwk.kid,
+  })
   .sign(await importJWK(privateJwk, "EdDSA"));
 
-const verified = await jwtVerify(signupToken, await importJWK(publicJwk, "EdDSA"), {
-  algorithms: ["EdDSA"],
-  audience: "https://agentregistrar.dev",
-  typ: "agent-signup-receipt+jwt",
-});
-
-console.log(JSON.stringify({
-  header: JSON.parse(Buffer.from(signupToken.split(".")[0], "base64url").toString()),
-  verified: true,
-  sub: verified.payload.sub,
-  assertion_jti: verified.payload.assertion_jti,
-  account_id: verified.payload.service.account_id,
-  context: verified.payload.context,
-  claims: Object.keys(verified.payload).sort(),
-}, null, 2));
+console.log(signupToken);
 ```
 
-```bash
-printf '# Example RP Agent Guide\n\nProvision a resource with POST /api/provision.\n' > SKILL.md
-node mint-receipt.mjs
-```
-
-Recorded output on 2026-10-21:
-
-```json
-{
-  "header": {
-    "alg": "EdDSA",
-    "typ": "agent-signup-receipt+jwt",
-    "kid": "provider-key-1"
-  },
-  "verified": true,
-  "sub": "agt_01j00000000000000000000000",
-  "assertion_jti": "jti_01j00000000000000000000000",
-  "account_id": "acct_opaque_0001",
-  "context": {
-    "url": "https://example.com/docs/SKILL.md",
-    "sha256": "sha256:a3307e1b3904c7671f341730017f21bed656a85241b645c854b4f2887e7976ac"
-  },
-  "claims": [
-    "agent",
-    "assertion_jti",
-    "aud",
-    "context",
-    "exp",
-    "human",
-    "iat",
-    "iss",
-    "jti",
-    "service",
-    "signed_up_at",
-    "sub",
-    "tos"
-  ]
-}
-```
+There is no `exp` in the payload. The receipt does not expire; its validity is
+the historical question "did this key and identity exist at `iat`?".
 
 ## Return it and record it
 
-Return the token in the signup response as `signup_token`, next to the credentials:
+Return the token in the signup response as `signup_token`, next to the
+credentials:
 
 ```json
 {
@@ -172,43 +154,76 @@ Return the token in the signup response as `signup_token`, next to the credentia
 }
 ```
 
-The agent records it with `identity_record_signup`, or you deliver it to the broker through Contract F:
+The agent records it with `identity_record_signup`, or you deliver it to the
+broker through Contract F:
 
 ```bash
 SIGNUP_TOKEN="<compact JWS from the previous step>"
+RP_ATTESTATION="<the exact attestation JWS>"
 curl -sS -X POST https://agentregistrar.dev/api/broker/signup-receipt \
   -H 'Content-Type: application/json' \
-  -d "{\"signup_token\":\"$SIGNUP_TOKEN\"}"
+  -d "{\"signup_token\":\"$SIGNUP_TOKEN\",\"rp_attestation\":\"$RP_ATTESTATION\"}"
 ```
 
-A token the broker cannot verify is rejected. Recorded on 2026-10-21 with a deliberately invalid value:
+Contract F accepts exactly `{signup_token, rp_attestation}`. It verifies the
+effective RP-broker trust list before any JWKS fetch, the historical attestation,
+the receipt signature with the named key, the origin/audience binding, and the
+receipt `sub` against the acceptance. It records `proof_source:"rp_callback"`.
+A duplicate `jti` with the same body returns `deduplicated:true`; a different
+body is `409 signup_conflict`.
 
-```text
-HTTP 401
-{"error":"invalid_signup_token","error_description":"The signup token is invalid or could not be verified."}
-```
+If the attestation is unavailable, Contract F returns `attestation_unavailable`
+rather than using a newer one. A transient broker metadata/JWKS outage is
+`503 rp_broker_unavailable` and is retryable. An unauthenticated legacy body is
+`401` with a stable code.
 
-Contract F accepts `{ "signup_token": "..." }` and verifies the signature, `aud`, `typ`, `iss`, the agent and the human before writing an idempotent proof row. The response fields are `ok`, `signup_id`, `signup_token_jti`, `assertion_jti`, `agent_id`, `service_audience`, `provider_account_id`, `human_email_shared`, and the nullable `context_url` / `context_sha256`. Those fields are defined in the broker's shared schema; this page does not execute a live receipt because that requires a real agent signup.
+## Tier 2 and self-report
+
+`identity_record_signup` accepts either:
+
+- `{signup_token, rp_attestation?}`: the same RP-signed receipt. If the exact
+  attestation is omitted, the broker fetches discovery at `service.origin` and
+  requires the presented attestation's `jti` to equal `service.attestation_jti`;
+  it never substitutes a newer attestation. This records `proof_source:"rp_signed"`.
+- `{self_report}`: an unsigned report for an RP that issued no receipt. It has no
+  proof token, assertion, verified origin, or verification row, records
+  `agent_self_reported`, cannot overwrite a stronger proof, and still requires a
+  real recorded acceptance.
+
+A pre-v1.2 broker-signed receipt is rejected for a new proof. Historical rows stay
+`legacy_broker_signed` and are never relabeled.
 
 ## Resolve and retry
 
-- Create the account once. On a repeat, resolve it and return `resolution: "resolved"`.
-- On resolve, omit the provider credential. Do not send duplicate welcome or legal mail.
-- You may mint a fresh `signup_token` on resolve so a dropped-response retry can still record the receipt.
-- The receipt `jti` identifies the receipt, not the account. Do not use it as the account key.
-- `service.account_id` is opaque. It may be a database id or a handle. It must not encode SKUs, regions or resource state.
+- Create the account once. On a repeat, resolve it and return
+  `resolution: "resolved"`.
+- On resolve, omit the provider credential. Do not send duplicate welcome or
+  legal mail.
+- You may mint a fresh receipt on resolve so a dropped-response retry can still
+  record the proof.
+- The receipt `jti` identifies the receipt, not the account. Do not use it as the
+  account key.
+- `service.account_id` is opaque. It may be a database id or a handle. It must
+  not encode SKUs, regions or resource state.
 
 ## Verify your work
 
-- [ ] The JWT header is `alg: EdDSA` and `typ: agent-signup-receipt+jwt`.
-- [ ] The claims match Contract E, with no vendor resource fields.
-- [ ] `iss` equals `service.audience` and `aud` is the broker origin.
-- [ ] `assertion_jti` is the `jti` of the assertion you verified.
-- [ ] `context.url` and `context.sha256` match the guide you actually serve, and the domain matches the signup endpoint.
+- [ ] The JWT header is `alg: EdDSA`, `typ: agent-signup-receipt+jwt`, and
+      `kid` equals `service.key_id`.
+- [ ] The signing key appears in the exact attestation and has `receipt` in its
+      purposes.
+- [ ] The payload has no `exp`, and `iat`/`signed_up_at` are inside the
+      attestation window.
+- [ ] `iss` equals `service.origin` and the attestation `rp.origin`; `aud` is the
+      broker origin.
+- [ ] `service.attestation_jti` is the exact attestation that contained the key.
+- [ ] `context.url` and `context.sha256` match the guide you serve, and the
+      domain matches the signup endpoint.
 - [ ] A resolve returns no credential and no duplicate mail.
 
 ## Next
 
 - [Publish a context guide](/providers/guides/publish-context-guide/): the pointer target.
 - [Receipt and context](/agent-identity/v1/receipt-and-context/): the full field reference.
-- [Production checklist](/providers/guides/production-checklist/): signing-key management.
+- [Production checklist](/providers/guides/production-checklist/): key custody and rotation.
+- [Abuse reporting](/providers/guides/abuse-reporting/): the other authenticated RP path.

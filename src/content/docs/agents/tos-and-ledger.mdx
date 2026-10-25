@@ -1,9 +1,9 @@
 ---
 title: ToS and ledger
-description: What the agent accepted, where the record lives, who receives the receipt and what happens when terms change.
+description: What the agent accepted, where the record lives, who receives the receipt, how status at signup differs from current status, and what happens when terms change.
 audience: human
 aiGenerated: true
-verifiedAgainst: "spec v1.1.0, live VaporCloud terms and broker ledger mail, 2026-10-21"
+verifiedAgainst: "spec v1.2.0 (35659ce), 2026-10-24"
 sidebar:
   order: 6
 ---
@@ -52,7 +52,7 @@ The correct sequence is:
 
 1. Re-fetch the discovery document.
 2. Read the new `terms.text`, recompute the hash, and check it matches.
-3. Call `identity_prove` with the new URL and hash and the new text.
+3. Call `identity_signup` (or `identity_prove` for an advanced flow) with the new URL and hash and the new text.
 4. Sign up again. A conformant provider resolves the existing account, returns `resolution: "resolved"`, and sends no duplicate welcome mail; the broker refreshes the proof row instead of creating a second one.
 
 That creates a new acceptance, which is correct: it is a new consent event. The old acceptance stays in the ledger with its original timestamp. Nothing rewrites history.
@@ -63,7 +63,7 @@ An acceptance lasts until the terms hash changes or a human re-consents with `fo
 
 The human signed the master agreement, and the agent acted under delegated authority. In plain terms: the human is the accountable party for the accounts the agent creates, and for what the agent does with them. The broker records that chain; it does not absorb the liability.
 
-Before relying on any of it, a provider must check the signature against the issuer JWKS, `iss` against its allowlist, `aud`, `exp`, `jti` reuse, the scopes, `human.verified`, and the accepted terms hash against its current terms.
+Before relying on any of it, a provider must check the signature against the issuer JWKS, `iss` against its allowlist, `aud`, `exp`, `jti` reuse, the scopes, `human.verified`, and the accepted terms hash against its current terms. Provider verification is a separate, optional check: the provider may publish a broker-issued credential, but the assertion itself carries no RP claim. The ledger shows the provider's status at signup and its latest recorded status with `checked_at`; current is historical, not a live feed.
 
 ## What this page is not
 

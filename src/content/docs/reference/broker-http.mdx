@@ -3,7 +3,7 @@ title: Broker HTTP and OAuth
 description: The broker's metadata, JWKS, MCP transport, OAuth, abuse-report and signup-receipt endpoints with methods, auth and responses.
 audience: both
 aiGenerated: true
-verifiedAgainst: "broker dec84d9, 2026-10-21; live requests to agentregistrar.dev on 2026-10-21"
+verifiedAgainst: "spec v1.2.0 (35659ce), broker 5e57ecf, 2026-10-24; live v1.1 requests on 2026-10-21"
 sidebar:
   order: 3
 ---
@@ -22,8 +22,9 @@ All examples use synthetic values. No endpoint needs an API key in a query strin
 | `POST /api/oauth/authorize/decision` | Human, in the consent page | Human login session cookie, same-origin JSON |
 | `POST /api/oauth/register` | MCP client | None (RFC 7591 dynamic registration) |
 | `POST /api/oauth/token` | MCP client | None beyond the one-time code or refresh token; PKCE `S256` is enforced |
-| `POST /api/broker/report-abuse` | Relying party | None at the HTTP layer; the body names the agent and the reporter |
-| `POST /api/broker/signup-receipt` | Relying party server | A provider-signed `signup_token` in the body |
+| `POST /api/broker/report-abuse` | Relying party | RP attestation + signed report JWS |
+| `POST /api/broker/report-provider` | Human owner | Session |
+| `POST /api/broker/signup-receipt` | Relying party server | Exact RP attestation + RP-signed `signup_token` |
 | `POST /api/webhooks/resend` | Mail provider only | Provider webhook signature (operator surface) |
 
 ## Discovery and metadata
@@ -261,41 +262,78 @@ The route exports `GET` and `DELETE`, but the transport is stateless, so there i
 
 ### POST /api/broker/report-abuse
 
-Relying-party abuse reporting. Revoking is immediate and does not require the human's consent.
+Authenticated relying-party abuse reporting (Contract D.2). It opens a case and
+does not revoke immediately.
 
-Request body:
-
-| Field | Type | Required | Meaning |
-| :--- | :--- | :-: | :--- |
-| `agent_id` | string (`agt_...`) | yes | The agent being reported. |
-| `reporter_service` | string | yes | Who is reporting. |
-| `reason` | string | yes | Why. Stored verbatim and shown to the human. |
-| `evidence_jti` | string | no | The assertion id that shows the behaviour. |
-
-Success is `200`:
+Request body, both fields required:
 
 ```json
 {
-  "ok": true,
-  "agent_id": "agt_01jdocsverify0000000000000",
-  "agent_status": "revoked",
+  "rp_attestation": "<compact provider attestation JWS>",
+  "report": "<compact agent-rp-abuse+jwt JWS>"
+}
+```
+
+The report JWS has a five-minute window (`exp - iat = 300`), `iss` equal to the
+attestation origin, `aud` equal to the broker, an `abr_` `jti`, `agent_id`,
+`reason`, and optional `evidence`. The broker checks the attestation against its
+RP-broker trust list **before** any JWKS fetch, verifies the report with the key
+named by `kid`, and requires the attestation to be current at report time.
+
+A new accepted report is `202`:
+
+```json
+{
+  "case_id": "0d5f6a7c-...",
+  "report_jti": "abr_01j...",
+  "verification_status": "verified",
+  "deduplicated": false,
+  "agent_suspended": true,
   "human_notified": true
 }
 ```
 
-| Status | `error` | Meaning |
+| Status | `error` / `code` | Meaning |
 | :--- | :--- | :--- |
-| `400` | `invalid_request` | Invalid JSON or a body that fails the report schema. |
-| `404` | `agent_not_found` | No agent with that id. |
-| `500` | `internal_error` | The audit row, revocation or lookup failed. |
+| `401` | `unauthorized` / `unauthenticated_report` | A legacy unsigned body; the signed form is required. |
+| `401` | `invalid_attestation` / `invalid_attestation` | The attestation failed parse/signature/claims/binding. |
+| `401` | `invalid_attestation` / `rp_broker_untrusted` | The issuer is outside the broker's RP-broker trust list. |
+| `409` | `invalid_request` / `signup_conflict` | Same report `jti` with a different JWS. |
+| `429` | `rate_limited` / `rate_limited` | 60 requests/minute/IP exceeded. |
+| `503` | `service_unavailable` / `rp_broker_unavailable` | Transient broker metadata/JWKS outage; retryable, no write. |
 
-The endpoint has no authentication at the HTTP layer. A report is accepted from any caller that knows the agent id; the audit row records `reporter_service` as claimed, not as verified. `human_notified` is best effort: a failed alert email does not block the revocation.
+`verified` requires a linked signup with `proof_source` `rp_callback` or
+`rp_signed` and a valid signup-time verification. Only a verified report may set
+the agent to `suspended` pending operator review; an unverified report opens a
+case and does not suspend. A duplicate returns `200` with the same `case_id`.
+The body limit is 64 KiB.
+
+### POST /api/broker/report-provider
+
+Human session only. A person reports a provider through the portal. The body is
+the RP origin, audience, optional attestation `jti`, reason, optional evidence,
+and optional `distrust_broker`/`block_provider` flags. It creates a provider case
+and can update the human's trust/policy; it does not change the provider's
+attestation. See [Abuse reports](/portal/abuse-reports/).
 
 ### POST /api/broker/signup-receipt
 
-Contract F ingestion for a provider that records the signup server-to-server instead of returning the token to the agent. Request body: `{ "signup_token": "<signed receipt token>" }`.
+Contract F ingestion. Request body, both fields required:
 
-Success is `201` when a new proof row is created and `200` when an existing proof is returned or refreshed:
+```json
+{
+  "signup_token": "<compact Contract E RP-signed receipt>",
+  "rp_attestation": "<the exact attestation named by service.attestation_jti>"
+}
+```
+
+The broker verifies the historical attestation (exact `jti`, not the current
+one), checks the receipt `iat`/`signed_up_at` against that attestation's
+`[iat, exp]` window, verifies the receipt with the key named by
+`service.key_id`, and records `proof_source:"rp_callback"`.
+
+Success is `201` when a new proof row is created and `200` when an existing proof
+is returned or refreshed:
 
 ```json
 {
@@ -308,17 +346,28 @@ Success is `201` when a new proof row is created and `200` when an existing proo
   "provider_account_id": "840d6148-docs-4680-8f33-000000000000",
   "human_email_shared": "human@example.com",
   "context_url": "https://example.com/docs/SKILL.md",
-  "context_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  "context_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "proof_source": "rp_callback",
+  "deduplicated": false
 }
 ```
 
-| Status | `error` | Meaning |
+| Status | `error` / `code` | Meaning |
 | :--- | :--- | :--- |
-| `400` | `invalid_request` | Invalid JSON or a body without `signup_token`. |
-| `401` | `invalid_signup_token` | The token failed verification or is inconsistent with broker state. The response is sanitized; diagnostics stay in server logs. |
-| `500` | `internal_error` | Persistence failed. |
+| `400` | `invalid_request` / `invalid_request` | Missing/malformed body or non-JWS strings. |
+| `401` | `invalid_attestation` / `invalid_attestation` | Contract G parse/signature/claims/binding failure. |
+| `401` | `invalid_attestation` / `rp_broker_untrusted` | The issuer is outside the effective trust list. |
+| `401` | `invalid_attestation` / `attestation_not_valid_at_signing` | The receipt time is outside the attestation window. |
+| `401` | `invalid_attestation` / `attestation_unavailable` | The exact attestation is no longer retrievable and no snapshot exists. |
+| `401` | `invalid_signup_token` / `invalid_signup_token` | Receipt parse/signature/claims failure; legacy sanitized body preserved. |
+| `409` | `invalid_request` / `signup_conflict` | Same receipt `jti` with a different body. |
+| `429` | `rate_limited` / `rate_limited` | Bounded ingestion rate exceeded. |
+| `503` | `service_unavailable` / `rp_broker_unavailable` | Transient broker metadata/JWKS outage; retryable, no write. |
 
-The endpoint is idempotent on the receipt `jti`, on `assertion_jti`, and on `(agent, audience, provider_account_id)`. `context_url` and `context_sha256` are `null` when the receipt carried no guide. See [Receipt and context](/agent-identity/v1/receipt-and-context/).
+The endpoint is idempotent on the receipt `jti`; Tier 1 wins and a Tier 2 row can
+be upgraded. `context_url` and `context_sha256` are `null` when the receipt
+carried no guide. There is no broker-key fallback and no substitution of a newer
+attestation. See [Receipt and context](/agent-identity/v1/receipt-and-context/).
 
 ### POST /api/webhooks/resend
 
@@ -342,12 +391,12 @@ Paths are not versioned. `/mcp`, the OAuth endpoints and the broker APIs are the
 Live requests on 2026-10-21 against `https://agentregistrar.dev`, with broker commit `dec84d9` as the code baseline:
 
 - The three metadata documents returned `200 application/json` with the bodies shown, `Access-Control-Allow-Origin: *`, and `Cache-Control: public, max-age=300` on the JWKS only. The JWKS key is `OKP`/`Ed25519`/`EdDSA`, `kid` `broker-key-1`, `use` `sig`.
-- `POST /mcp` without a token returned `401` with code `-32001` and the `WWW-Authenticate` header shown. `OPTIONS /mcp` returned `204`. An authenticated `initialize` returned server `agentregistrar` 1.0.0 with `tools` and `resources` capabilities; `tools/list` returned eight tools.
+- `POST /mcp` without a token returned `401` with code `-32001` and the `WWW-Authenticate` header shown. `OPTIONS /mcp` returned `204`. At the v1.1 baseline an authenticated `initialize` returned server `agentregistrar` 1.0.0 with `tools` and `resources` capabilities and `tools/list` returned eight tools; the v1.2 code has nine, including `identity_signup`, and that live count is a release gate.
 - `POST /api/oauth/register` with a loopback redirect URI returned `201` with a `cli_...` id; an empty body returned `400 invalid_redirect_uri`.
 - `GET /oauth/authorize` anonymously returned `307` to `/login?next=...`.
 - `POST /api/oauth/authorize/decision` without a session returned `401 unauthorized`.
 - `POST /api/oauth/token` with `grant_type=weird` returned `400 unsupported_grant_type`; with an unknown code it returned `400 invalid_grant`.
-- `POST /api/broker/report-abuse` with an empty body returned `400 invalid_request`; with an unknown `agt_...` id it returned `404 agent_not_found`.
-- `POST /api/broker/signup-receipt` with an invalid token returned `401 invalid_signup_token`.
+- `POST /api/broker/report-abuse` with an empty body returned `400 invalid_request`; the v1.2 route now rejects a legacy body with `401 unauthenticated_report`. That route and Contract F's two-field body are code-complete but their live v1.2 responses are part of the release gate.
+- `POST /api/broker/signup-receipt` with an invalid token returned `401 invalid_signup_token`; v1.2 requires both `signup_token` and `rp_attestation`.
 - `POST /api/webhooks/resend` without signature headers returned `401 invalid_webhook_signature`.
 - `GET /mcp` returned `406` without an SSE `Accept` header and a Cloudflare `500` with one (see above). `DELETE /mcp` returned `200`.

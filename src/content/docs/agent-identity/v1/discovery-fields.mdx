@@ -1,14 +1,21 @@
 ---
 title: Discovery fields
-description: The agent-signup.json document field by field, with types, rules and the normative section for each.
+description: The v1.2 agent-signup.json document field by field, including the optional provider verification credential, with types, rules and the normative section for each.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.1.0 (d3fddc9), schema sha256:3711ccad8b4c98ba16f8f16259df1375ef34d4bba4ffa582892d99edadf2c2d1, validator 1.0.0, 2026-10-21"
+verifiedAgainst: "spec v1.2.0 (35659ce), schema sha256:e5e9b0a81d28cab150ee74ba1667a3b4841711ea3d5c7a1b419f4571c1b1e8de, validator 1.2.0, 2026-10-24"
 ---
 
-A relying party publishes one identity-only document at `GET /.well-known/agent-signup.json`. This page is a lookup table for that document. The normative rules are in [the specification](/agent-identity/v1/specification/#5-discovery-document-reference-identity-only); this page does not replace them.
+A relying party publishes one identity-only document at `GET
+/.well-known/agent-signup.json`. This page is a lookup table for that document.
+The normative rules are in [the
+specification](/agent-identity/v1/specification/#5-discovery-document-reference-identity-only);
+this page does not replace them.
 
-The machine-readable schema is served at [`/agent-identity/v1/agent-signup.schema.json`](/agent-identity/v1/agent-signup.schema.json) with content type `application/schema+json`. Validate a document with the [conformance validator](/agent-identity/v1/validator/).
+The machine-readable schema is served at
+[`/agent-identity/v1/agent-signup.schema.json`](/agent-identity/v1/agent-signup.schema.json)
+with content type `application/schema+json`. Validate a document with the
+[conformance validator](/agent-identity/v1/validator/).
 
 ## Required fields
 
@@ -33,9 +40,41 @@ The machine-readable schema is served at [`/agent-identity/v1/agent-signup.schem
 | `provider_url` | string | Canonical service URL. If present, it must share the signup endpoint's registrable domain. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [11](/agent-identity/v1/specification/#11-contract-e-identity-facts--the-context-pointer) |
 | `contact` | string | Security, abuse or legal contact: an email address or an HTTPS URL. The localhost development exception (`http://localhost`, `http://127.0.0.1`) is the only `http` form allowed. | [5.2](/agent-identity/v1/specification/#52-optional-fields) |
 | `updated_at` | string | ISO 8601 timestamp for humans and debugging. Not a freshness signal for the ToS. | [5.2](/agent-identity/v1/specification/#52-optional-fields) |
+| `rp_attestation` | string | Optional compact JWS, at most 16384 characters, issued by the provider's broker. It binds the fetched origin and the declared audience; absence means **unverified**, never invalid. A malformed field is a conformance error. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [14](/agent-identity/v1/specification/#14-contract-g--rp-attestation) |
 | `extensions` | object | Non-capability vendor metadata keyed by reverse-DNS namespace, for example `dev.example`. It must not advertise provisioning, catalogs, SKUs or resource endpoints. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [5.3](/agent-identity/v1/specification/#53-forbidden-fields-vendor-capability-surface) |
 
-Unknown additive fields must be ignored by consumers. Producers should put non-capability metadata under `extensions.<reverse-dns-namespace>` so typos stay visible. Moving a vendor capability under `extensions` does not make it conformant.
+Unknown additive fields must be ignored by consumers. Producers should put
+non-capability metadata under `extensions.<reverse-dns-namespace>` so typos stay
+visible. Moving a vendor capability under `extensions` does not make it
+conformant.
+
+## The optional provider verification credential
+
+`rp_attestation` is the only discovery field that describes the provider's
+broker-verified identity. It is a compact JWS (`typ:
+agent-rp-attestation+jwt`, `alg: EdDSA`) whose claims bind `rp.origin`,
+`rp.audience`, the provider identity, the assurance level, and the public
+`keys[]`.
+
+Rules:
+
+- The attestation `rp.origin` must equal the canonical origin of the discovery
+  document the verifier actually fetched.
+- `rp.audience` must equal `discovery.audience`.
+- The attestation is public and copyable; the origin and audience binding
+  prevent replay on another service.
+- It must not carry a terms hash, scopes, endpoints, `provider_url`, account ids,
+  prices, or private material.
+- A conformant document without it is **unverified**. An expired, invalid, or
+  untrusted attestation is a verification result, never a conformance failure
+  by itself. A malformed field is a conformance error.
+- Do not add any other provider-identity or provider-capability field to
+  discovery.
+
+See [Trust and limits](/start/trust-and-limits/) and [Verify
+assertions](/providers/guides/verify-assertions/) for the policy and verification
+steps. If you are a provider and want the credential, see the [provider
+quickstart](/providers/quickstart/).
 
 ## Forbidden fields
 
@@ -63,7 +102,10 @@ See [ToS binding](/agent-identity/v1/specification/#6-tos-binding) and [Re-accep
 
 ## Minimal conformant example
 
-This document contains only the required identity fields. Its `terms.sha256` is the real SHA-256 of the `terms.text` value shown. It passes the `v1.1.0` validator in file mode with zero errors and zero warnings.
+This document contains only the required identity fields. Its `terms.sha256` is
+the real SHA-256 of the `terms.text` value shown. It passes the `v1.2.0`
+validator in file mode with zero errors and zero warnings. The optional
+`rp_attestation` is absent, so the document is conformant and **unverified**.
 
 ```json
 {
@@ -90,7 +132,10 @@ The example is illustrative. Replace the audience, URLs, scopes and terms with t
 
 - The JSON Schema enforces the `sha256:` format, not digest equality. The digest check is a cross-field rule in the shared Zod schema and the conformance validator.
 - Discovery conformance is cheap to publish. A valid document is not a statement about the service's security, uptime or product.
-- The document is not signed in v1. Trust comes from TLS, the issuer allowlist, issuer-hosted JWKS and the signed assertion.
+- The document itself is not signed in v1.2. The optional `rp_attestation` is a
+  signed statement about the provider, not a signature over the discovery
+  document. Trust in the document comes from TLS plus the issuer allowlist; the
+  assertion and the attestation are separately signed.
 - Consumers must ignore unknown additive fields, so a producer can add an identity field without a schema change. The validator warns on unknown top-level fields; warnings do not fail conformance.
 
 ## Verify
