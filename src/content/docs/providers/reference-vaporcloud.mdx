@@ -1,10 +1,10 @@
 ---
 title: "Reference implementation: VaporCloud"
-description: A walkthrough of the VaporCloud reference relying party on the v1.2 RP-signed flow, separating the protocol from vendor capability and marking unverified live gates.
+description: A walkthrough of the VaporCloud reference relying party on the v1.2 RP-signed flow, including its live domain-level verification snapshot.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), VaporCloud code at broker 5e57ecf, 2026-10-24; live v1.2 deploy not verified"
+lastReviewed: 2026-10-26
+verifiedAgainst: "spec v1.2.0 (35659ce), live VaporCloud discovery and attestation, 2026-10-26"
 ---
 
 VaporCloud is the reference relying party at [skdl.dev](https://skdl.dev). It
@@ -15,12 +15,14 @@ see.
 This walkthrough separates what the protocol defines from what VaporCloud does as
 a product. The demo is not a production SLA and not a hosted service.
 
-**Release status.** The repository code is migrated to the v1.2 flow: optional
-attestation in discovery, RP-signed receipts, Contract F/Tier 2, and
-authenticated abuse reporting. The **live** v1.2 deployment, a live
-`attestation_jti`, and a registry `verification` entry are release gates. This
-page does not claim them. Do not describe VaporCloud as a verified provider until
-the live check is recorded and published.
+**Release status.** VaporCloud is live on the v1.2 flow: optional attestation in
+discovery, RP-signed receipts, Contract F/Tier 2, and authenticated abuse
+reporting. Its live discovery publishes a broker attestation, the validator
+reports `verified` at level `domain`, and the canonical registry carries a
+five-field verification snapshot checked on 2026-10-26. The snapshot is a
+point-in-time record, not a live status feed; attestation renewal or a status
+change is reflected by a later check. "Verified" is an identity statement, not a
+safety, uptime, or conduct guarantee.
 
 ## URLs
 
@@ -196,14 +198,16 @@ pattern to copy; the appliances are optional.
 ## Caveats
 
 - `skdl.dev` is a demo, not a production service. It has no SLA.
-- The live v1.2 deployment and the registry verification entry are release gates.
-  The checked-in registry entry has no `verification` object and must not be
-  described as verified.
-- Verification would record an identity check, not safety, uptime, solvency, or
+- The live v1.2 deployment and a domain-level registry verification snapshot are
+  recorded. The snapshot is at `checked_at` and does not promise that the same
+  attestation is current later; refresh the check after renewal or a status
+  change.
+- Verification records an identity check, not safety, uptime, solvency, or
   conduct. A green validator result says the document conforms; it says nothing
   about the product.
-- The registry's reference-entry exception remains until a live entry is
-  approved; new third-party entries must be publicly re-validatable.
+- The old reference-entry exception is retired: the entry uses the public
+  `skdl.dev` discovery URL and live URL-mode validator evidence. New third-party
+  entries must be publicly re-validatable.
 
 ## Next
 
