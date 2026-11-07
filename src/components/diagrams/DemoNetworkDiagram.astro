@@ -1,0 +1,212 @@
+---
+/**
+ * Demo network diagrams for the public docs page.
+ *
+ * Two variants share one component so the page imports one file:
+ * - `topology`: Broker A/B, P1/P2/P3, the landing page and the trust edges.
+ * - `sequence`: the cross-broker signup and receipt-ingestion sequence.
+ *
+ * Terminal rules: ASCII labels, 1px geometry, no icons, no gradients, no
+ * shadows, no radius, tokens only. The viewBox is the narrowest rendered width
+ * (about 318 CSS pixels), so text is not scaled below its authored size on a
+ * phone. The Mermaid source for the same figures lives in demo/README.md; this
+ * component is the public render. Not normative; the specification owns the
+ * contract.
+ */
+interface Props {
+  variant?: "topology" | "sequence";
+}
+
+const { variant = "topology" } = Astro.props;
+const isTopology = variant === "topology";
+---
+
+<figure class="my-6 border border-line bg-surface px-3 py-4">
+  {
+    isTopology ? (
+      <svg
+        viewBox="0 0 318 424"
+        role="img"
+        aria-labelledby="demo-topology-title"
+        aria-describedby="demo-topology-desc"
+        class="mx-auto block h-auto w-full"
+        style="max-width: 30rem;"
+      >
+        <title id="demo-topology-title">Demo network topology with Broker A, Broker B, three providers and an agent</title>
+        <desc id="demo-topology-desc">
+          Broker A at agentregistrar.dev is the human and agent broker. Broker B
+          at agentregistrardemobroker.com is the relying-party broker. P1, P2 and
+          P3 are providers under agentregistrardemorp.com. The agent sends a
+          Contract A assertion to each provider. P1 is attested by A, P2 is
+          attested by B, and P3 has no attestation. A trusts B for the demo human
+          through a policy row. P1 has an account with A, P2 has an account with
+          B, and P3 has no broker account. The landing page at the RP apex has no
+          protocol identity.
+        </desc>
+
+        <g fill="var(--color-foreground)">
+          <rect x="2" y="8" width="314" height="54" fill="none" stroke="var(--color-line)" />
+          <text x="8" y="22" font-size="10" letter-spacing="0.5" fill="var(--color-muted)">BROKER A</text>
+          <text x="8" y="37" font-size="11">agentregistrar.dev</text>
+          <text x="8" y="52" font-size="10" fill="var(--color-muted)">human/agent broker; mints assertions</text>
+
+          <rect x="2" y="78" width="314" height="54" fill="none" stroke="var(--color-line)" />
+          <text x="8" y="92" font-size="10" letter-spacing="0.5" fill="var(--color-muted)">BROKER B</text>
+          <text x="8" y="107" font-size="10">agentregistrardemobroker.com</text>
+          <text x="8" y="122" font-size="10" fill="var(--color-muted)">RP broker; attestations, metadata, JWKS, status</text>
+
+          <line x1="160" y1="62" x2="160" y2="74" stroke="var(--color-line-strong)" />
+          <polygon points="156,74 164,74 160,78" fill="var(--color-line-strong)" />
+          <text x="168" y="72" font-size="9" fill="var(--color-warn)">demo human trusts B</text>
+
+          <rect x="56" y="150" width="250" height="52" fill="none" stroke="var(--color-line)" />
+          <text x="62" y="164" font-size="10" letter-spacing="0.5" fill="var(--color-accent)">P1 - A-ATTESTED</text>
+          <text x="62" y="178" font-size="9">verifiedprovider1.agentregistrardemorp.com</text>
+          <text x="62" y="191" font-size="8" fill="var(--color-muted)">audience demo-verifiedprovider1; account with A</text>
+
+          <rect x="56" y="216" width="250" height="52" fill="none" stroke="var(--color-line)" />
+          <text x="62" y="230" font-size="10" letter-spacing="0.5" fill="var(--color-accent)">P2 - B-ATTESTED</text>
+          <text x="62" y="244" font-size="9">verifiedprovider2.agentregistrardemorp.com</text>
+          <text x="62" y="257" font-size="8" fill="var(--color-muted)">audience demo-verifiedprovider2; account with B</text>
+
+          <rect x="56" y="282" width="250" height="52" fill="none" stroke="var(--color-line)" />
+          <text x="62" y="296" font-size="10" letter-spacing="0.5" fill="var(--color-warn)">P3 - UNVERIFIED</text>
+          <text x="62" y="310" font-size="9">unverifiedprovider1.agentregistrardemorp.com</text>
+          <text x="62" y="323" font-size="8" fill="var(--color-muted)">audience demo-unverifiedprovider1; no account</text>
+
+          <text x="56" y="342" font-size="8" fill="var(--color-warn)">All three providers: issuer_allowlist = A</text>
+
+          <rect x="56" y="348" width="250" height="36" fill="none" stroke="var(--color-line)" />
+          <text x="62" y="362" font-size="10" letter-spacing="0.5" fill="var(--color-muted)">LANDING</text>
+          <text x="62" y="376" font-size="9">agentregistrardemorp.com; status only</text>
+
+          <line x1="20" y1="62" x2="20" y2="308" stroke="var(--color-line-strong)" />
+          <line x1="20" y1="176" x2="52" y2="176" stroke="var(--color-line-strong)" />
+          <line x1="20" y1="242" x2="52" y2="242" stroke="var(--color-line-strong)" />
+          <line x1="20" y1="308" x2="52" y2="308" stroke="var(--color-line-strong)" />
+          <polygon points="52,172 52,180 56,176" fill="var(--color-line-strong)" />
+          <polygon points="52,238 52,246 56,242" fill="var(--color-line-strong)" />
+          <polygon points="52,304 52,312 56,308" fill="var(--color-line-strong)" />
+          <text x="24" y="144" font-size="8" fill="var(--color-muted)">assertions to providers; receipts to A</text>
+
+          <line x1="310" y1="132" x2="310" y2="242" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
+          <line x1="310" y1="242" x2="306" y2="242" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
+          <polygon points="306,238 306,246 302,242" fill="var(--color-line-strong)" />
+          <text x="224" y="211" font-size="8" fill="var(--color-warn)">B attestation</text>
+
+          <line x1="8" y1="406" x2="28" y2="406" stroke="var(--color-line-strong)" />
+          <text x="34" y="409" font-size="8" fill="var(--color-muted)">assertion</text>
+          <line x1="120" y1="406" x2="140" y2="406" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
+          <text x="146" y="409" font-size="8" fill="var(--color-muted)">attestation or trust</text>
+        </g>
+      </svg>
+    ) : (
+      <svg
+        viewBox="0 0 318 520"
+        role="img"
+        aria-labelledby="demo-sequence-title"
+        aria-describedby="demo-sequence-desc"
+        class="mx-auto block h-auto w-full"
+        style="max-width: 30rem;"
+      >
+        <title id="demo-sequence-title">Cross-broker signup sequence between an agent, Broker A, Broker B and provider P2</title>
+        <desc id="demo-sequence-desc">
+          Ten events. The agent calls identity_signup at Broker A for P2. A
+          fetches P2 discovery and B metadata and JWKS, caches them for at most
+          five minutes, verifies the B attestation against the demo human trust
+          policy, and records the acceptance. A mints an assertion for
+          demo-verifiedprovider2. The agent posts the assertion to P2. P2 verifies
+          it against A JWKS and its issuer allowlist, checks the terms hash and
+          creates an account. P2 signs a receipt with its B-attested key and posts
+          the receipt and exact B attestation to A. A verifies the B attestation
+          and key and records rp_callback. The agent may record the same receipt
+          again and A dedupes it as rp_signed. Broker B serves metadata, JWKS and
+          signed status only, never mints an assertion, and has no account with A.
+        </desc>
+
+        <g fill="var(--color-foreground)">
+          <rect x="2" y="8" width="314" height="40" fill="none" stroke="var(--color-line)" />
+          <text x="6" y="17" font-size="9" letter-spacing="0.5" fill="var(--color-muted)">AGENT</text>
+          <text x="6" y="37" font-size="10" fill="var(--color-accent)">1</text>
+          <text x="30" y="26" font-size="9">identity_signup for P2 with the exact</text>
+          <text x="30" y="39" font-size="9">terms text; A is the only issuer</text>
+
+          <rect x="2" y="52" width="314" height="40" fill="none" stroke="var(--color-line)" />
+          <text x="6" y="61" font-size="9" letter-spacing="0.5" fill="var(--color-muted)">BROKER A</text>
+          <text x="6" y="81" font-size="10" fill="var(--color-accent)">2</text>
+          <text x="30" y="70" font-size="9">fetch P2 discovery and B metadata/JWKS</text>
+          <text x="30" y="83" font-size="9">(cache at most 5 minutes)</text>
+
+          <rect x="2" y="96" width="314" height="40" fill="none" stroke="var(--color-line)" />
+          <text x="6" y="105" font-size="9" letter-spacing="0.5" fill="var(--color-muted)">BROKER A</text>
+          <text x="6" y="125" font-size="10" fill="var(--color-accent)">3</text>
+          <text x="30" y="114" font-size="9">verify B attestation against trust/policy;</text>
+          <text x="30" y="127" font-size="9">record the delegated acceptance</text>
+
+          <rect x="2" y="140" width="314" height="40" fill="none" stroke="var(--color-line)" />
+          <text x="6" y="149" font-size="9" letter-spacing="0.5" fill="var(--color-muted)">BROKER A</text>
+          <text x="6" y="169" font-size="10" fill="var(--color-accent)">4</text>
+          <text x="30" y="158" font-size="9">mint assertion for</text>
+          <text x="30" y="171" font-size="9">aud demo-verifiedprovider2</text>
+
+          <rect x="2" y="184" width="314" height="40" fill="none" stroke="var(--color-line)" />
+          <text x="6" y="193" font-size="9" letter-spacing="0.5" fill="var(--color-muted)">AGENT</text>
+          <text x="6" y="213" font-size="10" fill="var(--color-accent)">5</text>
+          <text x="30" y="202" font-size="9">POST assertion to P2 as</text>
+          <text x="30" y="215" font-size="9">Authorization: Bearer</text>
+
+          <rect x="2" y="228" width="314" height="40" fill="none" stroke="var(--color-line)" />
+          <text x="6" y="237" font-size="9" letter-spacing="0.5" fill="var(--color-muted)">PROVIDER P2</text>
+          <text x="6" y="257" font-size="10" fill="var(--color-accent)">6</text>
+          <text x="30" y="246" font-size="9">verify A JWKS and issuer_allowlist;</text>
+          <text x="30" y="259" font-size="9">check ToS hash; create account</text>
+
+          <rect x="2" y="272" width="314" height="40" fill="none" stroke="var(--color-line)" />
+          <text x="6" y="281" font-size="9" letter-spacing="0.5" fill="var(--color-muted)">PROVIDER P2</text>
+          <text x="6" y="301" font-size="10" fill="var(--color-accent)">7</text>
+          <text x="30" y="290" font-size="9">sign receipt with the B-attested key;</text>
+          <text x="30" y="303" font-size="9">post receipt + exact B attestation</text>
+
+          <rect x="2" y="316" width="314" height="40" fill="none" stroke="var(--color-line)" />
+          <text x="6" y="325" font-size="9" letter-spacing="0.5" fill="var(--color-muted)">BROKER A</text>
+          <text x="6" y="345" font-size="10" fill="var(--color-accent)">8</text>
+          <text x="30" y="334" font-size="9">verify B attestation and RP key;</text>
+          <text x="30" y="347" font-size="9">record proof_source rp_callback</text>
+
+          <rect x="2" y="360" width="314" height="40" fill="none" stroke="var(--color-line)" />
+          <text x="6" y="369" font-size="9" letter-spacing="0.5" fill="var(--color-muted)">AGENT</text>
+          <text x="6" y="389" font-size="10" fill="var(--color-accent)">9</text>
+          <text x="30" y="378" font-size="9">identity_record_signup with the same</text>
+          <text x="30" y="391" font-size="9">receipt; dedupe as rp_signed</text>
+
+          <rect x="2" y="404" width="314" height="40" fill="none" stroke="var(--color-line)" />
+          <text x="6" y="413" font-size="9" letter-spacing="0.5" fill="var(--color-muted)">BROKER B</text>
+          <text x="6" y="433" font-size="10" fill="var(--color-accent)">10</text>
+          <text x="30" y="422" font-size="9">metadata, JWKS and signed status only;</text>
+          <text x="30" y="435" font-size="9">never mints an assertion</text>
+
+          <line x1="8" y1="462" x2="28" y2="462" stroke="var(--color-line-strong)" />
+          <text x="34" y="465" font-size="8" fill="var(--color-muted)">assertion or receipt</text>
+          <line x1="160" y1="462" x2="180" y2="462" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
+          <text x="186" y="465" font-size="8" fill="var(--color-muted)">attestation or trust</text>
+
+          <text x="8" y="490" font-size="9" fill="var(--color-warn)">No account mesh: A has no B account; B has none.</text>
+          <text x="8" y="506" font-size="9" fill="var(--color-muted)">B is an RP broker only; it never registers an agent.</text>
+        </g>
+      </svg>
+    )
+  }
+  <figcaption class="mt-3 text-xs text-faint">
+    {
+      isTopology
+        ? "Figure 1. The demo network: Broker A serves the agent, Broker B attests P2, and P1/P2/P3 accept only A assertions. Solid edges carry Contract A assertions; dashed edges carry attestation trust or policy."
+        : "Figure 2. Cross-broker signup: A verifies B's attestation, P2 verifies A's assertion, and A ingests the B-attested receipt. B never mints an assertion and no account mesh exists."
+    }
+  </figcaption>
+</figure>
+
+<style>
+  svg text {
+    font-family: var(--font-mono);
+  }
+</style>

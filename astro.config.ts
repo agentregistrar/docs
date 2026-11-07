@@ -38,6 +38,11 @@ const nimbusConfig = defineNimbusConfig({
         collapsed: false,
       },
       {
+        label: "Demo network",
+        autogenerate: { directory: "demo" },
+        collapsed: false,
+      },
+      {
         label: "Agents & harnesses",
         autogenerate: { directory: "agents" },
         collapsed: false,
