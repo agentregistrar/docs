@@ -223,6 +223,8 @@ review state.
   permanent hop.
 - [ ] The page appears in its section `/llms.txt` and `/<slug>/index.md` when it is meant to
    be discoverable.
+- [ ] The page appears in `sitemap-0.xml` with a valid `lastmod`; `pnpm
+   check:sitemap` passes.
 - [ ] No private path, issue number, secret or personal data appears in the
    page, a skill or an example.
 - [ ] Theme or component changes follow `THEME.md` and were reviewed against the
@@ -245,6 +247,7 @@ pnpm lint                        # nimbus-docs lint: authoring rules
 pnpm typecheck                   # astro check
 pnpm check:theme                 # Terminal QA gate
 pnpm check:links                 # internal links and anchors in dist/
+pnpm check:sitemap               # sitemap index, URLs, lastmod and robots pointer
 pnpm sync:spec:check             # offline spec drift check
 git diff --check                 # whitespace errors
 ```

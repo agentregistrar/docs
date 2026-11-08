@@ -76,6 +76,8 @@ src/
 scripts/check-theme.mjs    Terminal QA gate (not a test)
 scripts/check-links.mjs    post-build internal link gate (not a test)
 scripts/check-seo.mjs      title, description and heading metadata gate (not a test)
+scripts/check-sitemap.mjs  post-build sitemap index, URL and lastmod gate (not a test)
+scripts/fetch-history.mjs  full-history gate for sitemap dates (not a test)
 ```
 
 ## 4. The content tree is the IA
@@ -280,12 +282,13 @@ rules, are in `CONTRIBUTING.md` section 10; the release gate set is in
 ```bash
 pnpm install --frozen-lockfile   # cold checkout only
 pnpm check:seo                   # title, description and heading metadata gate
-pnpm build                       # dist/, routes, lint cache; postbuild link gate
+pnpm build                       # dist/, routes; prebuild history/SEO, postbuild link/sitemap gates
 pnpm check                       # nimbus-docs check: env, structure, authoring, types
 pnpm lint                        # nimbus-docs lint: authoring rules
 pnpm typecheck                   # astro check
 pnpm check:theme                 # Terminal QA gate
 pnpm check:links                 # internal links and anchors in dist/
+pnpm check:sitemap               # sitemap index, URLs, lastmod and robots pointer
 git diff --check                 # whitespace errors
 ```
 
@@ -298,7 +301,10 @@ Pass/fail:
 
 - `pnpm check:seo` must exit `0`; `prebuild` runs it on every build.
 - `pnpm build` must succeed with no new warnings. Existing warnings are listed
-  in section 14.
+  in section 14. `prebuild` also runs `fetch-history`, and `postbuild` runs
+  `check:links` and `check:sitemap`.
+- `pnpm check:sitemap` must exit `0`; every sitemap URL has a built page and a
+  valid `lastmod`, and `robots.txt` names the sitemap index.
 - `pnpm check` must end with no error-severity finding. Warnings are reviewed,
   not ignored: say in the PR why each one is acceptable.
 - `pnpm lint` must report `0 error(s)`. Warnings are allowed and reviewed;
@@ -452,7 +458,8 @@ endpoints. A path that returns HTML here is a 404, not a page.
 
 Cross-checks for a page you added or changed:
 
-- The page appears in `/llms.txt` and in `sitemap-0.xml`.
+- The page appears in `/llms.txt` and in `sitemap-0.xml`, with a `lastmod` at
+  or after the date of the change.
 - `/<slug>/index.md` exists and contains the steps, not a stub.
 - The HTML head has one `application/ld+json` block and a
   `rel="alternate" type="text/markdown"` link.
@@ -496,7 +503,8 @@ Severities: `error` blocks merge, `warn` needs a decision, `info` is context.
 Run, in order:
 
 1. `pnpm check:seo` - metadata and heading findings.
-2. `pnpm build` then `pnpm lint --format=json` - structural and link findings.
+2. `pnpm build` then `pnpm lint --format=json` - structural, link and sitemap
+   findings; the postbuild gates cover links and sitemap dates.
 3. `pnpm check --json` - environment, structure, authoring, types.
 4. `pnpm typecheck`, `pnpm check:theme`, `git diff --check`.
 5. Provenance sweep: list every page with `aiGenerated: true` and no
@@ -547,6 +555,10 @@ launch, and record the date and findings.
   `scripts/check-links.mjs` over `dist/`, including both root-relative links and
   the absolute `https://docs.agentregistrar.dev/...` links the sync writes, and
   fails on a dead route or anchor. `check:theme` also scans them.
+- A shallow checkout has no per-page git dates, so `fetch-history` unshallows it
+  before the build and `check:sitemap` fails if any URL still has no `lastmod`.
+  Run `git fetch --unshallow` in a local shallow clone instead of disabling the
+  gate.
 
 ## 15. Deployment
 
