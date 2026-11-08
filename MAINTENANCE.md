@@ -138,6 +138,9 @@ the findings in the pull request or the audit record.
 - Screenshots match the live UI.
 - Internal links and redirects resolve; `pnpm check:links` and
   `nimbus-docs lint` report zero errors.
+- `pnpm check:seo` reports zero errors: no duplicate or overlong titles or
+  descriptions, no body H1 on a hand-authored page and no skipped heading
+  level.
 - The agent surface still serves: `/llms.txt`, `/llms-full.txt`,
   `/<slug>/index.md`, the discovery files, the skills index and `robots.txt`,
   with the expected content types.
@@ -211,6 +214,7 @@ Run in this order before handing work back. Lint needs a prior build.
 ```bash
 pnpm install --frozen-lockfile
 pnpm sync:spec:check
+pnpm check:seo
 pnpm build
 pnpm check
 pnpm lint

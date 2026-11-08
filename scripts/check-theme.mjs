@@ -193,11 +193,19 @@ for (const scanRoot of SCAN_ROOTS) {
     // the generated frontmatter the sync script writes, not by a path list.
     const frontmatter = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
     const generatedPage = /^generated:\s*true\s*$/m.test(frontmatter);
+    // The JSON Schema is served byte-for-byte at its canonical $id. Its
+    // description text comes from the spec and is not hand-authored prose, so
+    // the ASCII rule does not apply. Do not rewrite the schema to satisfy it.
+    const canonicalSchema =
+      relative(ROOT, file) ===
+      "public/agent-identity/v1/agent-signup.schema.json";
     const masked = maskComments(lines);
     for (const [index, line] of lines.entries()) {
       const target = masked[index];
       for (const rule of RULES) {
-        if (generatedPage && rule.id === "non-ascii") continue;
+        if ((generatedPage || canonicalSchema) && rule.id === "non-ascii") {
+          continue;
+        }
         rule.re.lastIndex = 0;
         for (const match of target.matchAll(rule.re)) {
           if (rule.allow?.(line, match[0])) continue;

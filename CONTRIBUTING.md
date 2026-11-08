@@ -103,6 +103,39 @@ Rules:
   generated-content banner. Never edit them by hand and never set `generated` by
   hand.
 
+### 4.1 SEO metadata
+
+The build derives the canonical URL, Open Graph and Twitter tags, one `WebPage`
+JSON-LD block, the sitemap entry and the agent-readable endpoints from the
+frontmatter and the route. The author owns these fields and the page outline:
+
+- `title` is unique, sentence case, at most 40 characters, and has no site
+  suffix. The layout appends ` | Agent Registrar Docs`. Aim for 20-40 on a task
+  page; a section index may be shorter. Name the task or question, not the
+  section.
+- `description` is unique, one sentence, 70-160 characters (target 120-160),
+  starts with a capital letter and ends with a period. State what the reader can
+  do or learn. Do not repeat the title or open with "This page ...".
+- The page has one H1. The layout renders `title` as the H1, so a hand-authored
+  page must not add a body H1. Generated normative pages keep the source H1 and
+  the layout suppresses its own.
+- Section headings use H2, subsections use H3, and no level is skipped. A
+  heading labels the section; do not use it as a sentence or an announcer.
+- Internal links are root-relative, end with a slash, and use descriptive anchor
+  text. Link the destination, not a redirect. Link the page from its section
+  index and from at least one related page.
+- Do not hand-write `rel=canonical`, `robots`, Open Graph, Twitter or JSON-LD in
+  MDX. Use `noindex: true` or `draft: true` only when the page must stay out of
+  search, the sitemap and the agent surface.
+- Image alt text describes the mechanism, not the mood. Do not put a claim only
+  in an image.
+- One template shape and one intent per page. If a new page would answer the
+  same query as an existing page, extend or consolidate the existing page and
+  link it instead.
+
+`pnpm check:seo` enforces the metadata and heading rules. It is a review gate,
+not a test; a green result does not replace the reviewer's query-intent check.
+
 ## 5. Voice and claims
 
 - Rendered text is ASCII: no smart quotes, em dashes, arrows, icons or emoji.
@@ -148,13 +181,14 @@ Rules:
 
 1. Create `src/content/docs/<section>/<page>.mdx` (use `.md` only for generated
    normative text).
-2. Add `title`, `description` and the provenance fields.
+2. Add `title`, `description` and the provenance fields. Follow the metadata
+   quality bar in section 4.1.
 3. Set `sidebar.order` to sort it inside its group; use `sidebar.label` to
    shorten the rail title.
 4. Link the page from its section landing page and from any related page that
    should lead there.
-5. Build and confirm the URL is `/<section>/<page>/`. Check that the page
-   appears in its section's `/llms.txt` and the sitemap.
+5. Run `pnpm check:seo`, then build and confirm the URL is `/<section>/<page>/`.
+   Check that the page appears in its section's `/llms.txt` and the sitemap.
 6. Add a redirect only when the page replaces an existing URL. Record it in the
    pull request.
 
@@ -170,6 +204,10 @@ review state.
 - [ ] `verifiedAgainst` names a real artifact; `lastReviewed` is set only after
    the review, and `aiGenerated` is cleared by the reviewer.
 - [ ] The page uses one template shape and its required sections.
+- [ ] `title` and `description` are unique, within the length limits, and
+   describe the page's one intent. `pnpm check:seo` passes.
+- [ ] The page has one H1, no skipped heading levels, and descriptive internal
+   links from the section index and at least one related page.
 - [ ] Rendered text is ASCII, sentence case and free of hype, emoji and
    exclamation marks.
 - [ ] Every behavior claim links to the spec, a deployed endpoint, a fixture or a
@@ -200,6 +238,7 @@ Run in this order. Lint needs a prior build because the link rules read
 
 ```bash
 pnpm install --frozen-lockfile   # cold checkout only
+pnpm check:seo                   # title, description and heading metadata gate
 pnpm build                       # dist/, routes, postbuild link gate
 pnpm check                       # nimbus-docs check: env, structure, authoring, types
 pnpm lint                        # nimbus-docs lint: authoring rules
