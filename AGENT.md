@@ -74,6 +74,10 @@ src/
   pages/                   routes: pages, 404, Markdown/llms/robots/OG endpoints
   styles/                  tokens, prose, syntax theme
 scripts/check-theme.mjs    Terminal QA gate (not a test)
+scripts/check-links.mjs    post-build internal link gate (not a test)
+scripts/check-seo.mjs      title, description and heading metadata gate (not a test)
+scripts/check-sitemap.mjs  post-build sitemap index, URL and lastmod gate (not a test)
+scripts/fetch-history.mjs  full-history gate for sitemap dates (not a test)
 ```
 
 ## 4. The content tree is the IA
@@ -139,6 +143,31 @@ aiGenerated: true
 verifiedAgainst: "spec v1.1.0, validator 1.0.0, 2026-10-21"
 ---
 ```
+
+### 5.1 SEO and metadata quality bar
+
+Every page is the landing page for one task or query. Nimbus derives the
+canonical URL, the Open Graph and Twitter tags, one `WebPage` JSON-LD block,
+the sitemap entry and the agent-readable endpoints from the frontmatter and the
+route. The author owns the metadata and the page outline:
+
+| Item | Rule |
+| :--- | :--- |
+| `title` | Unique, sentence case, at most 40 characters, and no site suffix (Nimbus appends ` \| Agent Registrar Docs`). Aim for 20-40 on a task page; a section index may be shorter. Name the task or question, not the section. |
+| `description` | Unique, one sentence, 70-160 characters (target 120-160), starts with a capital letter and ends with a period. State what the reader can do or learn. Do not repeat the title or open with "This page ...". |
+| H1 | One per page. The layout renders `title` as the H1; a hand-authored page must not add a body H1. Generated normative pages keep the source H1 and the layout suppresses its own. |
+| Section headings | H2 for top-level sections, H3 below them, no skipped levels. A heading labels the section; do not use it as a sentence or an announcer. |
+| Opening | The first paragraph answers the page's question or states the outcome. Do not open with a definition of the site or a table of contents. |
+| Internal links | Root-relative, trailing slash, descriptive anchor text. Link the destination, not a redirect. The page must be linked from its section index and at least one related page. |
+| Canonical and robots | Do not hand-write `rel=canonical`, `robots`, Open Graph, Twitter or JSON-LD in MDX. Set `noindex: true` or `draft: true` only when the page must stay out of search, the sitemap and the agent surface. |
+| Images | Alt text describes the mechanism, not the mood. Do not put a claim only in an image. |
+| Scope | One template shape and one intent. If a new page would answer the same query as an existing page, extend or consolidate the existing page and link it instead. |
+
+The automated gate is `pnpm check:seo`. It fails on a missing, duplicate,
+overlong or malformed title or description, a body H1 on a hand-authored page,
+and a skipped heading level. The Nimbus lint rules still cover links, code
+fences and the rest of the structure. A green gate is not a substitute for the
+reviewer's query-intent check.
 
 ## 6. Page templates
 
@@ -252,12 +281,14 @@ rules, are in `CONTRIBUTING.md` section 10; the release gate set is in
 
 ```bash
 pnpm install --frozen-lockfile   # cold checkout only
-pnpm build                       # dist/, routes, lint cache; postbuild link gate
+pnpm check:seo                   # title, description and heading metadata gate
+pnpm build                       # dist/, routes; prebuild history/SEO, postbuild link/sitemap gates
 pnpm check                       # nimbus-docs check: env, structure, authoring, types
 pnpm lint                        # nimbus-docs lint: authoring rules
 pnpm typecheck                   # astro check
 pnpm check:theme                 # Terminal QA gate
 pnpm check:links                 # internal links and anchors in dist/
+pnpm check:sitemap               # sitemap index, URLs, lastmod and robots pointer
 git diff --check                 # whitespace errors
 ```
 
@@ -268,8 +299,12 @@ anchor.
 
 Pass/fail:
 
+- `pnpm check:seo` must exit `0`; `prebuild` runs it on every build.
 - `pnpm build` must succeed with no new warnings. Existing warnings are listed
-  in section 14.
+  in section 14. `prebuild` also runs `fetch-history`, and `postbuild` runs
+  `check:links` and `check:sitemap`.
+- `pnpm check:sitemap` must exit `0`; every sitemap URL has a built page and a
+  valid `lastmod`, and `robots.txt` names the sitemap index.
 - `pnpm check` must end with no error-severity finding. Warnings are reviewed,
   not ignored: say in the PR why each one is acceptable.
 - `pnpm lint` must report `0 error(s)`. Warnings are allowed and reviewed;
@@ -423,7 +458,8 @@ endpoints. A path that returns HTML here is a 404, not a page.
 
 Cross-checks for a page you added or changed:
 
-- The page appears in `/llms.txt` and in `sitemap-0.xml`.
+- The page appears in `/llms.txt` and in `sitemap-0.xml`, with a `lastmod` at
+  or after the date of the change.
 - `/<slug>/index.md` exists and contains the steps, not a stub.
 - The HTML head has one `application/ld+json` block and a
   `rel="alternate" type="text/markdown"` link.
@@ -466,19 +502,21 @@ Severities: `error` blocks merge, `warn` needs a decision, `info` is context.
 
 Run, in order:
 
-1. `pnpm build` then `pnpm lint --format=json` - structural and link findings.
-2. `pnpm check --json` - environment, structure, authoring, types.
-3. `pnpm typecheck`, `pnpm check:theme`, `git diff --check`.
-4. Provenance sweep: list every page with `aiGenerated: true` and no
+1. `pnpm check:seo` - metadata and heading findings.
+2. `pnpm build` then `pnpm lint --format=json` - structural, link and sitemap
+   findings; the postbuild gates cover links and sitemap dates.
+3. `pnpm check --json` - environment, structure, authoring, types.
+4. `pnpm typecheck`, `pnpm check:theme`, `git diff --check`.
+5. Provenance sweep: list every page with `aiGenerated: true` and no
    `lastReviewed`. Those are awaiting review; do not clear them yourself.
-5. Stale verification sweep: compare each `verifiedAgainst` against the current
+6. Stale verification sweep: compare each `verifiedAgainst` against the current
    broker commit, spec tag, or Nimbus version. A mismatch is a warning, not an
    edit - the page needs re-verification, not a new date.
-6. Agent-surface sweep: for every page in the sitemap, assert
+7. Agent-surface sweep: for every page in the sitemap, assert
    `/<slug>/index.md` exists, the page appears in `/llms.txt`, and the
    Markdown body matches the rendered page. Report the missing path, not just a
    count.
-7. Skill sweep: every folder under `skills/` appears in
+8. Skill sweep: every folder under `skills/` appears in
    `dist/.well-known/agent-skills/index.json`, and each advertised digest
    matches the file.
 
@@ -506,15 +544,21 @@ launch, and record the date and findings.
   staged redirects stay commented in `astro.config.ts` until their destination
   page exists. Do not activate a redirect before its destination exists.
 - `pnpm check:theme` exempts generated pages (`generated: true` in
-  frontmatter) from the non-ASCII rule. The spec text is canonical and contains
-  typographic punctuation; it is not hand-authored prose and must not be
-  rewritten. Every hand-authored page is still ASCII.
+  frontmatter) and the canonical JSON Schema asset
+  (`public/agent-identity/v1/agent-signup.schema.json`) from the non-ASCII rule.
+  The spec text and the schema are canonical and contain typographic
+  punctuation; they are not hand-authored prose and must not be rewritten.
+  Every hand-authored page is still ASCII.
 - `nimbus-docs lint` reads the 15 hand-authored `.mdx` pages only. The five
   generated `.md` pages are deliberately outside that lint pass (the spec text
   is canonical), but they are inside the build: `pnpm build` runs
   `scripts/check-links.mjs` over `dist/`, including both root-relative links and
   the absolute `https://docs.agentregistrar.dev/...` links the sync writes, and
   fails on a dead route or anchor. `check:theme` also scans them.
+- A shallow checkout has no per-page git dates, so `fetch-history` unshallows it
+  before the build and `check:sitemap` fails if any URL still has no `lastmod`.
+  Run `git fetch --unshallow` in a local shallow clone instead of disabling the
+  gate.
 
 ## 15. Deployment
 

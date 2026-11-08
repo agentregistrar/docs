@@ -20,7 +20,7 @@ const { headings, class: className, ...attrs } = Astro.props;
 
 {headings.length > 0 && (
   <div data-nb-toc class={cn("toc-container", className)} {...attrs}>
-    <h2 class="mb-2 text-xs font-medium uppercase tracking-wider text-faint">on this page</h2>
+    <p class="mb-2 text-xs font-medium uppercase tracking-wider text-faint">on this page</p>
     <nav aria-label="Table of contents" class="relative">
       <svg data-nb-toc-rail aria-hidden="true" class="hidden" fill="none">
         <path data-nb-toc-rail-active stroke="currentColor" stroke-width="2" />

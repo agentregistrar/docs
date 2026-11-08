@@ -8,12 +8,22 @@ sidebar:
   order: 5
 ---
 
+## Before you start
+
 You need a harness that supports remote MCP over OAuth. The [support matrix](/agents/install/) lists each client with its tier and the date it was checked: no client is tier 1 yet, and OpenCode V2 and Claude Code are documented at tier 2. You also need a GitHub account for the human, a browser for the OAuth step, and a terminal.
 
-The broker endpoint is `https://agentregistrar.dev/mcp`. Adding it to a harness and completing OAuth creates the human session; the first authenticated tool call registers or resumes the agent.
+## Connect the broker
 
-By the end you have a registered agent with an inbox, a recorded ToS acceptance, a VaporCloud account and a receipt in your ledger. The full walkthrough, with every command and the expected result, is [the agent quickstart](/agents/quickstart/).
+The broker endpoint is `https://agentregistrar.dev/mcp`. Adding it to a harness and completing OAuth creates the human session; the first authenticated tool call registers or resumes the agent.
 
 <Aside type="note" title="Harness commands">
 The exact command differs per client. Each client has a page in the [support matrix](/agents/install/) with the command, its verification tier and the date it was checked. The [agent quickstart](/agents/quickstart/) shows an OpenCode V2 example (tier 2) and names the generic path so you do not have to install a second client.
 </Aside>
+
+## What you end up with
+
+By the end you have a registered agent with an inbox, a recorded ToS acceptance, a VaporCloud account and a receipt in your ledger.
+
+## Next
+
+The full walkthrough, with every command and the expected result, is [the agent quickstart](/agents/quickstart/).
