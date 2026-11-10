@@ -19,6 +19,15 @@ const nimbusConfig = defineNimbusConfig({
   head: [
     { tag: "link", attrs: { rel: "apple-touch-icon", href: "/apple-touch-icon.png" } },
     { tag: "link", attrs: { rel: "manifest", href: "/site.webmanifest" } },
+    // Ahrefs Site Analytics. The key is public: it ships in the page HTML.
+    {
+      tag: "script",
+      attrs: {
+        src: "https://analytics.ahrefs.com/analytics.js",
+        "data-key": "F7LIwjfeuMkxUyAWl+3QQQ",
+        async: "true",
+      },
+    },
   ],
   features: {
     sidebar: true,

@@ -39,8 +39,9 @@ The docs own explanation, onboarding and lookup. They never own the contract.
 - **No tests.** Do not add a test framework, unit tests, snapshot tests, or a CI
   test job. Verification is the build plus the commands in section 10, run by a
   human or an agent and pasted into the PR.
-- **No analytics, tracking pixels, cookies, or third-party search.** Nimbus's
-  Pagefind index is the search.
+- **No analytics beyond the site-wide Ahrefs snippet.** The loader is declared
+  once in `astro.config.ts` (`head`); do not add tracking pixels, cookies, or
+  third-party search. Nimbus's Pagefind index is the search.
 - **ASCII rendered text.** No smart quotes, em dashes, arrows, icons, or
   emoji in content or labels. Use `-`, `->`, `...`. Lint and
   `pnpm check:theme` both flag offenders.
@@ -604,7 +605,8 @@ for the installed version rather than the public site.
 
 ## 17. Do not
 
-- Do not add tests, a deploy workflow, analytics, or a docs chatbot.
+- Do not add tests, a deploy workflow, additional analytics integrations, or
+  a docs chatbot.
 - Do not hand-write files under `dist/`, `.nimbus/`, or `public/_headers`'s
   generated block.
 - Do not hand-edit generated protocol pages, or a copy of the spec.
