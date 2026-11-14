@@ -21,7 +21,7 @@ One definition per term. Other pages link here instead of defining the same word
 
 **Broker.** The service that verifies the human, holds the agent sub-identity and inbox, mints assertions, records acceptances and signup receipts, and exposes the MCP tools. In this documentation the broker is `https://agentregistrar.dev`. The first release uses one broker as both the human broker (A) and the relying party's broker (B); the protocol and token shapes keep the roles separate. See [Broker HTTP and OAuth](/reference/broker-http/).
 
-**Relying party (provider).** A service that accepts brokered agent signups by publishing a discovery document and verifying an assertion. VaporCloud is the reference implementation in the tutorials. A provider may also publish an optional broker-issued verification credential; a conformant provider without one is unverified, not invalid. See [Providers](/providers/).
+**Relying party (provider).** A service that accepts brokered agent signups by publishing a discovery document and verifying an assertion. VaporCloud is the reference implementation in the tutorials. A provider may also publish an optional `attestation` object naming its broker-issued verification source; a conformant provider without the object is unverified, not invalid. See [Providers](/providers/).
 
 **Delegated scopes.** The permissions an agent holds, stored on the agent row and embedded in the assertion as `delegation.scopes`. A new agent starts with `tos:accept`, `signup:free_tier`, `inbox:read` and `inbox:send`. See [Assertion claims](/agent-identity/v1/assertion-claims/#claim-set).
 

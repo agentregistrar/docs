@@ -295,7 +295,7 @@ The broker renews the token on demand when 12 hours or less remain, so a `200`
 never carries an expired token. It never issues or serves a token for a
 suspended or revoked provider.
 
-| Status | `error` / `code` | Meaning |
+| Status | `error` = `code` | Meaning |
 | :--- | :--- | :--- |
 | `200` | - | Current attestation in `{attestation}`. |
 | `400` | `invalid_request` | Missing, extra, or malformed query, or a non-canonical origin or audience. |
@@ -447,11 +447,11 @@ Live requests on 2026-10-21 against `https://agentregistrar.dev`, with broker co
 - `POST /api/oauth/authorize/decision` without a session returned `401 unauthorized`.
 - `POST /api/oauth/token` with `grant_type=weird` returned `400 unsupported_grant_type`; with an unknown code it returned `400 invalid_grant`.
 - `POST /api/broker/report-abuse` with an empty body returned `400 invalid_request`; the v1.2 route now rejects a legacy body with `401 unauthenticated_report`. That route and Contract F's two-field body are code-complete but their live v1.2 responses are part of the release gate.
-- `POST /api/broker/signup-receipt` with an invalid token returned `401 invalid_signup_token`; v1.2 requires both `signup_token` and `rp_attestation`.
+- `POST /api/broker/signup-receipt` with an invalid token returned `401 invalid_signup_token`; v1.3 requires both `signup_token` and `rp_attestation`.
 - `POST /api/webhooks/resend` without signature headers returned `401 invalid_webhook_signature`.
 - `GET /mcp` returned `406` without an SSE `Accept` header and a Cloudflare `500` with one (see above). `DELETE /mcp` returned `200`.
 
 The `GET /api/broker/provider-verification` route is documented from
-`agent-identity-v1` `v1.3.2`. It ships with the D18 broker deploy; its live
+`agent-identity-v1` `v1.3.2`. It ships with the upcoming broker release; its live
 `200`/`403`/`404`/`410`/`429`/`503` matrix and cache headers are checked in the
-D18 cutover acceptance, not claimed on this page before then.
+release cutover acceptance, not claimed on this page before then.

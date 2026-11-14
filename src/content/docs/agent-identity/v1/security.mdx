@@ -41,7 +41,7 @@ See [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-s
 ## Provider verification and trust policy
 
 - The provider verification credential is optional. Absence of the `attestation` object is `unverified`, never invalid. Only a well-formed source is fetched, and only on an explicit verification.
-- Read `attestation.mode` and `attestation.uri`; check the mode host binding **before** any fetch. A `broker` URI must be on an `issuer_allowlist` origin; a `provider` URI must be on the fetched discovery origin or a subdomain. A failed binding is final.
+- Read `attestation.mode` and `attestation.uri`; check the mode host binding **before** any fetch. A `broker` URI must be on an `issuer_allowlist` origin and, when a trusted-broker list is configured, a trusted broker origin; a `provider` URI must be on the fetched discovery origin or a subdomain. A failed binding is final.
 - Check the attestation issuer against the trusted RP-broker list **before** any JWKS or metadata fetch. Never contact an untrusted broker.
 - Verify the attestation signature with the key selected by `kid`; require `typ: agent-rp-attestation+jwt` and `alg: EdDSA`. Never try all keys or accept `none`/HMAC.
 - Compare `rp.origin` to the origin of the discovery document actually fetched and `rp.audience` to `discovery.audience`. A mismatch is `invalid`, not `unverified`.

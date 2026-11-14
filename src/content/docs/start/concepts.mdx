@@ -16,7 +16,7 @@ The [glossary](/reference/glossary/) holds the canonical definition of every ter
 - **Agent (sub-identity)**: a broker record with an id (`agt_...`), a dedicated inbox address and delegated scopes; the identity the model acts under. [Glossary](/reference/glossary/#roles-and-records)
 - **Harness**: the client that connects to the broker's MCP endpoint and runs the agent. [Glossary](/reference/glossary/#roles-and-records)
 - **Broker**: the service that verifies the human, holds the sub-identity and inbox, mints assertions, records acceptances and receipts, and exposes the MCP tools. [Glossary](/reference/glossary/#roles-and-records)
-- **Relying party (provider)**: a service that accepts brokered agent signups by publishing discovery and verifying an assertion. It may publish an optional broker-issued verification credential. [Glossary](/reference/glossary/#roles-and-records)
+- **Relying party (provider)**: a service that accepts brokered agent signups by publishing discovery and verifying an assertion. It may publish an optional `attestation` object that names its broker-issued verification source. [Glossary](/reference/glossary/#roles-and-records)
 - **Provider verification credential**: the broker-issued RP attestation binding origin, audience, identity, level and keys. [Glossary](/reference/glossary/#protocol-artifacts)
 - **Delegated scopes**: the permissions the agent holds, embedded in `delegation.scopes`. [Glossary](/reference/glossary/#roles-and-records)
 

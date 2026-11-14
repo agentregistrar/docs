@@ -279,8 +279,9 @@ broker-issued **provider verification credential** and the authenticated paths:
    proof-of-possession challenge, and register the public key with the required
    `receipt`/`abuse` purposes. The broker never sees the private key.
 4. **Choose one publication mode per origin and audience.**
-   - **Broker-managed (default and recommended).** Issue the attestation and copy
-     the verification URI the broker returns. Publish it as
+   - **Broker-managed (default and recommended).** Issue the attestation, then
+     build the verification URI from the broker origin plus your origin and
+     audience. The provider portal shows a copyable snippet. Publish it as
      `attestation: {mode: "broker", uri}` and change nothing else:
 
      ```json
@@ -292,9 +293,9 @@ broker-issued **provider verification credential** and the authenticated paths:
      }
      ```
 
-     There is no cron, renewal job, or redeploy: the broker renews on demand when
-     12 hours or less remain, and a suspension stops lookups within five minutes
-     at most.
+     The URI carries `origin` and `audience` as query parameters. There is no
+     cron, renewal job, or redeploy: the broker renews on demand when 12 hours or
+     less remain, and a suspension stops lookups within five minutes at most.
    - **Provider-managed (advanced opt-in).** Register a stable HTTPS source URL on
      your discovery origin or a subdomain. Renew through
      `POST /api/provider/v1/attestation` on the 12-hour target against the
@@ -315,7 +316,9 @@ checkout, pricing page, invoice, DPA, or provider terms text here.
 
 See [Trust and limits](/start/trust-and-limits/) for why verification is identity,
 not safety, and [Validate and register](/providers/guides/validate-and-register/)
-for the registry's five-field verification snapshot.
+for the registry's five-field verification snapshot. Upgrading a v1.2 document?
+Follow [Migrate a v1.2 discovery
+document](/providers/guides/publish-discovery/#migrate-a-v12-discovery-document).
 
 ## Optional: receipt and context
 

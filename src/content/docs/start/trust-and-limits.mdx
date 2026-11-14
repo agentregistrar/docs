@@ -91,9 +91,9 @@ the signature, `typ`, `alg`, `kid`, `iat`/`exp` with 60 seconds of clock skew,
 `rp.audience` against `discovery.audience`. The trusted-Broker-B check happens
 before any JWKS fetch. Local verification does not need a status call.
 
-The credential is **optional**. A conformant discovery document without it is
-**unverified**, never invalid. Absence, expiry, a bad signature, an untrusted
-broker, and an unavailable source are different results, and the
+The credential is **optional**. A conformant discovery document without the
+object is **unverified**, never invalid. Absence, expiry, a bad signature, an
+untrusted broker, and an unavailable source are different results, and the
 [validator](/agent-identity/v1/validator/) reports conformance and attestation
 verification separately.
 
@@ -116,11 +116,12 @@ else. There is no cron, no renewal job and no redeploy: the broker renews on
 demand when 12 hours or less remain, so a `200` never carries an expired token.
 The URI is stable across renewals.
 
-The broker-managed lookup **is the status check**. There is no separate status
-call in this flow. A positive answer may be cached for at most five minutes and
-never past `exp`; a negative answer is never cached. The five-minute bound is
-also the revocation lag: a suspension stops new lookups within five minutes, not
-instantly.
+The v1.3 verification flow uses the broker-managed lookup as its status signal:
+a `403` or `410` is the suspension or revocation answer, and the endpoint never
+serves a new token for it. There is no separate `require_status` mode. A positive
+answer is cached for at most five minutes and never past `exp`; a negative answer
+is never cached. The five-minute bound is also the revocation lag: a suspension
+stops new lookups within five minutes, not instantly.
 
 | Broker answer | Meaning | Client action |
 | :--- | :--- | :--- |
@@ -273,13 +274,13 @@ snapshot expiry can override the label.
 
 Where the current answer comes from depends on the mode:
 
-- **Broker-managed:** the broker lookup is the status check. A suspension is
-  visible within five minutes at most and no new token is issued.
+- **Broker-managed:** the lookup is the status signal. A `403` or `410` stops new
+  lookups within five minutes at most, and no new token is issued.
 - **Provider-managed:** expiry is the revocation bound. A suspension may not be
   visible until the token expires.
-- The broker metadata still advertises a signed `attestation_status_uri`
-  (Contract I), and the signed status is the durable record. Local verification
-  does not require it.
+- There is no separate `require_status` mode. The legacy signed `GET
+  /api/broker/attestation-status` endpoint remains available for older clients
+  and historical receipt checks; it is not part of the new source flow.
 
 Revocation affects new `identity_signup`/`identity_prove` calls and
 identity-bound tool calls. It does not delete a provider account, invalidate an

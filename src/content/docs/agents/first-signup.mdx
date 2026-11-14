@@ -13,7 +13,7 @@ This is the [quickstart](/agents/quickstart/) told as one story: what the provid
 The relying party is VaporCloud, a mock infrastructure provider at `skdl.dev`. It is a real implementation of `agent-identity-v1` with fictional appliances, which makes it useful for a first run: nothing you do there can cost money.
 
 <Aside type="note" title="Synthetic data">
-Identifiers, JTIs and timestamps in this tutorial are synthetic. The discovery document, the terms hash, the context hash and the error shapes are live, checked on 2026-10-21.
+Identifiers, JTIs and timestamps in this tutorial are synthetic. The discovery shape, the terms hash, the context hash and the error shapes were checked on 2026-10-21. The `spec` row is the post-cutover v1.3.2 URL; the live document is re-checked at the release cutover.
 </Aside>
 
 ## The discovery document, field by field
@@ -22,12 +22,12 @@ Identifiers, JTIs and timestamps in this tutorial are synthetic. The discovery d
 curl -sS https://skdl.dev/.well-known/agent-signup.json -o agent-signup.json
 ```
 
-| Field | Live value | Why it is there |
+| Field | Value | Why it is there |
 | :--- | :--- | :--- |
 | `protocol` | `agent-identity-v1` | The contract version. Anything else means the service does not support this protocol. |
 | `audience` | `vaporcloud` | The stable service identifier. It becomes the assertion `aud`. |
 | `provider_name` | `VaporCloud` | Human-readable name, for display only. |
-| `spec` | `https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md` | Optional pointer to the exact specification the provider implements. |
+| `spec` | `https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md` (post-cutover) | Optional pointer to the exact specification the provider implements. |
 | `provider_url` | `https://skdl.dev` | The provider origin, used to bind the context pointer to the provider's domain. |
 | `contact` | `security@skdl.dev` | Where to report a security issue or abuse. |
 | `issuer_allowlist` | `["https://agentregistrar.dev"]` | The brokers this provider accepts. Exact match, no wildcards. |

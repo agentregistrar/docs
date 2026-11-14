@@ -168,6 +168,8 @@ Trimmed to the fields you must check, with `terms.text` elided:
 }
 ```
 
+The `spec` value is the post-cutover v1.3.2 URL; the live document points at the previous tag until the release cutover.
+
 Check four things before you go on:
 
 1. `protocol` is exactly `agent-identity-v1`.
@@ -194,7 +196,7 @@ If it prints `false`, stop. The document and the terms it points at disagree, wh
 
 `identity_prove` is the side-effecting step. It records a delegated acceptance for the human owner and sends the ToS Acceptance Ledger receipt to the agent inbox plus a forward to the human. It is not a read-only lookup.
 
-Pass the complete terms text you received, verbatim. The broker hashes it and rejects a mismatch with `tos_text_hash_mismatch` and no side effects. The broker also fetches discovery and the attestation source it names; you never pass an attestation token. The human owner's policy mode (`no_verify`, `verify`, or `strict`) decides whether the result gates the signup.
+Pass the complete terms text you received, verbatim. The broker hashes it and rejects a mismatch with `tos_text_hash_mismatch` and no side effects. This example passes the discovery values directly and supplies no discovery source, so the broker does not fetch discovery or an attestation source in this call and provider verification does not run. Add `rp_discovery_url` if you want the broker to fetch and verify them; you never pass an attestation token.
 
 ```json
 {

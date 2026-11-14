@@ -30,10 +30,11 @@ Find the symptom, fix the cause, then re-run the check. Each row links to the pa
 
 ## Attestation source and status
 
-Broker-managed is the default: publish the verification URI the broker returns
-and leave it alone. The broker renews on demand, so no cron, renewal job, or
-redeploy is needed, and the URI is stable across renewals. Provider-managed is an
-opt-in: register a stable HTTPS source URL, renew before expiry, host
+Broker-managed is the default: build the verification URI from the broker origin
+plus your origin and audience, or copy the snippet the provider portal shows, and
+leave it alone. The broker renews on demand, so no cron, renewal job, or redeploy
+is needed, and the URI is stable across renewals. Provider-managed is an opt-in:
+register a stable HTTPS source URL, renew before expiry, host
 `{ "attestation": "<JWS>" }` as `application/json`, and accept that a suspension
 may lag until the token expires. Issuance is not plan-gated; a free but active
 provider with a verified origin and an active key can issue.

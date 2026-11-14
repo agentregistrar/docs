@@ -4,7 +4,7 @@ description: A walkthrough of the VaporCloud reference relying party on the v1.3
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-26
-verifiedAgainst: "spec v1.3.2 (58e4648), VaporCloud code 8f4bd9c, 2026-11-14"
+verifiedAgainst: "spec v1.3.2 (58e4648); live VaporCloud evidence pending cutover"
 ---
 
 VaporCloud is the reference relying party at [skdl.dev](https://skdl.dev). It
@@ -17,11 +17,13 @@ a product. The demo is not a production SLA and not a hosted service.
 
 **Release status.** The VaporCloud code is on the v1.3 attestation-source flow:
 broker-managed `attestation` in discovery, RP-signed receipts, Contract F/Tier 2,
-and authenticated abuse reporting. Its registry entry carries a domain-level
-five-field verification snapshot checked on 2026-10-26. The snapshot is a
-point-in-time record, not a live status feed; attestation renewal or a status
-change is reflected by a later check. "Verified" is an identity statement, not a
-safety, uptime, or conduct guarantee.
+and authenticated abuse reporting. The live deployment and its source document
+are re-checked and this page is re-pinned after the release cutover. Its registry
+entry carries a domain-level five-field verification snapshot checked on
+2026-10-26, which predates that cutover. The snapshot is a point-in-time record,
+not a live status feed; attestation renewal or a status change is reflected by a
+later check. "Verified" is an identity statement, not a safety, uptime, or
+conduct guarantee.
 
 ## URLs
 
@@ -223,6 +225,7 @@ pattern to copy; the appliances are optional.
 ## Next
 
 - [Provider quickstart](/providers/quickstart/): build the same document from scratch.
+- [Publish discovery](/providers/guides/publish-discovery/): the route, the terms lifecycle and the [v1.2 migration note](/providers/guides/publish-discovery/#migrate-a-v12-discovery-document).
 - [Publish a context guide](/providers/guides/publish-context-guide/): the guide and hash pattern.
 - [Abuse reporting](/providers/guides/abuse-reporting/): the authenticated D.2 path.
 - [Implementation registry](https://github.com/agentregistrar/spec/blob/main/registry/README.md): entry criteria and the verification snapshot.
