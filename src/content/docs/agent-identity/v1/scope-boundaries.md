@@ -2,13 +2,13 @@
 title: "Scope boundaries"
 description: "What the identity protocol owns, what the vendor owns, and the checklist for future protocol changes."
 audience: both
-source: "spec:v1.2.0#scope-boundaries.md"
-specTag: "v1.2.0"
+source: "spec:v1.3.2#scope-boundaries.md"
+specTag: "v1.3.2"
 generated: true
-lastReviewed: 2026-10-24
+lastReviewed: 2026-11-14
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/35659ce9febc13f78c7fcc69ee1908dca584805c/scope-boundaries.md) at `v1.2.0` (tag `v1.2.0`).
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/58e4648dddfb4d8f620d7e2e0b591792f965a33f/scope-boundaries.md) at `v1.3.2` (tag `v1.3.2`).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Identity vs Vendor Scope Boundaries
@@ -46,7 +46,7 @@ to the vendor, documented in a post-signup context guide — never in discovery 
 | Abuse reporting and universal revocation | Contract D.2, kill switch |
 | Post-signup context pointer (identity-adjacent) | opaque `context.url` + `context.sha256` |
 | Relying Party identity | provider account, origin/audience verification, RP signing keys, broker-issued attestation, RP-signed receipts, authenticated abuse identity |
-| RP trust policy | trusted RP-broker list, per-RP `allow`/`warn`/`require`/`block`, assurance level display |
+| RP trust policy | trusted RP-broker list, per-RP `no_verify`/`verify`/`strict` mode plus the separate `blocked` action, assurance level display |
 
 ### 2.2 Out of scope (vendor responsibility)
 
@@ -113,15 +113,17 @@ Removing vendor capabilities from the protocol **MUST NOT** remove these in-scop
 
 ## 6. Relying Party Identity Is Identity
 
-`v1.2.0` adds a second identity to the protocol: the relying party's own broker-issued identity. It
+`v1.2.0` added a second identity to the protocol: the relying party's own broker-issued identity. It
 belongs here for the same reason the agent's identity does — it proves **who** the counterparty is,
-not what they sell.
+not what they sell. `v1.3.0` moves only its discovery carrier to the optional `attestation` source
+object; the identity and the signed statement are unchanged.
 
 **In scope as protocol (RP identity):**
 
 - the provider account that owns an origin: registration, origin/audience proof, and RP signing keys
   with proof of possession;
-- the broker-issued RP attestation and its publication in the optional `rp_attestation` field;
+- the broker-issued RP attestation and its publication through the optional `attestation` source
+  object (`mode` `broker` or `provider`, stable source URI);
 - the provider API that issues and renews attestations (Contract H) and the broker metadata that
   advertises JWKS/status/abuse endpoints (Contract I);
 - RP-signed receipts and authenticated receipt ingestion;
@@ -154,8 +156,8 @@ In addition to §7, every proposed RP-identity change **MUST** answer:
 - [ ] Does it avoid creating a second trust root or an implicit "verified means safe" claim?
 - [ ] Does it keep the human kill switch (`revoked`) distinct from operator protective action
       (`suspended`)?
-- [ ] Does it keep local verification the default, with enforcement opt-in for `allow`/`warn` and
-      mandatory only for `require`?
+- [ ] Does it keep local verification the default (`verify`), with `no_verify` as the permissive
+      choice and `verify`/`strict` as the enforced choices (no advisory enforcement field)?
 
 ## 7. Future-Change Review Checklist
 
