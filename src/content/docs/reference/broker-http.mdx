@@ -452,6 +452,10 @@ Live requests on 2026-10-21 against `https://agentregistrar.dev`, with broker co
 - `GET /mcp` returned `406` without an SSE `Accept` header and a Cloudflare `500` with one (see above). `DELETE /mcp` returned `200`.
 
 The `GET /api/broker/provider-verification` route is documented from
-`agent-identity-v1` `v1.3.2`. It ships with the upcoming broker release; its live
-`200`/`403`/`404`/`410`/`429`/`503` matrix and cache headers are checked in the
-release cutover acceptance, not claimed on this page before then.
+`agent-identity-v1` `v1.3.2` and is live on the post-cutover broker. On
+2026-11-14 the `skdl.dev`/`vaporcloud` pair returned `200 application/json` with
+`Cache-Control: public, max-age=300` and exactly `{ "attestation": "<JWS>" }`;
+missing, extra, duplicate, and non-canonical parameters returned `400
+invalid_request`; an unknown pair returned `404 attestation_not_found`; and the
+CORS preflight returned `204`. The `403`/`410`/`429`/`503` rows remain
+release-acceptance checks.

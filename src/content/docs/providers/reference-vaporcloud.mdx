@@ -3,8 +3,8 @@ title: "Reference implementation: VaporCloud"
 description: A walkthrough of the VaporCloud reference relying party on the v1.3 attestation-source flow, including its live domain-level verification snapshot.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-26
-verifiedAgainst: "spec v1.3.2 (58e4648); live VaporCloud evidence pending cutover"
+lastReviewed: 2026-11-14
+verifiedAgainst: "spec v1.3.2 (58e4648); live VaporCloud check 2026-11-14"
 ---
 
 VaporCloud is the reference relying party at [skdl.dev](https://skdl.dev). It
@@ -15,16 +15,14 @@ see.
 This walkthrough separates what the protocol defines from what VaporCloud does as
 a product. The demo is not a production SLA and not a hosted service.
 
-**Release status.** The VaporCloud code moves to the v1.3 attestation-source
-flow at the release cutover: broker-managed `attestation` in discovery,
-RP-signed receipts, Contract F/Tier 2, and authenticated abuse reporting. The
-live deployment and its source document are re-checked and this page is re-pinned
-after that cutover. Until then, the live document still publishes no
-`attestation` object. The registry entry carries a domain-level five-field
-verification snapshot checked on 2026-10-26, which also predates the cutover. The
-snapshot is a point-in-time record, not a live status feed; attestation renewal
-or a status change is reflected by a later check. "Verified" is an identity
-statement, not a safety, uptime, or conduct guarantee.
+**Release status.** VaporCloud is live on the v1.3 attestation-source flow
+(cut over 2026-11-14): broker-managed `attestation` in discovery, RP-signed
+receipts, Contract F/Tier 2, and authenticated abuse reporting. The live
+discovery document and its source were checked on 2026-11-14. The registry entry
+carries a domain-level five-field verification snapshot checked on 2026-10-26.
+The snapshot is a point-in-time record, not a live status feed; attestation
+renewal or a status change is reflected by a later check. "Verified" is an
+identity statement, not a safety, uptime, or conduct guarantee.
 
 ## URLs
 
@@ -38,10 +36,9 @@ statement, not a safety, uptime, or conduct guarantee.
 
 ## The discovery document
 
-The v1.3 document adds one optional field, `attestation`. VaporCloud moves to
-broker-managed publication at cutover, so the object will name the broker's
-verification URI and never the token. Until then, the live document publishes no
-`attestation` object. The rest stays identity-only. The post-cutover shape is:
+The v1.3 document adds one optional field, `attestation`. VaporCloud publishes
+broker-managed, so the object names the broker's verification URI and never the
+token. The rest stays identity-only. The live shape (checked 2026-11-14) is:
 
 ```json
 {

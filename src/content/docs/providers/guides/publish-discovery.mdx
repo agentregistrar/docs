@@ -54,7 +54,7 @@ The optional `extensions` value is non-capability metadata under a reverse-DNS k
 
 1. Remove `rp_attestation` from discovery. A document that still contains it is non-conformant with reason `rp_attestation_removed`.
 2. Choose one publication mode per origin and audience:
-   - **Broker-managed (default):** publish `attestation: {mode: "broker", uri}`. Build the URI from the broker origin plus your origin and audience, or copy the portal snippet (after the release cutover).
+   - **Broker-managed (default):** publish `attestation: {mode: "broker", uri}`. Build the URI from the broker origin plus your origin and audience, or copy the portal snippet (live 2026-11-14).
    - **Provider-managed (opt-in):** publish `attestation: {mode: "provider", uri}` with a stable HTTPS URL on your discovery origin or a subdomain, serving `{ "attestation": "<JWS>" }`.
    - **Omit `attestation` entirely.** That stays conformant and means unverified.
 3. Republish the document in one deploy. The new client does not read the old field, so there is no mixed-version state to preserve.

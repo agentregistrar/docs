@@ -32,7 +32,7 @@ Find the symptom, fix the cause, then re-run the check. Each row links to the pa
 
 Broker-managed is the default: build the verification URI from the broker origin
 plus your origin and audience, or copy the snippet the provider portal shows
-(after the release cutover), and leave it alone. The broker renews on demand, so
+(live 2026-11-14), and leave it alone. The broker renews on demand, so
 no cron, renewal job, or redeploy is needed, and the URI is stable across
 renewals. Provider-managed is an opt-in: register a stable HTTPS source URL,
 renew before expiry, host `{ "attestation": "<JWS>" }` as `application/json`, and

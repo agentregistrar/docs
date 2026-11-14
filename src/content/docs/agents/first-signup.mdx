@@ -13,7 +13,7 @@ This is the [quickstart](/agents/quickstart/) told as one story: what the provid
 The relying party is VaporCloud, a mock infrastructure provider at `skdl.dev`. It is a real implementation of `agent-identity-v1` with fictional appliances, which makes it useful for a first run: nothing you do there can cost money.
 
 <Aside type="note" title="Synthetic data">
-Identifiers, JTIs and timestamps in this tutorial are synthetic. The discovery shape, the terms hash, the context hash and the error shapes were checked on 2026-10-21. The `spec` row is the post-cutover v1.3.2 URL; the live document is re-checked at the release cutover.
+Identifiers, JTIs and timestamps in this tutorial are synthetic. The discovery shape, the terms hash, the context hash and the error shapes were checked on 2026-10-21 and re-checked against the live v1.3.2 document on 2026-11-14.
 </Aside>
 
 ## The discovery document, field by field
@@ -27,12 +27,12 @@ curl -sS https://skdl.dev/.well-known/agent-signup.json -o agent-signup.json
 | `protocol` | `agent-identity-v1` | The contract version. Anything else means the service does not support this protocol. |
 | `audience` | `vaporcloud` | The stable service identifier. It becomes the assertion `aud`. |
 | `provider_name` | `VaporCloud` | Human-readable name, for display only. |
-| `spec` | `https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md` (post-cutover) | Optional pointer to the exact specification the provider implements. |
+| `spec` | `https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md` (live 2026-11-14) | Optional pointer to the exact specification the provider implements. |
 | `provider_url` | `https://skdl.dev` | The provider origin, used to bind the context pointer to the provider's domain. |
 | `contact` | `security@skdl.dev` | Where to report a security issue or abuse. |
 | `issuer_allowlist` | `["https://agentregistrar.dev"]` | The brokers this provider accepts. Exact match, no wildcards. |
 | `required_scopes` | `["tos:accept", "signup:free_tier"]` | The scopes the assertion must carry. Your agent holds both by default. |
-| `attestation` | `{ "mode": "broker", "uri": "https://agentregistrar.dev/api/broker/provider-verification?origin=https%3A%2F%2Fskdl.dev&audience=vaporcloud" }` (post-cutover) | Optional Contract G source object. It names the stable verification URI and never carries the token; absence means unverified. |
+| `attestation` | `{ "mode": "broker", "uri": "https://agentregistrar.dev/api/broker/provider-verification?origin=https%3A%2F%2Fskdl.dev&audience=vaporcloud" }` (live 2026-11-14) | Optional Contract G source object. It names the stable verification URI and never carries the token; absence means unverified. |
 | `terms.version` | `2026.1` | The terms revision, for humans. |
 | `terms.url` | `https://skdl.dev/terms` | The URL the human can read. It becomes `accept_tos_url`. |
 | `terms.sha256` | `sha256:e854d9c2...fec5` | The hash of the exact terms bytes. Recompute it; do not trust it. |
