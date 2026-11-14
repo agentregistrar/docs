@@ -4,7 +4,7 @@ description: A v1.2 readiness checklist for HTTPS, terms lifecycle, keys, receip
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), validator 1.2.0, 2026-10-24"
+verifiedAgainst: "spec v1.3.2 (58e4648), validator 1.3.2, 2026-11-14"
 ---
 
 Use this before you take live traffic and again after any change to keys, terms or account handling. It is a checklist, not a second specification; each item links to the rule or the guide.
@@ -47,15 +47,19 @@ Use this before you take live traffic and again after any change to keys, terms 
 
 - [ ] You know that the receipt is signed by **your** RP key, named by
       `service.key_id` and present in the exact attestation. The broker does not
-      sign v1.2 receipts.
+      sign provider receipts.
 - [ ] The RP private key is in a secret store, never in the repository, logs or
       a build artifact. It has an owner, a rotation date and a compromise
       procedure.
-- [ ] The attestation is renewed on a 12-hour target against a 24-hour expiry
-      with 60-second skew. Serve the cached attestation until `exp`; omit it
-      after expiry (the provider becomes unverified, not invalid).
-- [ ] The exact attestation that contained the receipt key is retained for every
-      receipt, and Contract F receives that exact JWS. Never substitute the
+- [ ] Discovery publishes one `attestation` object with `mode` and a stable
+      `uri`. Broker-managed (the default) needs no renewal job: the broker renews
+      on demand and never serves an expired token on a `200`.
+- [ ] If you opted into provider-managed, the source URL is stable, on your
+      discovery origin or a subdomain, and you renew on a 12-hour target against
+      a 24-hour expiry with 60-second skew. Serve the current token until `exp`;
+      never serve an empty document. Expiry is the revocation bound in this mode.
+- [ ] The exact historical attestation that named the receipt key is retained for
+      every receipt, and Contract F receives that exact JWS. Never substitute the
       current attestation.
 - [ ] Key rotation uses the 30-day overlap; revocation removes the key from new
       attestations while old receipts remain verifiable through the snapshot.

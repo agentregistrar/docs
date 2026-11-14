@@ -1,9 +1,9 @@
 ---
 title: Broker HTTP and OAuth
-description: The broker's metadata, JWKS, MCP transport, OAuth, abuse-report and signup-receipt endpoints with methods, auth and responses.
+description: The broker's metadata, JWKS, MCP transport, OAuth, provider-verification, abuse-report and signup-receipt endpoints with methods, auth and responses.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.2.0 (35659ce), broker 5e57ecf, 2026-10-24; live v1.1 requests on 2026-10-21"
+verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14; live v1.1 requests on 2026-10-21"
 sidebar:
   order: 3
 ---
@@ -22,6 +22,7 @@ All examples use synthetic values. No endpoint needs an API key in a query strin
 | `POST /api/oauth/authorize/decision` | Human, in the consent page | Human login session cookie, same-origin JSON |
 | `POST /api/oauth/register` | MCP client | None (RFC 7591 dynamic registration) |
 | `POST /api/oauth/token` | MCP client | None beyond the one-time code or refresh token; PKCE `S256` is enforced |
+| `GET /api/broker/provider-verification` | Anyone | None (public, read-only; provider origin and audience only) |
 | `POST /api/broker/report-abuse` | Relying party | RP attestation + signed report JWS |
 | `POST /api/broker/report-provider` | Human owner | Session |
 | `POST /api/broker/signup-receipt` | Relying party server | Exact RP attestation + RP-signed `signup_token` |
@@ -260,6 +261,55 @@ The route exports `GET` and `DELETE`, but the transport is stateless, so there i
 
 ## Broker APIs
 
+### GET /api/broker/provider-verification
+
+The public broker-managed attestation source (Contract G, `broker` mode). A
+client calls the exact `attestation.uri` it read from discovery; it never builds
+the route or adds a parameter. The endpoint accepts only `origin` and
+`audience`, so no agent or human identifier is ever sent to it.
+
+```http
+GET /api/broker/provider-verification?origin=https%3A%2F%2Fprovider.example&audience=example
+```
+
+| Parameter | Required | Rule |
+| :--- | :-: | :--- |
+| `origin` | yes | Canonical provider origin, percent-encoded. Not a URL path or a wildcard. |
+| `audience` | yes | The discovery `audience`. |
+
+A current, active attestation returns `200` with `Content-Type:
+application/json` and exactly one field:
+
+```json
+{
+  "attestation": "<compact agent-rp-attestation+jwt JWS>"
+}
+```
+
+The response sets `Cache-Control: public, max-age=300`: a positive answer is
+cacheable for at most five minutes and never past the token `exp`. Every non-200
+response sets `Cache-Control: no-store`. The endpoint sets
+`Access-Control-Allow-Origin: *` and answers `OPTIONS` with `204`.
+
+The broker renews the token on demand when 12 hours or less remain, so a `200`
+never carries an expired token. It never issues or serves a token for a
+suspended or revoked provider.
+
+| Status | `error` / `code` | Meaning |
+| :--- | :--- | :--- |
+| `200` | - | Current attestation in `{attestation}`. |
+| `400` | `invalid_request` | Missing, extra, or malformed query, or a non-canonical origin or audience. |
+| `403` | `provider_suspended` | The provider or origin is suspended. |
+| `404` | `attestation_not_found` | Unknown pair, wrong publication mode, unverified origin, no attestation, or no active key. This maps to `unverified`. |
+| `410` | `attestation_revoked` | The provider or the latest attestation is revoked. This maps to `invalid` with reason `attestation_revoked`. |
+| `429` | `rate_limited` | Best-effort per-IP limit; `Retry-After` is set. |
+| `503` | `broker_unavailable` | Database or signing failure. Any `5xx` is treated as unavailable; a cached positive answer inside five minutes may still be used. |
+
+Every error uses the OAuth-style body from
+[spec section 18.5](/agent-identity/v1/specification/#185-http-error-body).
+A typed failure is a verification result, never a conformance failure, and
+negative answers are never cached.
+
 ### POST /api/broker/report-abuse
 
 Authenticated relying-party abuse reporting (Contract D.2). It opens a case and
@@ -400,3 +450,8 @@ Live requests on 2026-10-21 against `https://agentregistrar.dev`, with broker co
 - `POST /api/broker/signup-receipt` with an invalid token returned `401 invalid_signup_token`; v1.2 requires both `signup_token` and `rp_attestation`.
 - `POST /api/webhooks/resend` without signature headers returned `401 invalid_webhook_signature`.
 - `GET /mcp` returned `406` without an SSE `Accept` header and a Cloudflare `500` with one (see above). `DELETE /mcp` returned `200`.
+
+The `GET /api/broker/provider-verification` route is documented from
+`agent-identity-v1` `v1.3.2`. It ships with the D18 broker deploy; its live
+`200`/`403`/`404`/`410`/`429`/`503` matrix and cache headers are checked in the
+D18 cutover acceptance, not claimed on this page before then.

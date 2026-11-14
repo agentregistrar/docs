@@ -1,10 +1,10 @@
 ---
 title: Security
-description: Prompt injection, SSRF, replay, attestation and trust policy, key handling and the known limits of agent-identity-v1 v1.2.0.
+description: Prompt injection, SSRF, replay, attestation and trust policy, key handling and the known limits of agent-identity-v1 v1.3.2.
 audience: both
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), 2026-10-24"
+verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
 ---
 
 The normative security rules are [spec section 20](/agent-identity/v1/specification/#20-security-considerations), with agent consumption rules in [section 8](/agent-identity/v1/specification/#8-agent-consumption-rules-prompt-injection--ssrf), verdicts in [section 19](/agent-identity/v1/specification/#19-verification-rules), and issuer assumptions in [section 10](/agent-identity/v1/specification/#10-issuer--jwks-assumptions). This page summarizes the threat model for implementers. It does not weaken the specification.
@@ -40,12 +40,14 @@ See [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-s
 
 ## Provider verification and trust policy
 
-- The provider verification credential is optional. Absence is `unverified`, never invalid.
+- The provider verification credential is optional. Absence of the `attestation` object is `unverified`, never invalid. Only a well-formed source is fetched, and only on an explicit verification.
+- Read `attestation.mode` and `attestation.uri`; check the mode host binding **before** any fetch. A `broker` URI must be on an `issuer_allowlist` origin; a `provider` URI must be on the fetched discovery origin or a subdomain. A failed binding is final.
 - Check the attestation issuer against the trusted RP-broker list **before** any JWKS or metadata fetch. Never contact an untrusted broker.
 - Verify the attestation signature with the key selected by `kid`; require `typ: agent-rp-attestation+jwt` and `alg: EdDSA`. Never try all keys or accept `none`/HMAC.
 - Compare `rp.origin` to the origin of the discovery document actually fetched and `rp.audience` to `discovery.audience`. A mismatch is `invalid`, not `unverified`.
 - Check `iat`/`exp` with 60 seconds of skew. A bad signature, origin or audience is a verification failure; a fetch failure is `unavailable`.
-- Trust is policy, not cryptography. `warn` is advisory; `require` is the hard, broker-enforced gate; `block` never proceeds. Do not treat a registry badge as an endorsement or a safety rating.
+- Never read a token from discovery or accept one the caller supplies in place of the source. A present `rp_attestation` discovery field is non-conformant.
+- Trust is policy, not cryptography. `no_verify` never gates; `verify` requires a valid attestation in either mode; `strict` requires broker-managed; `blocked` rejects first. Do not treat a registry badge as an endorsement or a safety rating.
 
 ## Receipts and authenticated reporting
 
@@ -68,7 +70,7 @@ See [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-s
 - Resolve issuer keys only from the issuer's canonical JWKS. Never accept a `jku` or `x5u` header that points at an arbitrary host.
 - Require the JOSE header `alg` to be `EdDSA` and select the key by `kid`.
 - v1 does not define a key-rotation protocol. The fixed JWKS path and stable `kid` are the contract. An unknown `kid` is a reason to refresh the issuer's JWKS, not a reason to accept an unverified signature.
-- The discovery document itself is not signed. Trust comes from TLS, the issuer allowlist, issuer-hosted JWKS and the signed assertion. The optional `rp_attestation` is a signed statement about the provider, not a signature over the document.
+- The discovery document itself is not signed. Trust comes from TLS, the issuer allowlist, issuer-hosted JWKS and the signed assertion. The optional `attestation` object names a signed statement about the provider; it is not a signature over the document and it carries no token.
 - Attestation-signing public keys stay in the RP broker's JWKS for at least 30 days after the last attestation they signed expires, so historical receipts remain verifiable. An unseen old receipt after that window is `attestation_unavailable`.
 
 ## Other checks
@@ -83,7 +85,7 @@ See [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-s
 
 ## Known limits
 
-- **Verification is optional and not a safety review.** A conformant provider can omit the credential. `allow`/`warn` may proceed; `require` refuses. A `domain` credential proves origin control, not good conduct; `entity` adds reviewed legal-entity evidence, not honesty.
+- **Verification is optional and not a safety review.** A conformant provider can omit the `attestation` object. `no_verify` proceeds; `verify` and `strict` refuse. A `domain` credential proves origin control, not good conduct; `entity` adds reviewed legal-entity evidence, not honesty.
 - **Cheap discovery conformance.** A valid document is not evidence of the service's security, uptime or product quality.
 - **Revocation and suspension scope.** They are enforced by the broker at assertion-minting time. They suspend or revoke the broker identity; they do not delete accounts a provider already created.
 - **No abuse prevention.** The protocol does not prevent abuse. It records who acted, for which human, under which terms, with what proof.

@@ -21,12 +21,12 @@ Diagram legend, eight events: 1 human consent, 2 connect, 3 register, 4 discover
 The five steps below are the same flow at a coarser grain than the diagram's eight events.
 
 1. **Register.** The harness connects to the broker's MCP endpoint at `https://agentregistrar.dev/mcp` and completes OAuth in the browser. `identity_register` returns the agent sub-identity: id, inbox address and delegated scopes.
-2. **Discover.** The agent calls `identity_signup` with the service and the exact accepted terms text. The broker fetches `/.well-known/agent-signup.json`, checks the protocol value, the issuer allowlist and the required scopes, recomputes the SHA-256 of `terms.text`, verifies any optional provider verification credential against the RP broker's JWKS, and applies the human's `allow`/`warn`/`require`/`block` policy.
+2. **Discover.** The agent calls `identity_signup` with the service and the exact accepted terms text. The broker fetches `/.well-known/agent-signup.json`, checks the protocol value, the issuer allowlist and the required scopes, recomputes the SHA-256 of `terms.text`, fetches the attestation source if one is published and verifies it, and applies the human's `no_verify`/`verify`/`strict` policy plus the separate `blocked` action.
 3. **Prove.** `identity_signup` records a delegated acceptance for the human owner and mints the assertion. The call is side-effecting: it writes a durable consent row and sends the ToS Acceptance Ledger email to the agent inbox plus a forward to the human. `identity_prove` is the advanced equivalent when you need the raw claims or an explicit discovery source.
 4. **Sign up.** The agent posts `assertion.jwt` as `Authorization: Bearer <assertion>` to the single endpoint `endpoints.agent_signup`. The provider verifies the assertion, creates or resolves the account, and returns an RP-signed receipt and usually a context pointer.
 5. **Record.** `identity_record_signup` verifies the RP-signed `signup_token` against the exact historical attestation and stores the proof against the human's ledger. The result carries a handoff reminder: store any provider credential now, and never re-run signup to recover one.
 
-The diagram is not normative. The contract is [section 3](https://github.com/agentregistrar/spec/blob/v1.2.0/agent-identity-v1.md#3-roles--end-to-end-flow) and [section 7](https://github.com/agentregistrar/spec/blob/v1.2.0/agent-identity-v1.md#7-assertion--agent_signup-handshake) of the specification.
+The diagram is not normative. The contract is [section 3](https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md#3-roles--end-to-end-flow) and [section 7](https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md#7-assertion--agent_signup-handshake) of the specification.
 
 ## What the provider sees
 

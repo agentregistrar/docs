@@ -4,7 +4,7 @@ description: All nine broker MCP tools with inputs, results, side effects, retry
 audience: both
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), broker 5e57ecf, MCP schemas in packages/shared, 2026-10-24"
+verifiedAgainst: "spec v1.3.2 (58e4648), shared MCP schemas, 2026-11-14"
 sidebar:
   order: 2
 ---
@@ -147,9 +147,11 @@ There is no manual discovery, JWT decode, or attestation handling.
   `endpoints.agent_signup`, required scopes, and the attestation summary
   (`status`, `issuer`, `jti`, `level`, `expires_at`, `checked_at`).
 - `rp_verification`: the required verification summary (status, policy,
-  `allowed`, source, issuer, jti, level, expiry, `checked_at`, reason).
-- `rp_verification_warning`: present only when a `warn` policy proceeds. Surface
-  it to the human; it is advisory, not a safety rating or a block.
+  `allowed`, source, issuer, jti, level, expiry, `checked_at`, reason,
+  `attestation_mode`, `blocked`). `attestation_mode` is `broker`, `provider`, or
+  `null` when no source was resolved.
+- `rp_verification_warning`: optional advisory text. It is not a verification
+  status, a gate, or a safety rating. Surface it if present.
 - `assertion`: `jwt`, `jti`, `kid`, `typ`, expiry. The JWT has **no claims
   block** in the result; send it verbatim.
 - `acceptance`, `reuse`, `side_effects`, `agent_id`, `agent_email`, `audience`,
@@ -161,15 +163,22 @@ There is no manual discovery, JWT decode, or attestation handling.
 
 **Policy behavior**
 
-- `allow` is silent.
-- `warn` proceeds with `rp_verification_warning`.
-- `require` proceeds only for a verified RP and rejects
-  `agent_supplied_discovery` (this tool never supplies one).
-- `block` always refuses with `rp_blocked`.
-- An unverified RP under `require` is `rp_unverified`; an untrusted broker is
-  `rp_broker_untrusted`; invalid/expired are `rp_attestation_invalid` /
-  `rp_attestation_expired`; unavailable is `rp_broker_unavailable`.
-- `warn` is not a security control. Verification is identity, not safety.
+The policy values are `no_verify`, `verify` (the default), and `strict`.
+`blocked` is a separate human action, not a fourth mode.
+
+- `no_verify` is silent and never refuses on verification. A present credential
+  is verified for display and recorded.
+- `verify` proceeds only for a verified RP and accepts either publication mode.
+- `strict` proceeds only for a verified **broker-managed** RP. A provider-managed
+  source is `rp_attestation_mode_not_allowed`, and an agent-supplied discovery
+  document is `discovery_source_not_allowed` (this tool never supplies one).
+- `blocked = true` always refuses with `rp_blocked`, before any source fetch and
+  whatever the verification status.
+- An unverified RP under `verify`/`strict` is `rp_unverified`; an untrusted
+  broker is `rp_broker_untrusted`; invalid is `rp_attestation_invalid`; a typed
+  `410` is `rp_attestation_revoked`; expired is `rp_attestation_expired`;
+  unavailable is `rp_broker_unavailable`.
+- Verification is identity, not safety.
 
 **Side effects and retry**
 
@@ -242,9 +251,10 @@ agent-supplied discovery object.
 | `force_new` | boolean | no | New acceptance even if one exists. |
 
 Supplying both discovery sources, neither origin with `rp_discovery`, an origin
-with `rp_discovery_url`, or a raw `rp_attestation` is
-`discovery_source_not_allowed`. A `require` policy rejects
-`agent_supplied_discovery`.
+with `rp_discovery_url`, or a raw `rp_attestation` input is
+`discovery_source_not_allowed`. A `strict` policy rejects
+`agent_supplied_discovery`. The agent never supplies an attestation token: the
+broker fetches discovery and the attestation source itself.
 
 **Result**: assertion (`jwt`, `jti`, `kid`, `typ`, hash, timestamps, `claims` for
 inspection only), `verification` instructions, scopes, acceptance, reuse,
@@ -267,7 +277,7 @@ this agent. Supply exactly one source.
 | Field | Type | Required | Rule |
 | :--- | :--- | :-: | :--- |
 | `signup_token` | string | one source | The RP-signed v1.2 receipt (`agent-signup-receipt+jwt`). |
-| `rp_attestation` | string | no | The exact attestation that contained the receipt key. Omit to fetch discovery at the receipt origin; the broker then requires the exact `service.attestation_jti`. |
+| `rp_attestation` | string | no | The exact historical attestation that contained the receipt key (Contract F body field). Omit to fetch discovery at the receipt origin; the broker then requires the exact `service.attestation_jti`. |
 | `self_report` | object | one source | `{service_audience, provider_name, provider_account_id, signed_up_at, provider_url?}` for an RP that issued no receipt. Mutually exclusive with `signup_token`. |
 
 The receipt is verified against the **historical** attestation named by
@@ -350,8 +360,8 @@ resending).
 ## Verification record
 
 The tool names, input shapes, and result keys above were checked against the
-shared MCP schema and the tool registration at broker commit `5e57ecf` on
-2026-10-24. There are nine tools. `identity_signup` is registered before
-`identity_prove` and is preferred in the server instructions and all four
-resources. Live `tools/list` and per-tool calls are re-run in the release
-verification; this page does not claim a live deployment of the v1.2 broker.
+shared MCP schema and the `agent-identity-v1` `v1.3.2` contract on 2026-11-14.
+There are nine tools. `identity_signup` is registered before `identity_prove`
+and is preferred in the server instructions and all four resources. Live
+`tools/list` and per-tool calls against the post-cutover broker are part of the
+D18 cutover acceptance; this page does not claim a live deployment ahead of it.

@@ -4,7 +4,7 @@ description: Go from a terms text file to a validator-passing agent-signup.json 
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), validator 1.2.0, @agentregistrar/discovery 1.2.0, Node 24.21.0, 2026-10-24"
+verifiedAgainst: "spec v1.3.2 (58e4648), validator 1.3.2, @agentregistrar/discovery 1.3.2, Node 24.21.0, 2026-11-14"
 ---
 
 This is the shortest conformant path. You write one terms file, hash its exact
@@ -205,7 +205,7 @@ pnpm --silent validate:discovery http://127.0.0.1:3001/.well-known/agent-signup.
 Path B, with the published package in any project. The package has no `bin` entry, so run its TypeScript source with `tsx`:
 
 ```bash
-npm install @agentregistrar/discovery@1.2.0 tsx@4.23.15
+npm install @agentregistrar/discovery@1.3.2 tsx@4.23.15
 npx tsx node_modules/@agentregistrar/discovery/src/validate-discovery.ts \
   http://127.0.0.1:3001/.well-known/agent-signup.json --json --probe-jwks
 ```
@@ -215,7 +215,7 @@ Both paths use `--probe-jwks`, so both report one probe. Expected from either pa
 ```json
 {
   "validator": "agent-identity-v1",
-  "validatorVersion": "1.2.0",
+  "validatorVersion": "1.3.2",
   "mode": "url",
   "valid": true,
   "exitCode": 0,
@@ -227,9 +227,9 @@ Both paths use `--probe-jwks`, so both report one probe. Expected from either pa
 }
 ```
 
-The v1.2 result also carries separate `conformance` and `attestation` objects; a
-document with no `rp_attestation` reports `attestation.status: "unverified"` and
-still exits `0`. The exact field reference is in the [conformance
+The `v1.3` result also carries separate `conformance` and `attestation` objects; a
+document with no `attestation` object reports `attestation.status: "unverified"`
+and still exits `0`. The exact field reference is in the [conformance
 validator](/agent-identity/v1/validator/).
 
 Exit code `0` means valid. `1` means the document was read and rejected; `2`
@@ -278,22 +278,40 @@ broker-issued **provider verification credential** and the authenticated paths:
 3. **Register a key.** Generate an Ed25519 keypair locally, request a
    proof-of-possession challenge, and register the public key with the required
    `receipt`/`abuse` purposes. The broker never sees the private key.
-4. **Issue and renew the attestation.** With a verified plan entitlement, an
-   active key, and a verified origin, issue the attestation and publish it as
-   `rp_attestation` in discovery. Renew on a 12-hour target against a 24-hour
-   expiry.
+4. **Choose one publication mode per origin and audience.**
+   - **Broker-managed (default and recommended).** Issue the attestation and copy
+     the verification URI the broker returns. Publish it as
+     `attestation: {mode: "broker", uri}` and change nothing else:
+
+     ```json
+     {
+       "attestation": {
+         "mode": "broker",
+         "uri": "https://agentregistrar.dev/api/broker/provider-verification?origin=https%3A%2F%2Fexample.com&audience=example-rp"
+       }
+     }
+     ```
+
+     There is no cron, renewal job, or redeploy: the broker renews on demand when
+     12 hours or less remain, and a suspension stops lookups within five minutes
+     at most.
+   - **Provider-managed (advanced opt-in).** Register a stable HTTPS source URL on
+     your discovery origin or a subdomain. Renew through
+     `POST /api/provider/v1/attestation` on the 12-hour target against the
+     24-hour expiry, and write `{ "attestation": "<JWS>" }` at that URL. Expiry is
+     the revocation bound, so a suspension may not be visible until the token
+     expires.
 5. **Sign receipts and verify their history.** Sign Contract E receipts with the
-   RP key named in the attestation, keep the exact attestation that contained
-   that key, and send `{signup_token, rp_attestation}` to Contract F.
+   RP key named in the attestation, keep the exact historical attestation that
+   contained that key, and send `{signup_token, rp_attestation}` to Contract F.
 6. **Report abuse with standing.** Sign the `{rp_attestation, report}` JWS and
    post it to the broker's advertised `abuse_endpoint`. A receipt-linked report
    can apply a protective suspension pending review; an unlinked report opens a
    case without suspending.
 
-This release ships plan and entitlement hooks only. There is no checkout,
-pricing page, invoice, DPA, or provider terms text here. A `free` provider is
-conformant and cannot issue an attestation; a `verified` plan requires a live
-subscription set by the operator.
+Attestation issuance is not plan-gated: an active provider with a verified origin
+and an active key can issue and renew on the free plan. This release ships no
+checkout, pricing page, invoice, DPA, or provider terms text here.
 
 See [Trust and limits](/start/trust-and-limits/) for why verification is identity,
 not safety, and [Validate and register](/providers/guides/validate-and-register/)
@@ -302,7 +320,7 @@ for the registry's five-field verification snapshot.
 ## Optional: receipt and context
 
 A signup response may include an RP-signed `signup_token` and a hash-pinned
-`context` pointer to your guide. Both are optional. The v1.2 receipt has no
+`context` pointer to your guide. Both are optional. The receipt has no
 `exp`; a legacy `exp` is ignored. See [Issue a signup
 receipt](/providers/guides/issue-signup-receipt/) and [Publish a context
 guide](/providers/guides/publish-context-guide/).

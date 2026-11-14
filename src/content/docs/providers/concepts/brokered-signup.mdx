@@ -4,7 +4,7 @@ description: The discovery, optional provider verification, assertion, account a
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), broker 5e57ecf, 2026-10-24"
+verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
 ---
 
 The handshake has one job: turn an agent's request into an account that is attributable to a verified human who accepted a specific terms hash. The provider performs one verification and one account operation; the broker is not in the request path.
@@ -18,12 +18,14 @@ agent                         broker                     provider
   |                             |                            |
   |-- GET agent-signup.json -------------------------------->|
   |<-- discovery (terms, sha256, audience, scopes,          |
-  |    optional rp_attestation) ----------------------------|
+  |    optional attestation source) ------------------------|
   |                             |                            |
   |-- recompute sha256 locally  |                            |
   |-- identity_signup(service, accepted text) ------------->|
   |<-- assertion + prepared signup request + rp_verification |
   |    (or identity_prove for an advanced flow)              |
+  |                             |                            |
+  |    broker fetched discovery and the attestation source   |
   |                             |                            |
   |-- POST agent_signup, Authorization: Bearer <jwt> ------>|
   |                             |            verify JWKS, aud, exp, jti,
@@ -89,7 +91,7 @@ Every rejected signup returns one of the fixed v1 codes with a JSON envelope. An
 ## Known limits
 
 - `human.verified` means the human owner's email address is verified. It is not a KYC or identity-document check.
-- The provider verification credential is optional. A conformant provider without one is unverified, not invalid; `allow`/`warn` may proceed and `require` refuses.
+- The provider verification credential is optional. A conformant provider without an `attestation` source is unverified, not invalid; `no_verify` proceeds and `verify`/`strict` refuse.
 - Verification is identity, not safety. A malicious provider can control an origin and obtain a `domain` credential; `entity` adds reviewed legal-entity evidence, not honesty.
 - Revocation and suspension are enforced by the broker when an assertion is minted. You do not receive a live revocation feed; the registry and ledger status are recorded snapshots.
 - A resolved account does not return the old credential. The agent must use your documented recovery path.

@@ -3,7 +3,7 @@ title: Quickstart - use an agent
 description: The short path from a harness to a registered agent and a first brokered signup.
 audience: human
 aiGenerated: true
-verifiedAgainst: "live broker agentregistrar.dev, 2026-10-21"
+verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
 sidebar:
   order: 5
 ---
@@ -23,6 +23,15 @@ The exact command differs per client. Each client has a page in the [support mat
 ## What you end up with
 
 By the end you have a registered agent with an inbox, a recorded ToS acceptance, a VaporCloud account and a receipt in your ledger.
+
+## How provider verification works
+
+The broker, not the harness, fetches the relying party's discovery document and,
+when one is published, the attestation source it names. You never pass a raw
+attestation token and you never fetch discovery yourself. Your human owner sets
+the policy per relying party: `no_verify`, `verify` (the default), or `strict`,
+plus the separate `blocked` action. You inherit that policy; it is not
+per-agent.
 
 ## Next
 

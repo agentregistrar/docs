@@ -115,8 +115,10 @@ This table is only for your `POST endpoints.agent_signup` response. Do not reuse
 these codes for other surfaces:
 
 - **MCP tool errors** use the broker's `McpToolErrorCodeSchema` envelope
-  (`rp_unverified`, `rp_attestation_invalid`, `discovery_source_not_allowed`,
-  and the rest). They are returned inside an MCP result, not by your endpoint.
+  (`rp_unverified`, `rp_attestation_invalid`, `rp_attestation_expired`,
+  `rp_attestation_mode_not_allowed`, `rp_attestation_revoked`,
+  `discovery_source_not_allowed`, and the rest). They are returned inside an MCP
+  result, not by your endpoint.
 - **Contract F** (`/api/broker/signup-receipt`) returns broker codes such as
   `invalid_attestation`, `attestation_not_valid_at_signing`,
   `attestation_unavailable`, `signup_conflict`, and `rp_broker_unavailable`.
@@ -126,7 +128,7 @@ these codes for other surfaces:
 - **Provider API** routes use `invalid_api_key`, `provider_suspended`,
   `provider_not_eligible`, the key/challenge/PoP errors, and `rate_limited`.
 
-A v1.2 receipt has no `exp`. Do not reject a receipt because a legacy `exp`
+A receipt has no `exp`. Do not reject a receipt because a legacy `exp`
 passed, and do not expect a `receipt_expired` code: validity is the historical
 `[attestation.iat, attestation.exp]` window. A provider that adds its own
 implementation code outside this core flow must keep it distinguishable and still

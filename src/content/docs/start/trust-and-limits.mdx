@@ -1,9 +1,9 @@
 ---
 title: Trust and limits
-description: The liability chain, provider verification, trust policy, receipts and abuse mechanics, the known gaps, and where to report a security issue.
+description: The liability chain, provider verification modes, trust policy, receipts and abuse mechanics, the known gaps, and where to report a security issue.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.2.0 (35659ce), 2026-10-24"
+verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
 sidebar:
   order: 4
 ---
@@ -37,18 +37,19 @@ terms govern the provider's account.
 ## Assertion verification is permissionless
 
 Anyone can verify a Contract A assertion against the human broker's public JWKS.
-No account, SDK, shared secret, or broker call is required. This stays true in
-v1.2 and is the base conformant flow.
+No account, SDK, shared secret, or broker call is required. This is the base
+conformant flow and it has not changed.
 
 A provider account is a different thing. It is required only to be a verified
 provider, issue authenticated receipts, or report abuse with standing. It is not
-required to accept assertions.
+required to accept assertions, and attestation issuance is not plan-gated: an
+active provider with a verified origin and an active key can issue.
 
 ## What provider verification adds
 
-A provider may publish an optional `rp_attestation` in its discovery document.
-The public term is **provider verification credential**: a compact JWS issued by
-the provider's broker (Broker B) that binds:
+A provider may publish an optional `attestation` object in its discovery
+document. The public term is **provider verification credential**: a compact JWS
+issued by the provider's broker (Broker B) that binds:
 
 - the provider's canonical origin;
 - its discovery `audience`;
@@ -56,17 +57,105 @@ the provider's broker (Broker B) that binds:
 - an assurance level (`domain` or `entity`);
 - its public signing keys.
 
-An agent or broker verifies it locally against Broker B's JWKS, checking the
-signature, `typ`, `alg`, `kid`, `iat`/`exp` with 60 seconds of clock skew,
+Discovery names a stable **source** and never carries the token itself:
+
+```json
+{
+  "attestation": {
+    "mode": "broker",
+    "uri": "https://agentregistrar.dev/api/broker/provider-verification?origin=https%3A%2F%2Fprovider.example&audience=example"
+  }
+}
+```
+
+- `mode` is exactly `broker` or `provider`.
+- `uri` is a stable, absolute HTTPS URL with no credentials and no fragment.
+  `http://localhost` and `http://127.0.0.1` are the development exception.
+- The object is optional. Absence is conformant and means **unverified**.
+- The old embedded `rp_attestation` discovery field is removed. A document that
+  still carries it is **non-conformant**; it is not a fallback.
+
+Both modes serve the same source document at `attestation.uri`:
+
+```json
+{ "attestation": "<compact JWS>" }
+```
+
+The response is `application/json`. Additional fields are ignored. A raw JWT
+body is rejected. The envelope is not signed, so the JWS is the only trust
+anchor.
+
+An agent or broker verifies the token locally against Broker B's JWKS, checking
+the signature, `typ`, `alg`, `kid`, `iat`/`exp` with 60 seconds of clock skew,
 `rp.origin` against the origin of the discovery document actually fetched, and
 `rp.audience` against `discovery.audience`. The trusted-Broker-B check happens
-before any JWKS fetch. There is no per-signup call to Broker B.
+before any JWKS fetch. Local verification does not need a status call.
 
 The credential is **optional**. A conformant discovery document without it is
-**unverified**, never invalid. Absence, an expired credential, a bad signature,
-an untrusted broker, and an unavailable broker are different results, and the
+**unverified**, never invalid. Absence, expiry, a bad signature, an untrusted
+broker, and an unavailable source are different results, and the
 [validator](/agent-identity/v1/validator/) reports conformance and attestation
 verification separately.
+
+## The two publication modes
+
+One mode is chosen per origin and audience pair. Switching modes is a
+configuration change that reissues the attestation and updates discovery; it is
+not a per-request choice.
+
+### Broker-managed (default)
+
+The broker hosts and renews the token at a stable verification endpoint:
+
+```text
+GET /api/broker/provider-verification?origin=<encoded>&audience=<audience>
+```
+
+The provider publishes that full URL as `attestation.uri` and changes nothing
+else. There is no cron, no renewal job and no redeploy: the broker renews on
+demand when 12 hours or less remain, so a `200` never carries an expired token.
+The URI is stable across renewals.
+
+The broker-managed lookup **is the status check**. There is no separate status
+call in this flow. A positive answer may be cached for at most five minutes and
+never past `exp`; a negative answer is never cached. The five-minute bound is
+also the revocation lag: a suspension stops new lookups within five minutes, not
+instantly.
+
+| Broker answer | Meaning | Client action |
+| :--- | :--- | :--- |
+| `200` with `{attestation}` | Current and active | Verify locally, then proceed |
+| `400 invalid_request` | Malformed query | Fix the request |
+| `403 provider_suspended` | Provider or origin suspended | Reject |
+| `404 attestation_not_found` | Unknown pair, wrong mode, unverified origin, or no attestation | Unverified under `verify`/`strict`; show unverified under `no_verify` |
+| `410 attestation_revoked` | Provider or attestation revoked | Reject |
+| `429 rate_limited` | Rate limited; `Retry-After` is set | Retry after the advertised delay |
+| `5xx` (`503 broker_unavailable`) | Broker unavailable | Use a cached positive answer inside five minutes, or fail per policy |
+
+A typed broker answer is a verification result. It is never a conformance
+failure and never makes the discovery document non-conformant. The endpoint
+accepts a provider origin and audience only; no agent or human identifier is
+sent to it.
+
+### Provider-managed (opt-in)
+
+The provider hosts the source document at a stable URL on its own origin or a
+subdomain of it, and the broker does not proxy, cache, or publish the token.
+
+- Register the stable HTTPS source URL. A third-party host, including a CDN, is
+  rejected: the URI host must be the discovery origin or a subdomain of it.
+- Renew through `POST /api/provider/v1/attestation` on the 12-hour target
+  against the 24-hour expiry, and write the returned `attestation` JWS into the
+  source document. Keep serving the current token until the new one is
+  published; never serve an empty document.
+- `exp` is the **revocation bound**. A client accepts the token until `exp` plus
+  skew, so a broker suspension or revocation may not be visible until the token
+  expires. This mode is not instant revocation.
+- A client may reuse a fetched source response for at most five minutes and
+  never past `exp`.
+
+A source that is unreachable or malformed is `unavailable` or `invalid`, never
+"unsafe": it is a verification result about evidence, not a conformance verdict.
 
 ## Assurance levels
 
@@ -75,8 +164,8 @@ verification separately.
 | `domain` | Automated control of the origin through an HTTPS well-known file or a DNS TXT record. |
 | `entity` | An operator reviewed legal-entity evidence: legal name, registry/VAT id, and official contact, in addition to the origin check. |
 
-Both levels count as `verified` for v1.2 policy. The level is recorded and
-displayed. It is not a ranking and there is no `enhanced` level.
+Both levels count as `verified` for policy. The level is recorded and displayed.
+It is not a ranking and there is no `enhanced` level.
 
 ## Trust is policy, not cryptography
 
@@ -88,20 +177,32 @@ uptime, solvency, or conduct.
 
 The broker default plus the human owner's overrides resolve trust. A human can
 mark a broker `trust` or `distrust`; distrust wins. Agents inherit their human's
-policy in v1.2; there is no per-agent trust list.
+policy; there is no per-agent trust list.
 
-Policy is separate from verification status:
+Policy is separate from verification status. The values are `no_verify`,
+`verify` (the default), and `strict`:
 
 | Policy | Verified | Unverified | Untrusted broker | Invalid or expired | Unavailable | Suspended |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `allow` | proceed | proceed | proceed | proceed | proceed | proceed |
-| `warn` | proceed | proceed + warning | proceed + warning | proceed + warning | proceed + warning | proceed + warning |
-| `require` | proceed | `rp_unverified` | `rp_broker_untrusted` | `rp_attestation_invalid` / `rp_attestation_expired` | `rp_broker_unavailable` | `rp_suspended` |
-| `block` | `rp_blocked` | `rp_blocked` | `rp_blocked` | `rp_blocked` | `rp_blocked` | `rp_blocked` |
+| `no_verify` | proceed | proceed, shown as unverified | proceed | proceed | proceed | proceed |
+| `verify` | proceed | `rp_unverified` | `rp_broker_untrusted` | `rp_attestation_invalid` / `rp_attestation_expired` | `rp_broker_unavailable` | `rp_suspended` |
+| `strict` | proceed, broker-managed only | `rp_unverified` | `rp_broker_untrusted` | `rp_attestation_invalid` / `rp_attestation_expired` | `rp_broker_unavailable` | `rp_suspended` |
 
-`warn` is advisory: the call proceeds with a warning. It is not a security
-control. `require` is the hard, broker-enforced gate and rejects
-`agent_supplied_discovery`. `block` never proceeds. The default policy is `warn`.
+- `no_verify` never turns a verification result into a refusal. A present
+  credential is still verified for display and recorded.
+- `verify` requires a valid attestation and accepts either publication mode.
+  A `404 attestation_not_found` is `unverified`.
+- `strict` requires a valid **broker-managed** attestation and rejects a
+  provider-managed source with `rp_attestation_mode_not_allowed`. It also
+  rejects a caller-supplied discovery document with
+  `discovery_source_not_allowed`.
+- `blocked` is a separate human action, not a fourth mode. `blocked = true`
+  refuses with `rp_blocked` after discovery resolution and before any
+  attestation-source fetch, whatever the mode and whatever the status.
+
+`verify` and `strict` are always enforced. There is no advisory policy and no
+`enforced` field. The old `allow`, `warn`, `require`, and `block` policy values
+are removed, with no aliases.
 
 ## Provider verification is identity, not safety
 
@@ -119,7 +220,7 @@ conduct.
 
 ## Receipts and proof sources
 
-A v1.2 signup receipt is signed by the provider's own key, named by
+A signup receipt is signed by the provider's own key, named by
 `service.attestation_jti` and `service.key_id`. It carries no `exp`: a receipt is
 a historical fact. The receipt is valid when `iat` and `signed_up_at` both fall
 inside the named attestation's validity window, even if the broker ingests it
@@ -137,6 +238,9 @@ There are four proof sources:
 
 Tier 1 and Tier 2 carry the same proof. A self-report is not verified. `exp` on a
 legacy receipt is ignored.
+
+Contract F and authenticated abuse reporting still use the request-body field
+`rp_attestation` for the exact historical attestation. Only discovery removed it.
 
 ## Authenticated abuse reporting
 
@@ -165,9 +269,17 @@ The ledger shows two separate things:
 
 Current status is historical, not a live query. It carries `checked_at`. Local
 provider suspension/revocation, local attestation suspension/revocation, or
-snapshot expiry can override the label. The broker metadata advertises a signed
-`attestation_status_uri`; local verification does not require it, and an
-enforced check may consult it with a cache of at most five minutes.
+snapshot expiry can override the label.
+
+Where the current answer comes from depends on the mode:
+
+- **Broker-managed:** the broker lookup is the status check. A suspension is
+  visible within five minutes at most and no new token is issued.
+- **Provider-managed:** expiry is the revocation bound. A suspension may not be
+  visible until the token expires.
+- The broker metadata still advertises a signed `attestation_status_uri`
+  (Contract I), and the signed status is the durable record. Local verification
+  does not require it.
 
 Revocation affects new `identity_signup`/`identity_prove` calls and
 identity-bound tool calls. It does not delete a provider account, invalidate an
@@ -181,8 +293,8 @@ These are limitations of `agent-identity-v1` and of this broker. They are stated
 here so no page has to soften them.
 
 1. **Unverified providers still exist.** A conformant provider can omit the
-   optional credential. `allow`/`warn` may proceed; `require` refuses. Choosing a
-   provider is still a trust decision.
+   optional `attestation` object. `no_verify` proceeds; `verify` and `strict`
+   refuse. Choosing a provider is still a trust decision.
 2. **Verification is not a safety review.** A malicious provider can obtain a
    `domain`-level credential by controlling an origin. `entity` adds reviewed
    legal-entity evidence, not honesty or product quality.
@@ -191,20 +303,23 @@ here so no page has to soften them.
    and the acceptance facts.
 4. **Conformance is cheap.** The validator checks document shape and encoding,
    not intent, security posture, or business legitimacy.
-5. **Revocation is a broker control.** It cannot delete an account, invalidate a
+5. **Revocation is bounded, not instant.** A broker-managed suspension stops new
+   lookups within five minutes. A provider-managed suspension may not be visible
+   until the token expires.
+6. **Revocation is a broker control.** It cannot delete an account, invalidate a
    live assertion, or force a provider to stop serving the agent.
-6. **Provider enforcement varies.** A provider may skip a check or never call the
+7. **Provider enforcement varies.** A provider may skip a check or never call the
    abuse endpoint. The protocol defines checks; it cannot make a provider run
    them.
-7. **The broker is a single point of failure for minting.** If the broker is
+8. **The broker is a single point of failure for minting.** If the broker is
    unavailable, no new assertions can be minted. Providers and existing accounts
    are unaffected.
-8. **Email delivery is in the critical path.** The acceptance receipt, human
+9. **Email delivery is in the critical path.** The acceptance receipt, human
    forward, and provider verification mail depend on mail delivery. A failed
    ledger dispatch is retryable; the acceptance is already recorded.
-9. **`human.verified` is verified email, not KYC.** Two broker accounts with
-   different emails are two principals. The broker cannot merge them.
-10. **No credential custody.** The broker cannot recover a provider credential,
+10. **`human.verified` is verified email, not KYC.** Two broker accounts with
+    different emails are two principals. The broker cannot merge them.
+11. **No credential custody.** The broker cannot recover a provider credential,
     because it never stores one. Recovery is the provider's path.
 
 ## What we do not claim
@@ -233,11 +348,13 @@ it, the broker abuse endpoint.
 
 ## Read the contract
 
-- [Trust model, assurance levels, and policy](https://github.com/agentregistrar/spec/blob/v1.2.0/agent-identity-v1.md#17-trust-model-assurance-levels-and-policy): spec section 17.
-- [Verification rules](https://github.com/agentregistrar/spec/blob/v1.2.0/agent-identity-v1.md#19-verification-rules): spec section 19.
+- [Contract G, RP attestation](https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md#14-contract-g--rp-attestation): source, modes and verification.
+- [Trust model, assurance levels, and policy](https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md#17-trust-model-assurance-levels-and-policy): spec section 17.
+- [Verification rules](https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md#19-verification-rules): spec section 19.
+- [Discovery JSON Schema](/agent-identity/v1/agent-signup.schema.json): the published schema with the `attestation` object.
 - [Registry verification](/providers/guides/validate-and-register/): the recorded snapshot and badge rules.
 - [Verify assertions](/providers/guides/verify-assertions/): the verifier and the provider credential check.
 - [Receipt and context](/agent-identity/v1/receipt-and-context/): Contract E and proof sources.
 - [Error codes](/reference/error-codes/): stable MCP and HTTP codes.
-- [Scope boundaries](https://github.com/agentregistrar/spec/blob/v1.2.0/scope-boundaries.md): what the protocol must never absorb.
+- [Scope boundaries](https://github.com/agentregistrar/spec/blob/v1.3.2/scope-boundaries.md): what the protocol must never absorb.
 - [How it works](/start/how-it-works/): the mechanics these limits apply to.

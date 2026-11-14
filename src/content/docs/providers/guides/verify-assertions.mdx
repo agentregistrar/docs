@@ -4,14 +4,16 @@ description: Verify the Ed25519 assertion against the issuer JWKS, enforce issue
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), jose 6.2.13, Node 24.21.0, 2026-10-24"
+verifiedAgainst: "spec v1.3.2 (58e4648), jose 6.2.13, Node 24.21.0, 2026-11-14"
 ---
 
 **Goal:** accept a compact Ed25519 JWT only when every check in [spec section 7.1](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake) passes, and map each failure to a fixed v1 code.
 
 The claim set is in [Assertion claims](/agent-identity/v1/assertion-claims/). This guide is the implementation step. Verifying an assertion needs **no account and no SDK**: it uses the human broker's public JWKS. An account is required only to be a verified provider, issue authenticated receipts, or report abuse with standing.
 
-In v1.2 a provider may also publish an optional **provider verification credential** (the RP attestation). It is a separate, local check; it does not change how the assertion is verified.
+A provider may also publish an optional **provider verification credential** (the
+RP attestation) as a stable source named by discovery. It is a separate, local
+check; it does not change how the assertion is verified.
 
 ## Before you start
 
@@ -255,29 +257,45 @@ provider's identity; skip it and the provider is `unverified`, not invalid. The
 normative steps are in [spec section 14](/agent-identity/v1/specification/).
 
 1. **Fetch discovery** from the provider's canonical origin, `GET
-   /.well-known/agent-signup.json`. The fetched origin is authoritative.
-2. **Read `rp_attestation`**, a compact JWS. If it is absent, record
-   `unverified` and apply policy.
-3. **Check the issuer against your trusted RP-broker list before any fetch.** Do
-   not contact an untrusted broker. If the issuer is not trusted, record
-   `attested_untrusted_broker`.
-4. **Resolve Broker B's JWKS.** Use `jwks_uri` from
+   /.well-known/agent-signup.json`. The fetched origin is authoritative. Read
+   `attestation`, an object `{ mode, uri }`. If it is absent, record `unverified`
+   and apply policy.
+2. **Check the mode and host binding before any fetch.** `mode` must be exactly
+   `broker` or `provider`. A `broker` URI origin must be in the document's
+   `issuer_allowlist` and in your trusted-broker list; a `provider` URI origin
+   must be the fetched discovery origin or a subdomain of it. A failure is a
+   conformance error, and the URI is never fetched.
+3. **Fetch the source** at `attestation.uri` with a bounded fetch: HTTPS only,
+   public addresses, no cross-origin redirect, 5-second timeout, 64 KiB cap.
+   Require `application/json` and read the `attestation` JWS string. A raw JWT
+   body or a different envelope key is `invalid`.
+4. **Check the issuer against your trusted RP-broker list before any JWKS
+   fetch.** Do not contact an untrusted broker. If the issuer is not trusted,
+   record `attested_untrusted_broker`.
+5. **Resolve Broker B's JWKS.** Use `jwks_uri` from
    `/.well-known/agent-broker.json` only when its `issuer` equals the
    attestation `iss` and the URI is HTTPS and same-origin; otherwise use
    `<iss>/.well-known/jwks.json`. Never merge JWKS from different issuers.
-5. **Verify the signature** with the key selected by `kid`. Require `typ:
+6. **Verify the signature** with the key selected by `kid`. Require `typ:
    agent-rp-attestation+jwt`, `alg: EdDSA`, and exactly one `kid`.
-6. **Check time and binding**: `iat`/`exp` with 60 seconds of skew, non-empty
+7. **Check time and binding**: `iat`/`exp` with 60 seconds of skew, non-empty
    `jti`, `rp.origin` equal to the fetched discovery origin, and `rp.audience`
    equal to `discovery.audience`.
-7. **Record the level** (`domain` or `entity`) and apply your policy. In v1.2 both
-   levels are `verified`; the level is informational and displayed.
+8. **Record the level** (`domain` or `entity`) and apply the policy mode. Both
+   levels are `verified`; the level is informational and displayed. `strict`
+   rejects a `provider` source with `rp_attestation_mode_not_allowed`;
+   `no_verify` never turns the result into a refusal.
+
+The snippet starts after the source fetch: `attestationJws` is the value of
+`attestation` inside the source document, already parsed under the bounded-fetch
+rules above.
 
 ```js
 import { createRemoteJWKSet, decodeJwt, jwtVerify } from "jose";
 
-export async function verifyProviderCredential(attestation, discovery, config) {
-  const { iss: issuer } = decodeJwt(attestation);
+export async function verifyProviderCredential(attestationJws, discovery, config) {
+  // `mode` and the URI host binding were checked before the source fetch.
+  const { iss: issuer } = decodeJwt(attestationJws);
   if (!config.trustedRpBrokers.includes(issuer)) {
     return { status: "attested_untrusted_broker" };
   }
@@ -286,7 +304,7 @@ export async function verifyProviderCredential(attestation, discovery, config) {
     cooldownDuration: 300000,
   });
   try {
-    const { payload } = await jwtVerify(attestation, jwks, {
+    const { payload } = await jwtVerify(attestationJws, jwks, {
       algorithms: ["EdDSA"],
       typ: "agent-rp-attestation+jwt",
       clockTolerance: 60,
@@ -309,9 +327,9 @@ document you actually fetched. Never infer it from `terms.url`, `provider_url`,
 or the attestation itself. A JWKS fetch failure is `unavailable`, not `invalid`.
 
 The broker's one-call `identity_signup` MCP tool does this check for you and
-returns `rp_verification` plus an optional `rp_verification_warning`. Use it when
-you do not need to inspect claims yourself. A provider does not need an account
-to accept an assertion; the credential only lets the agent check the provider.
+returns `rp_verification` plus an optional advisory note. Use it when you do not
+need to inspect claims yourself. A provider does not need an account to accept an
+assertion; the credential only lets the agent check the provider.
 
 See [Trust and limits](/start/trust-and-limits/) for the trust list, policy
 matrix, and why verification is identity, not safety.

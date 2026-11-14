@@ -1,10 +1,10 @@
 ---
 title: Provider troubleshooting
-description: Symptom, cause and fix for discovery validation, assertion verification, hashes, JWKS, context guides and transport.
+description: Symptom, cause and fix for discovery validation, attestation sources, assertion verification, hashes, JWKS, context guides and transport.
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-21
-verifiedAgainst: "spec v1.2.0 (d3fddc9), validator 1.0.0, 2026-10-21"
+verifiedAgainst: "spec v1.3.2 (58e4648), validator 1.3.2, 2026-11-14"
 ---
 
 Find the symptom, fix the cause, then re-run the check. Each row links to the page that owns the step.
@@ -15,13 +15,45 @@ Find the symptom, fix the cause, then re-run the check. Each row links to the pa
 | :--- | :--- | :--- |
 | Validator fails `terms.sha256` | Hashed rendered HTML, a summary, or newline-normalized text | Hash the exact `terms.text` UTF-8 bytes. See [Compute the ToS hash](/providers/guides/compute-tos-hash/). |
 | Validator fails a forbidden field | Catalog, SKU, provisioning or OTP field under `endpoints` or `extensions` | Remove the capability surface; move it to the vendor guide. See [Identity-only discovery](/providers/concepts/identity-only-discovery/). |
-| Validator exits `2` | No usable document: DNS, TLS, timeout, redirect, wrong content type or oversize body | Fetch the URL with `curl -D -`; fix transport before changing the JSON. |
+| Validator exits `2` | No usable document: DNS, TLS, timeout, redirect, wrong content type or oversize body; or the attestation source or JWKS could not be obtained under `--require-attestation` | Fetch the URL with `curl -D -`; fix transport before changing the JSON. |
 | Validator warns on cache or CORS | Missing `Cache-Control` or `Access-Control-Allow-Origin` | Add `public, max-age=60` and `*` where appropriate. Warnings do not fail conformance. |
 | `protocol` rejected | A typo or a version such as `v1` | Use exactly `agent-identity-v1`. |
 | `issuer_allowlist` rejected | Empty, wildcard, path or trailing slash | Use exact origins such as `https://agentregistrar.dev`, no path. |
 | `audience` rejected | Whitespace, mixed case or a display name | Use a stable, case-sensitive service identifier. |
 | `agent_signup` rejected | Relative URL, or an `http` URL outside localhost | Use an absolute HTTPS URL. |
+| `field.rp_attestation` / `rp_attestation_removed` | The document still embeds the v1.2 token | Remove the field and publish `attestation: {mode, uri}`. There is no fallback or dual publication. |
+| `field.attestation.mode` / `attestation_mode_invalid` | A `mode` other than exactly `broker` or `provider` | Fix the value. There are no aliases. |
+| `field.attestation.uri` / `attestation_uri_invalid` | Relative, non-HTTPS, credentialed, or fragment-bearing `uri` | Publish a stable absolute HTTPS URL with no userinfo and no fragment. |
+| `field.attestation.binding` / `attestation_uri_host_untrusted` | A `broker` URI on an origin outside `issuer_allowlist`, or outside the verifier's trusted-broker list | Use the broker origin you already list, or add it to the allowlist. |
+| `field.attestation.binding` / `attestation_uri_host_unbound` | A `provider` URI on a third-party host, including a CDN | Host the source on the discovery origin or a subdomain of it. |
 | Document passes a file check but fails live | Wrong content type, a redirect, or an HTML error page | Compare `curl -D -` output with the file; fix the host, not the validator. |
+
+## Attestation source and status
+
+Broker-managed is the default: publish the verification URI the broker returns
+and leave it alone. The broker renews on demand, so no cron, renewal job, or
+redeploy is needed, and the URI is stable across renewals. Provider-managed is an
+opt-in: register a stable HTTPS source URL, renew before expiry, host
+`{ "attestation": "<JWS>" }` as `application/json`, and accept that a suspension
+may lag until the token expires. Issuance is not plan-gated; a free but active
+provider with a verified origin and an active key can issue.
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| `attestation.status: "expired"` | The token is past `exp` | Broker-managed: the lookup should have renewed; check the `attestation.uri` and network. Provider-managed: you missed the 12-hour renewal target. |
+| `attestation.status: "suspended"` or a typed `403 provider_suspended` | The provider or origin is suspended | Stop serving or accepting signups from that origin until the broker restores it. |
+| `attestation.status: "unavailable"` | The source is unreachable, or the broker answered `429` or `5xx` | Retry later. Do not downgrade the result to unverified. |
+| `attestation.status: "invalid"` with reason `attestation_revoked` | The broker answered `410` | Stop. A revoked provider or attestation is not reinstated by a retry. |
+| `attestation.status: "unverified"` | No `attestation` object in discovery, or a typed `404` | Publish the object, or accept that the provider is unverified. `verify` and `strict` refuse it. |
+| Source check passes before a suspension but not after | Provider-managed expiry is the revocation bound | Expected. Do not describe provider-managed verification as instant revocation. |
+| Strict verification rejects a valid token | The source is provider-managed | Switch the origin to broker-managed mode, or use `verify`. |
+
+The status vocabulary is `verified`, `unverified`, `attested_untrusted_broker`,
+`invalid`, `expired`, `unavailable`, and `suspended`. There is no separate
+`revoked` status in this release: a broker `410` is `invalid` with reason
+`attestation_revoked`, and the MCP code is `rp_attestation_revoked`. There is no
+"unsafe" status; a failure describes missing or unusable evidence, not the
+provider's conduct.
 
 ## Signature and JWKS
 

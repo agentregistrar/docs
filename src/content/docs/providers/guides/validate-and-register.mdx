@@ -1,10 +1,10 @@
 ---
 title: Validate and register
-description: Run the v1.2 conformance and attestation validator, read its verdicts and exit codes, and submit registry evidence.
+description: Run the v1.3 conformance and attestation validator, read its verdicts and exit codes, and submit registry evidence.
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), validator 1.2.0, @agentregistrar/discovery 1.2.0, 2026-10-24"
+verifiedAgainst: "spec v1.3.2 (58e4648), validator 1.3.2, @agentregistrar/discovery 1.3.2, 2026-11-14"
 ---
 
 **Goal:** prove the discovery document conforms, optionally prove the provider
@@ -32,7 +32,7 @@ From any project, using the published package. There is no `bin` entry, so
 invoke the TypeScript source with `tsx`:
 
 ```bash
-npm install @agentregistrar/discovery@1.2.0 tsx@4.23.15
+npm install @agentregistrar/discovery@1.3.2 tsx@4.23.15
 npx tsx node_modules/@agentregistrar/discovery/src/validate-discovery.ts \
   https://example.com/.well-known/agent-signup.json --json
 ```
@@ -46,15 +46,16 @@ pnpm --silent validate:discovery ./agent-signup.json --json
 Use `pnpm --silent` (or `pnpm -s`) so pnpm's banner does not pollute stdout. The
 validator itself writes only JSON.
 
-## Flags added in v1.2
+## Flags added in v1.3
 
 | Flag | Effect |
 | :--- | :--- |
-| `--verify-attestation` | Parse and verify `rp_attestation` if present. Opt-in issuer JWKS fetch; an absent field is `unverified` plus a warning and does not change the exit code. |
+| `--verify-attestation` | Fetch and verify the source named by `attestation.uri`. Opt-in source and issuer JWKS fetch; an absent object is `unverified` and does not change the exit code. A present object without the flag is `not_checked`. |
 | `--require-attestation` | Implies `--verify-attestation`; any non-`verified` result fails the run. Use it as a CI gate. |
 | `--trusted-rp-broker <issuer>` | Repeatable trusted RP-broker list. Flags override the `AGENT_IDENTITY_TRUSTED_RP_BROKERS` env fallback; an empty effective list trusts nothing. |
 | `--jwks <path-or-url>` | Pin exactly one issuer's JWKS for an offline run. It never bypasses signature checks and never merges issuers. |
 | `--at <rfc3339\|epoch>` | Freeze the clock for deterministic fixture runs. Not for production. |
+| `--source-response <path>` | Fixture-only: inject `{status, body, contentType}` for the source instead of fetching. No network I/O; the body is never echoed. |
 
 The existing `--json`, `--probe-jwks`, `--probe-endpoints`, `--timeout`, and
 `--max-bytes` flags keep their meanings.
@@ -67,28 +68,32 @@ The JSON result has `conformance` (document-only) and `attestation` (separate).
 | Exit | Meaning | Next action |
 | :--- | :--- | :--- |
 | `0` | The document was fetched, parsed, and is conformant; no required check failed. Warnings do not change the code. | Publish. Verification may still be `unverified`, `expired`, or `invalid` without `--require-attestation`. |
-| `1` | A conformance error (including unparseable JSON or a malformed `rp_attestation` field), or a failed attestation under `--require-attestation`. | Read the `errors` array and fix the document or the credential. |
-| `2` | The run could not obtain what it needed: document read/fetch failure, or JWKS unavailable under `--require-attestation`. The conformance verdict is not evaluated. | Fix hosting, the URL, the timeout, or the JWKS, then re-run. |
+| `1` | A conformance error (including unparseable JSON, a malformed `attestation` object, a failed host binding, or a present `rp_attestation`), or a failed attestation under `--require-attestation`. | Read the `errors` array and fix the document or the credential. |
+| `2` | The run could not obtain what it needed: document read/fetch failure, or the attestation source or JWKS unavailable under `--require-attestation`. The conformance verdict is not evaluated. | Fix hosting, the URL, the timeout, or the source, then re-run. |
 
-A malformed `rp_attestation` field is a **conformance** error with
-`attestation.status: "not_checked"`, not `invalid`. An expired attestation is a
-verification warning by default. A bad signature, origin mismatch, or audience
-mismatch is a verification failure. An absent credential is `unverified`.
+A malformed `attestation` object is a **conformance** error with
+`attestation.status: "not_checked"`, not `invalid`. A typed broker failure
+(`403`, `404`, `410`, `429`, `5xx`) is a verification result. A bad signature,
+origin mismatch, or audience mismatch is a verification failure. An absent object
+is `unverified`.
 
-## Recorded v1.2 runs
+## Recorded v1.3 runs
 
-The v1.2.0 release notes record the fixture matrix and validator output. The
+The v1.3.0 release notes record the fixture matrix and validator output. The
 headline cases:
 
 | Case | Command shape | Result |
 | :--- | :--- | :--- |
-| Conformant, no credential | `validate:discovery fixtures/valid-minimal.json --json` | `valid true`, exit `0`, `attestation.status "unverified"`. |
-| Valid `domain` credential | `--verify-attestation --require-attestation --trusted-rp-broker ... --at ...` | `verified`, level `domain`, exit `0`. |
-| Expired credential, advisory | `--verify-attestation --at <after exp>` | `expired`, exit `0`. |
-| Expired credential, gate | same plus `--require-attestation` | exit `1`. |
-| Malformed field | no flags needed | conformance error, exit `1`, `not_checked`. |
+| Conformant, no source | `validate:discovery fixtures/valid-minimal.json --json` | `valid true`, exit `0`, `attestation.status "unverified"`. |
+| Valid broker-managed source | `--verify-attestation --require-attestation --trusted-rp-broker ... --source-response ... --at ...` | `verified`, mode `broker`, exit `0`. |
+| Valid provider-managed source | same with a provider fixture and a trusted broker | `verified`, mode `provider`, exit `0`. |
+| Expired source | `--verify-attestation --at <after exp>` | `expired`, exit `0`. |
+| Expired source, gate | same plus `--require-attestation` | exit `1`. |
+| Typed broker `403`/`404`/`410` | injected source response | `suspended` / `unverified` / `invalid`; conformance still true, exit `0`. |
+| Removed carrier | fixture with `rp_attestation` | conformance error, `rp_attestation_removed`, exit `1`. |
+| Malformed object | no flags needed | conformance error, exit `1`, `not_checked`. |
 | Untrusted broker | `--verify-attestation` without trust | `attested_untrusted_broker`; exit `0` unless required. |
-| Broker unavailable | `--require-attestation` with a missing JWKS | exit `2`, `unavailable`. |
+| Broker unavailable | `--require-attestation` with a missing source or JWKS | exit `2`, `unavailable`. |
 
 Run `pnpm validate:fixtures` and `pnpm validate:registry` for the full matrix
 and the registry schema.
@@ -151,7 +156,8 @@ separate from the conformance badge; there is no second verified badge.
 
 A provider account is required only for this verified listing, attestation
 issuance, authenticated receipts, and abuse standing. It is not required to
-accept assertions, and there is no pricing or checkout in this release.
+accept assertions, and attestation issuance is not plan-gated. There is no
+pricing or checkout in this release.
 
 ## Submit an entry
 

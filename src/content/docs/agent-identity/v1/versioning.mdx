@@ -3,7 +3,7 @@ title: Versioning
 description: Additive and breaking changes, the protocol id, the path policy and the release-notes process.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.2.0 (35659ce), 2026-10-24"
+verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
 ---
 
 `agent-identity-v1` carries its major version in the discovery document's `protocol` field. This page explains how the protocol changes and how the docs site tracks it. The normative policy is [spec section 13](/agent-identity/v1/specification/#13-versioning-extension--deprecation-policy).
@@ -11,10 +11,11 @@ verifiedAgainst: "spec v1.2.0 (35659ce), 2026-10-24"
 ## Current version
 
 - Protocol id: `agent-identity-v1`.
-- Specification release: `v1.2.0`, released 2026-10-24.
-- Package: `@agentregistrar/discovery` `1.2.0`.
-- The `v1.2.0` release adds Contracts G/H/I, the optional `rp_attestation`, the trust model and policy matrix, RP-signed receipts, authenticated Contract F and D.2, and the separate conformance/verification validator result. It removes no required field.
-- `v1.0.0` and `v1.1.0` implementations remain conformant. Absence of `rp_attestation` means **unverified**, never invalid.
+- Specification release: `v1.3.2`, released 2026-11-14.
+- Package: `@agentregistrar/discovery` `1.3.2`.
+- The `v1.3.0` release replaces the embedded `rp_attestation` discovery field with one optional `attestation` source object, adds the source document `{ "attestation": "<JWS>" }`, and adds broker-managed and provider-managed publication. `v1.3.1` corrects the policy and issuance text; `v1.3.2` corrects documentation only. The JWT format, claims, key snapshot and Contracts E, F, H and I are unchanged.
+- The policy values are `no_verify`, `verify` (default) and `strict`, with `blocked` as a separate action. The old `allow`/`warn`/`require`/`block` values and the `enforced` field are removed.
+- A document that omits `attestation` remains conformant, so v1.0.0- and v1.1.0-shaped documents still pass. A v1.2 document that embedded `rp_attestation` is no longer conformant until it publishes the new object or omits it.
 
 The full release history is in the [changelog](/agent-identity/v1/changelog/).
 
@@ -34,7 +35,7 @@ Vendor catalogs, provisioning endpoints, resource metadata and API-usage documen
 
 A breaking change must use a new `protocol` value and a new discovery path, for example `agent-signup-v2.json`.
 
-- The v1 path must not silently change semantics.
+- The v1 path must not silently change semantics. `v1.3.0` removed only an optional carrier: no conformant document was required to carry it, and omitting the replacement stays conformant, so the `protocol` id stays `agent-identity-v1` (spec section 13).
 - A future version should be dual-published during a migration window.
 - The public specification URL should be versioned. The optional `spec` field lets agents and humans find the exact document.
 - The registry lists implementations by the `protocol` value their discovery document advertises.
@@ -50,7 +51,7 @@ The docs site follows the protocol path:
 
 ## Deprecation and release notes
 
-- v1.2.0 does not deprecate v1.0.0 or v1.1.0. It is an additive revision.
+- v1.3.2 does not deprecate v1.0.0- or v1.1.0-shaped documents, and it adds no required field. It removes a v1.2 carrier; a document that still embeds `rp_attestation` must publish `attestation` or omit it.
 - The specification's changelog records every additive v1 change with its date.
 - Release notes record the release evidence, the change process and any non-blocking follow-ups.
 - v1 has no formal sunset date. A future breaking change would be dual-published during a migration window; v1 would stay published for that window.

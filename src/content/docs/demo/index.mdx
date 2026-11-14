@@ -3,7 +3,7 @@ title: Try the demo network
 description: Try a deployed two-broker, three-provider test network for same-broker, cross-broker and unverified agent signups.
 audience: both
 aiGenerated: true
-verifiedAgainst: "demo hosts and docs build, 2026-11-07"
+verifiedAgainst: "spec v1.3.2 (58e4648), demo code 8f4bd9c, 2026-11-14"
 sidebar:
   label: Demo network
   order: 0
@@ -35,13 +35,15 @@ and may be reset.
 | :--- | :--- | :--- | :--- | :--- |
 | [Broker A](https://agentregistrar.dev) | Human/agent broker | Home broker | n/a | Your human identity, agent, policy and ledger |
 | [Broker B](https://agentregistrardemobroker.com/.well-known/agent-broker.json) | RP broker | RP-only demo broker | B issues the P2 attestation | Metadata, JWKS and signed status; it does not register agents |
-| [P1](https://verifiedprovider1.agentregistrardemorp.com/.well-known/agent-signup.json) | Verified provider | A | A-signed | `verified` in A; an A-attested receipt can be recorded |
-| [P2](https://verifiedprovider2.agentregistrardemorp.com/.well-known/agent-signup.json) | Verified provider | B | B-signed | `verified` after you trust B; a B-attested receipt can be recorded |
-| [P3](https://unverifiedprovider1.agentregistrardemorp.com/.well-known/agent-signup.json) | Unverified provider | Neither | None | Unverified; `warn` proceeds with a warning, `require` blocks, `block` never proceeds |
+| [P1](https://verifiedprovider1.agentregistrardemorp.com/.well-known/agent-signup.json) | Verified provider | A | A, broker-managed | `verified` in A; an A-attested receipt can be recorded |
+| [P2](https://verifiedprovider2.agentregistrardemorp.com/.well-known/agent-signup.json) | Verified provider | B | B, provider-managed | `verified` after you trust B; a B-attested receipt can be recorded |
+| [P3](https://unverifiedprovider1.agentregistrardemorp.com/.well-known/agent-signup.json) | Unverified provider | Neither | None | Unverified; `no_verify` proceeds, `verify`/`strict` block, `blocked` never proceeds |
 | [Landing](https://agentregistrardemorp.com) | Demo status page | None | None | Host links and live status; no protocol identity |
 
 A verified provider publishes a provider verification credential (also called
-an RP attestation) in its discovery document. P1 and P2 have one; P3 does not.
+an RP attestation). Discovery names the **source**, never the token: P1 uses
+broker-managed mode via A, P2 uses provider-managed mode hosted by B, and P3
+publishes no `attestation` object at all.
 
 P1, P2 and P3 share the registrable domain `agentregistrardemorp.com`. Their
 origins and audiences are separate, but they are not isolated from each other
@@ -78,19 +80,22 @@ consent step. There is no demo API key and no separate demo signup.
    [Quickstart - use an agent](/start/quickstart-agent/).
 2. Ask the agent to sign up at P1:
    `https://verifiedprovider1.agentregistrardemorp.com`. Review the terms before
-   accepting. P1 is attested by A, so a normal A account should see `verified`
-   and can record the A-attested receipt.
+   accepting. P1 is broker-managed and attested by A, so a normal A account
+   should see `verified` and can record the A-attested receipt.
 3. For P2, first make sure A trusts B for your account. Open the
    [trust page](https://agentregistrar.dev/trust), add
-   `https://agentregistrardemobroker.com` to your broker trust list, and set P2
-   to `require` if you want a hard gate. Without that trust, `warn` proceeds
-   with an `rp_broker_untrusted` warning and `require` blocks. Then ask the agent
-   to sign up at `https://verifiedprovider2.agentregistrardemorp.com`. A verifies
-   the B attestation and the receipt can be recorded with attestation issuer B.
-4. For P3, use the default `warn` policy first. The signup proceeds with an
-   unverified warning, P3 creates an account, and no receipt is issued; the
-   agent can record a self-report only. Then set P3 to `require` and repeat: A
-   blocks with `rp_unverified`. Set P3 to `block` to see P3 signups refused.
+   `https://agentregistrardemobroker.com` to your broker trust list, and leave
+   the policy at `verify` (the default). Without that trust, `verify` stops with
+   `rp_broker_untrusted`; `strict` also refuses, because strict accepts only a
+   broker-managed source and P2 is provider-managed
+   (`rp_attestation_mode_not_allowed`). Then ask the agent to sign up at
+   `https://verifiedprovider2.agentregistrardemorp.com`. A verifies the B
+   attestation, and the receipt can be recorded with attestation issuer B.
+4. For P3, leave the default `verify` policy first. The signup stops with
+   `rp_unverified`, and no account, assertion or acceptance is created. Set P3 to
+   `no_verify` and repeat: the signup proceeds, P3 creates an account, and no
+   receipt is issued, so the agent can record a self-report only. Set `blocked`
+   to see P3 signups refused with `rp_blocked`.
 
 <Aside type="note" title="Trust is local policy">
 Trusting B does not make every B statement authoritative, and it does not make a
@@ -102,13 +107,13 @@ not that the service is trustworthy.
 
 | Policy | P3 result | What it proves |
 | :--- | :--- | :--- |
-| `allow` | Proceeds silently, no receipt, self-report only | Not a verification control |
-| `warn` (default) | Proceeds with an unverified warning, no receipt, self-report only | Advisory only |
-| `require` | Blocked with `rp_unverified`; no account, assertion or acceptance | The hard gate |
-| `block` | Blocked with `rp_blocked`; applies to verified providers too | Never proceeds |
+| `no_verify` | Proceeds, shown as unverified, no receipt, self-report only | Not a verification gate |
+| `verify` (default) | Blocked with `rp_unverified`; no account, assertion or acceptance | The default gate |
+| `strict` | Blocked with `rp_unverified` | Broker-managed required; P3 has no source |
+| `blocked` | Blocked with `rp_blocked`; applies to verified providers too | A separate human action, never proceeds |
 
-Policy is per human and relying party; an agent inherits its human's policy in
-v1.2. Changing trust or policy does not deploy B or P2.
+Policy is per human and relying party; an agent inherits its human's policy.
+Changing trust or policy does not deploy B or P2.
 
 ### Where to see the record
 
@@ -135,13 +140,13 @@ Validate all three with the conformance validator. Run these from a checkout
 with the validator installed; see [the validator](/agent-identity/v1/validator/).
 
 ```bash
-# P1: A-attested
+# P1: A attestation, broker-managed
 pnpm --silent validate:discovery \
   https://verifiedprovider1.agentregistrardemorp.com/.well-known/agent-signup.json \
   --json --probe-jwks --verify-attestation --require-attestation \
   --trusted-rp-broker https://agentregistrar.dev
 
-# P2: B-attested
+# P2: B attestation, provider-managed
 pnpm --silent validate:discovery \
   https://verifiedprovider2.agentregistrardemorp.com/.well-known/agent-signup.json \
   --json --probe-jwks --verify-attestation --require-attestation \
@@ -154,12 +159,14 @@ pnpm --silent validate:discovery \
 ```
 
 P1 and P2 exit 0 with `valid: true` and a verified attestation. P3 exits 0 with
-`valid: true` and an unverified result. P1's `rp_attestation` is signed by A.
-P2's is signed by B. P3 has no `rp_attestation`. The
-difference is the issuer: the attestation comes from the broker that registered
-the provider, not from the broker that mints the agent assertion. The validator
-reports conformance and attestation verification separately; a valid document is
-not a safety or uptime claim.
+`valid: true` and an unverified result. P1 reports `mode: "broker"`: its
+`attestation.uri` is A's verification endpoint. P2 reports
+`mode: "provider"`: its `attestation.uri` is a stable URL hosted by B. P3 has no
+`attestation` object. The difference is the issuer and the source: the
+attestation comes from the broker that registered the provider, not from the
+broker that mints the agent assertion. The validator reports conformance and
+attestation verification separately; a valid document is not a safety or uptime
+claim.
 
 ### Broker B documents
 
@@ -189,8 +196,10 @@ To read a signed status for the current P2 attestation, take the `jti` from the
 attestation payload and query B:
 
 ```bash
-JTI="$(curl -sS https://verifiedprovider2.agentregistrardemorp.com/.well-known/agent-signup.json \
-  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s).rp_attestation.split(".")[1];console.log(JSON.parse(Buffer.from(p,"base64url")).jti)})')"
+URI="$(curl -sS https://verifiedprovider2.agentregistrardemorp.com/.well-known/agent-signup.json \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).attestation.uri))')"
+JTI="$(curl -sS "$URI" \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s).attestation.split(".")[1];console.log(JSON.parse(Buffer.from(p,"base64url")).jti)})')"
 curl -sS "https://agentregistrardemobroker.com/api/broker/attestation-status?jti=${JTI}"
 ```
 
@@ -268,15 +277,17 @@ rollback are operator drills. An anonymous visitor cannot run them. The operator
 records the evidence in a private test record; it is not published here. The
 observable behaviour is:
 
-- an attestation is valid for 24 hours; a provider renews when 12 hours or less
-  remain and never publishes an expired token;
+- an attestation is valid for 24 hours. P1's broker-managed token is renewed on
+  demand by A, so no provider job is involved. P2's provider-managed token is
+  renewed by the provider on the 12-hour target, and expiry is its revocation
+  bound;
 - a new broker key is published with overlap, and a new attestation names the
   new `kid`; old attestations remain valid until expiry;
 - A and the providers cache JWKS for at most five minutes, so a new `kid` can
   take one cache window to be seen;
-- a suspended attestation is reported by B's signed status, and A blocks it
-  under `require` or enforced `warn`; the status check may be cached for up to
-  five minutes;
+- a suspended broker-managed attestation stops new lookups within five minutes,
+  and A blocks it under `verify` or `strict`. A suspended provider-managed
+  attestation may remain accepted until it expires;
 - old receipts remain verifiable through the attestation snapshot they name.
 
 ## What you can and cannot test
@@ -286,7 +297,7 @@ observable behaviour is:
 | Discovery conformance, Broker B metadata/JWKS/status, and A- or B-attestation verification for P1/P2/P3 | An agent registered with B; B is an RP broker only |
 | Same-broker signup at P1 with a real A agent | Provider-to-provider isolation; P1/P2/P3 share a registrable domain |
 | Cross-broker signup at P2 after trusting B | Multiple third-party brokers, trust precedence or federation governance |
-| Unverified `warn`/`require`/`block` behaviour at P3 | Anonymous admin actions, key rotation or destructive lifecycle drills |
+| Unverified `no_verify`/`verify`/`strict` and `blocked` behaviour at P3 | Anonymous admin actions, key rotation or destructive lifecycle drills |
 | Receipt ingestion, dedupe, ledger status and the [abuse-reporting contract](/providers/guides/abuse-reporting/) | Signed abuse reports, which require a provider signing key; production uptime, support, SLA or a security review of a provider |
 | Assertion verification with public JWKS, no account or SDK | A provider catalog, provisioning, billing or infrastructure resale |
 | P1/P2/P3 terms hashes and P1/P2 context hashes | Multi-label public-suffix domains such as `co.uk` or `workers.dev` |
@@ -316,7 +327,7 @@ contact published in that provider's discovery document.
 
 ## Next
 
-- [Specification v1.2.0](https://github.com/agentregistrar/spec/blob/v1.2.0/agent-identity-v1.md)
+- [Specification v1.3.2](https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md)
   is the normative contract.
 - [Provider quickstart](/providers/quickstart/) is the implementation path for a
   relying party.

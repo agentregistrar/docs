@@ -4,7 +4,7 @@ description: Register, resume, sign up, record proof and revoke or suspend an ag
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), broker 5e57ecf, 2026-10-24"
+verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
 sidebar:
   order: 3
 ---
@@ -50,25 +50,28 @@ A sub-identity contains:
 
 ## Prove and sign up
 
-`identity_signup` is the default path. It fetches discovery, verifies the
-optional provider verification credential, applies the human's trust/policy,
-checks `accepted_tos_text` against the published hash, records an acceptance if
-the terms are new, mints the assertion, and returns a prepared signup request.
-There is no manual discovery, JWT decode, or attestation handling.
+`identity_signup` is the default path. It fetches discovery, fetches the
+published attestation source when there is one, verifies it, applies the human's
+trust/policy, checks `accepted_tos_text` against the published hash, records an
+acceptance if the terms are new, mints the assertion, and returns a prepared
+signup request. There is no manual discovery, JWT decode, or attestation
+handling: you never supply a raw attestation, because the broker fetches both the
+discovery document and the source it names.
 
 `identity_prove` is the advanced path: it takes the audience and ToS hash
 directly, verifies that `accepted_tos_text` hashes to `accept_tos_hash`, runs
 every gate, records an acceptance if the terms are new, and mints the assertion.
 It may take one explicit RP discovery source (`rp_discovery_url` or
-`rp_discovery` plus `rp_origin`); a `require` policy rejects an agent-supplied
+`rp_discovery` plus `rp_origin`); a `strict` policy rejects an agent-supplied
 document.
 
 Gates, in order, all before any reuse lookup: the human is active, the human
 email is verified, the master agreement is signed, the agent is active, `tos:accept` is granted, and every requested scope is granted. Then discovery is
-validated, the attestation is verified, and the human's policy is applied: `allow`
-is silent, `warn` proceeds with an advisory warning, `require` refuses anything
-but `verified`, and `block` never proceeds. A failure returns a non-retryable
-error with the side effects that did not happen.
+validated, the attestation source is resolved and verified, and the human's
+policy is applied: `no_verify` never refuses on verification, `verify` requires
+a valid attestation in either publication mode, `strict` requires a valid
+broker-managed attestation, and the separate `blocked` action never proceeds. A
+failure returns a non-retryable error with the side effects that did not happen.
 
 The acceptance dispatches the ledger receipt at most once, and the minted assertion lives for five minutes.
 
@@ -108,7 +111,8 @@ It is idempotent per token and per assertion, and it refreshes rather than dupli
 | `signup_token_invalid` | Signature, shape, historical window, or conflict failed | Get an RP-signed v1.2 receipt and the exact historical attestation; do not retry the same one |
 | `signup_token_not_linked` | The receipt references an acceptance this broker has not recorded | Run `identity_signup`/`identity_prove` for that audience, then retry |
 | `signup_token_ownership_mismatch` | The token belongs to another human owner | Stop; use the token issued for your account |
-| `rp_attestation_invalid` | The exact attestation is invalid or unavailable | Submit the exact attestation, or omit it so the broker fetches discovery and requires that jti |
+| `rp_attestation_invalid` | The exact historical attestation is invalid or unavailable | Submit the exact attestation, or omit it so the broker fetches discovery and requires that jti |
+| `rp_attestation_mode_not_allowed` | A `strict` policy requires a broker-managed attestation | Do not retry; the human changes policy or the provider changes mode |
 | `rp_broker_untrusted` | The attesting broker is outside the trust list | Ask the human owner to review the broker trust list |
 | `rp_broker_unavailable` | Transient broker/JWKS outage | Retry; recording is idempotent |
 

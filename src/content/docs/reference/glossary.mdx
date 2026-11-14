@@ -4,7 +4,7 @@ description: Canonical definitions of the terms this site uses, one per term, wi
 audience: both
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), broker 5e57ecf, 2026-10-24"
+verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
 sidebar:
   order: 5
 ---
@@ -61,15 +61,17 @@ One definition per term. Other pages link here instead of defining the same word
 
 **Provider account.** The provider's organization membership with its RP broker: origins, audience, public keys, attestation, receipts, abuse standing, and listing. A provider account is required only to be a verified provider, issue authenticated receipts, or report abuse with standing. It is not required to verify an assertion. See [Provider quickstart](/providers/quickstart/).
 
-**Provider verification credential.** The broker-issued credential (the RP attestation) that binds a provider's canonical origin, audience, identity, assurance level, and public keys. It is public, optional, and verified locally against the RP broker's JWKS. Public copy uses this term so bare `provider credential` keeps its signup-secret meaning. See [Trust and limits](/start/trust-and-limits/).
+**Provider verification credential.** The broker-issued credential (the RP attestation) that binds a provider's canonical origin, audience, identity, assurance level, and public keys. Discovery names its source with the optional `attestation` object (`mode`, `uri`); the token is fetched from that source, never embedded. It is public, optional, and verified locally against the RP broker's JWKS. Public copy uses this term so bare `provider credential` keeps its signup-secret meaning. See [Trust and limits](/start/trust-and-limits/).
 
 **Verified provider.** A provider whose published verification credential was checked and whose policy accepted it at `checked_at`. Verification records identity, not safety, approval, endorsement, uptime, solvency, or conduct. See [Trust and limits](/start/trust-and-limits/).
 
-**Unverified provider.** A conformant provider that publishes no verification credential, or whose credential did not verify. It is not invalid; `allow`/`warn` may proceed and `require` refuses. See [Trust and limits](/start/trust-and-limits/).
+**Unverified provider.** A conformant provider that publishes no `attestation` source, or whose attestation did not verify. It is not invalid; `no_verify` proceeds and `verify`/`strict` refuse. See [Trust and limits](/start/trust-and-limits/).
 
 **Trust list.** The RP-broker issuers a human trusts, on top of the broker default, with a human `distrust` override winning. Trust is policy, not cryptography, and is not transitive. See [Trust and limits](/start/trust-and-limits/).
 
-**Conformance vs verification.** Conformance is a document-shape check on discovery. Verification is a separate check of a broker-signed credential. A malformed credential field is a conformance error; an expired, invalid, untrusted, or unavailable credential is a verification result. Never collapse the two. See [Conformance](/agent-identity/v1/conformance/).
+**Policy mode.** The per-human verification requirement for one relying party: `no_verify` (attestation optional), `verify` (the default; either publication mode accepted), or `strict` (broker-managed only). `blocked` is a separate human action, not a mode. See [Trust is policy, not cryptography](/start/trust-and-limits/#trust-is-policy-not-cryptography).
+
+**Conformance vs verification.** Conformance is a document-shape check on discovery. Verification is a separate fetch and check of the source the `attestation` object names. A malformed object or a failed host binding is a conformance error; an expired, invalid, untrusted, or unavailable source is a verification result. Never collapse the two. See [Conformance](/agent-identity/v1/conformance/).
 
 **Proof source.** The strength/transport label on a signup proof: `rp_callback` (Tier 1), `rp_signed` (Tier 2), `agent_self_reported` (weaker, unsigned), or `legacy_broker_signed` (historical, unverified). Only the first two, with a verified attestation, give an abuse report standing. See [Receipt and context](/agent-identity/v1/receipt-and-context/#contract-f-and-proof-sources).
 

@@ -3,7 +3,7 @@ title: Key concepts
 description: The vocabulary of a brokered signup, as short summaries that link to the canonical glossary.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.2.0 (35659ce), broker 5e57ecf, 2026-10-24"
+verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
 sidebar:
   order: 2
 ---
@@ -24,7 +24,7 @@ The [glossary](/reference/glossary/) holds the canonical definition of every ter
 
 - **Discovery document**: the identity-only JSON at `/.well-known/agent-signup.json` on the provider's origin. [Glossary](/reference/glossary/#protocol-artifacts)
 - **Assertion**: a short-lived Ed25519-signed JWT that proves the agent, the verified human owner and the delegated ToS acceptance. [Glossary](/reference/glossary/#protocol-artifacts)
-- **Receipt (`signup_token`)**: the provider's RP-signed proof of signup, recording the identity facts, the accepted ToS and an optional context pointer. No `exp` in v1.2. [Glossary](/reference/glossary/#protocol-artifacts)
+- **Receipt (`signup_token`)**: the provider's RP-signed proof of signup, recording the identity facts, the accepted ToS and an optional context pointer. The receipt has no `exp`. [Glossary](/reference/glossary/#protocol-artifacts)
 - **Context guide**: a hash-pinned URL to the provider's post-signup guide, usually a `SKILL.md`. [Glossary](/reference/glossary/#protocol-artifacts)
 - **Ledger**: the acceptance ledger and the service signups ledger, two records with one name. [Glossary](/reference/glossary/#protocol-artifacts)
 - **Kill switch**: the per-agent revocation control in the portal. [Glossary](/reference/glossary/#operations)
@@ -40,7 +40,7 @@ The [glossary](/reference/glossary/) holds the canonical definition of every ter
 | Terms | Exact legal text plus hash | `terms` in discovery |
 | Assertion | Short-lived signed JWT | Returned by `identity_signup` or `identity_prove`, sent to the provider |
 | Receipt | RP-signed proof of signup | `signup_token` in the signup response |
-| Provider verification credential | Optional broker-signed identity | `rp_attestation` in discovery |
+| Provider verification credential | Optional broker-signed identity | `attestation` object in discovery, naming a `mode` and a stable source `uri` |
 | Context guide | Hash-pinned vendor guide | Provider origin, linked by `context.url` |
 | Acceptance | Durable consent event | Broker ledger, one per agent and terms hash |
 | Signup proof | Recorded account attribution | Broker ledger, written by Contract F or `identity_record_signup` |
@@ -51,4 +51,4 @@ The [glossary](/reference/glossary/) holds the canonical definition of every ter
 
 - [How it works](/start/how-it-works/) puts these terms in order.
 - [Trust and limits](/start/trust-and-limits/) explains what revocation and the ledger do not cover.
-- The [specification](https://github.com/agentregistrar/spec/blob/v1.2.0/agent-identity-v1.md) defines the field-level contract.
+- The [specification](https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md) defines the field-level contract.

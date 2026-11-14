@@ -1,9 +1,9 @@
 ---
 title: Discovery fields
-description: The v1.2 agent-signup.json document field by field, including the optional provider verification credential, with types and rules.
+description: The v1.3 agent-signup.json document field by field, including the optional attestation source object, with types and rules.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.2.0 (35659ce), schema sha256:e5e9b0a81d28cab150ee74ba1667a3b4841711ea3d5c7a1b419f4571c1b1e8de, validator 1.2.0, 2026-10-24"
+verifiedAgainst: "spec v1.3.2 (58e4648), schema sha256:d2f254ed06191f75907a6041e88a65bad4a76431a7d176d420651ed92cc3d3c7, validator 1.3.2, 2026-11-14"
 ---
 
 A relying party publishes one identity-only document at `GET
@@ -40,38 +40,73 @@ with content type `application/schema+json`. Validate a document with the
 | `provider_url` | string | Canonical service URL. If present, it must share the signup endpoint's registrable domain. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [11](/agent-identity/v1/specification/#11-contract-e-identity-facts--the-context-pointer) |
 | `contact` | string | Security, abuse or legal contact: an email address or an HTTPS URL. The localhost development exception (`http://localhost`, `http://127.0.0.1`) is the only `http` form allowed. | [5.2](/agent-identity/v1/specification/#52-optional-fields) |
 | `updated_at` | string | ISO 8601 timestamp for humans and debugging. Not a freshness signal for the ToS. | [5.2](/agent-identity/v1/specification/#52-optional-fields) |
-| `rp_attestation` | string | Optional compact JWS, at most 16384 characters, issued by the provider's broker. It binds the fetched origin and the declared audience; absence means **unverified**, never invalid. A malformed field is a conformance error. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [14](/agent-identity/v1/specification/#14-contract-g--rp-attestation) |
+| `attestation` | object | The optional Contract G **source**: `{ "mode": "broker" \| "provider", "uri": "<stable absolute HTTPS URL>" }`. It names a URI that serves `{ "attestation": "<compact JWS>" }`; it never carries the token. Absence means **unverified**. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [5.4](/agent-identity/v1/specification/#54-field-rules), [14](/agent-identity/v1/specification/#14-contract-g--rp-attestation) |
 | `extensions` | object | Non-capability vendor metadata keyed by reverse-DNS namespace, for example `dev.example`. It must not advertise provisioning, catalogs, SKUs or resource endpoints. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [5.3](/agent-identity/v1/specification/#53-forbidden-fields-vendor-capability-surface) |
+
+`rp_attestation` was removed in `v1.3.0`. A document that still contains it is
+non-conformant with reason `rp_attestation_removed`; there is no compatibility
+field, embedded fallback, or dual publication. Contract F receipt and abuse
+bodies are a different surface and keep the historical field.
 
 Unknown additive fields must be ignored by consumers. Producers should put
 non-capability metadata under `extensions.<reverse-dns-namespace>` so typos stay
 visible. Moving a vendor capability under `extensions` does not make it
 conformant.
 
-## The optional provider verification credential
+## The optional attestation source
 
-`rp_attestation` is the only discovery field that describes the provider's
-broker-verified identity. It is a compact JWS (`typ:
-agent-rp-attestation+jwt`, `alg: EdDSA`) whose claims bind `rp.origin`,
-`rp.audience`, the provider identity, the assurance level, and the public
-`keys[]`.
+`attestation` is the only discovery field that describes the provider's
+broker-verified identity, and it carries no token. It has exactly two fields:
+
+```json
+{
+  "attestation": {
+    "mode": "broker",
+    "uri": "https://agentregistrar.dev/api/broker/provider-verification?origin=https%3A%2F%2Fprovider.example&audience=example"
+  }
+}
+```
+
+- `mode` is exactly `broker` or `provider`. There are no aliases.
+- `uri` is a stable, absolute HTTPS URL with no credentials and no fragment.
+  `http://localhost` and `http://127.0.0.1` are the development exception.
+- A `broker` URI origin must be in the document's `issuer_allowlist` and, when
+  the verifier configures one, the trusted-broker list.
+- A `provider` URI origin must be the origin of the discovery document the
+  verifier actually fetched, or a subdomain of it. A third-party host, including
+  a CDN, is rejected.
+- The object is closed: `mode` and `uri` are its complete vocabulary.
+
+The URI serves the same source document in both modes, as `application/json`:
+
+```json
+{ "attestation": "<compact JWS>" }
+```
+
+The JWS is the contract G token (`typ: agent-rp-attestation+jwt`, `alg: EdDSA`)
+that binds `rp.origin`, `rp.audience`, the provider identity, the assurance
+level, and the public `keys[]`. Additional envelope fields are ignored. A raw
+JWT body is rejected.
 
 Rules:
 
 - The attestation `rp.origin` must equal the canonical origin of the discovery
   document the verifier actually fetched.
 - `rp.audience` must equal `discovery.audience`.
-- The attestation is public and copyable; the origin and audience binding
-  prevent replay on another service.
+- The token is public and copyable; the origin and audience binding prevent
+  replay on another service.
 - It must not carry a terms hash, scopes, endpoints, `provider_url`, account ids,
   prices, or private material.
-- A conformant document without it is **unverified**. An expired, invalid, or
-  untrusted attestation is a verification result, never a conformance failure
-  by itself. A malformed field is a conformance error.
+- A conformant document without `attestation` is **unverified**. An expired,
+  invalid, suspended, or unavailable source is a verification result, never a
+  conformance failure by itself. A malformed object or a failed host binding is a
+  conformance error.
 - Do not add any other provider-identity or provider-capability field to
   discovery.
 
-See [Trust and limits](/start/trust-and-limits/) and [Verify
+Broker-managed is the default and needs no renewal job. Provider-managed is an
+opt-in and makes expiry the revocation bound. See [Trust and
+limits](/start/trust-and-limits/) and [Verify
 assertions](/providers/guides/verify-assertions/) for the policy and verification
 steps. If you are a provider and want the credential, see the [provider
 quickstart](/providers/quickstart/).
@@ -103,9 +138,10 @@ See [ToS binding](/agent-identity/v1/specification/#6-tos-binding) and [Re-accep
 ## Minimal conformant example
 
 This document contains only the required identity fields. Its `terms.sha256` is
-the real SHA-256 of the `terms.text` value shown. It passes the `v1.2.0`
+the real SHA-256 of the `terms.text` value shown. It passes the `v1.3.2`
 validator in file mode with zero errors and zero warnings. The optional
-`rp_attestation` is absent, so the document is conformant and **unverified**.
+`attestation` object is absent, so the document is conformant and
+**unverified**.
 
 ```json
 {
@@ -132,10 +168,10 @@ The example is illustrative. Replace the audience, URLs, scopes and terms with t
 
 - The JSON Schema enforces the `sha256:` format, not digest equality. The digest check is a cross-field rule in the shared Zod schema and the conformance validator.
 - Discovery conformance is cheap to publish. A valid document is not a statement about the service's security, uptime or product.
-- The document itself is not signed in v1.2. The optional `rp_attestation` is a
-  signed statement about the provider, not a signature over the discovery
-  document. Trust in the document comes from TLS plus the issuer allowlist; the
-  assertion and the attestation are separately signed.
+- The document itself is not signed in v1.3. The optional `attestation` object
+  names a signed statement about the provider; it is not a signature over the
+  discovery document. Trust in the document comes from TLS plus the issuer
+  allowlist; the assertion and the attestation are separately signed.
 - Consumers must ignore unknown additive fields, so a producer can add an identity field without a schema change. The validator warns on unknown top-level fields; warnings do not fail conformance.
 
 ## Verify

@@ -1,10 +1,10 @@
 ---
 title: Conformance
-description: The v1.2 relying-party conformance checklist, the separate attestation verdict, validator commands and exit codes, fixtures, and registry entry.
+description: The v1.3 relying-party conformance checklist, the separate attestation verdict, validator commands and exit codes, fixtures, and registry entry.
 audience: both
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), validator 1.2.0, 2026-10-24"
+verifiedAgainst: "spec v1.3.2 (58e4648), validator 1.3.2, 2026-11-14"
 ---
 
 A relying party is `agent-identity-v1` conformant when the discovery document it
@@ -12,10 +12,11 @@ serves at `GET /.well-known/agent-signup.json` passes the conformance validator
 with zero errors. Conformance is about the discovery document, not the vendor's
 product.
 
-**Conformance is not verification.** A malformed `rp_attestation` field is a
-conformance error. An expired, invalid, untrusted, or unavailable attestation is
-a separate verification result. Conformance never calls Broker B; only explicit
-attestation verification does.
+**Conformance is not verification.** A malformed `attestation` object, an
+invalid `uri`, a URI on the wrong host, or a document that still embeds
+`rp_attestation` is a conformance error. An expired, invalid, untrusted, or
+unavailable source is a separate verification result. Conformance never calls
+Broker B; only explicit attestation verification fetches the source.
 
 The normative checklist is [spec section
 21](/agent-identity/v1/specification/#21-conformance-checklist--minimal-conformant-example).
@@ -30,13 +31,14 @@ validator](/agent-identity/v1/validator/) page.
 - [ ] `audience`, `provider_name`, a non-empty `issuer_allowlist`, and unique `required_scopes` including `tos:accept` are present.
 - [ ] `terms.text` is the complete ToS text; `terms.sha256` is `sha256:` plus 64 lowercase hex characters over its exact UTF-8 bytes; `terms.url` and `terms.version` are present and consistent.
 - [ ] `endpoints.agent_signup` is the only endpoint and is an absolute URL.
-- [ ] `rp_attestation` is omitted or is a compact JWS string of at most 16384 characters. Omission means **unverified**, not invalid.
+- [ ] `attestation` is omitted, or is an object with `mode` exactly `broker` or `provider` and a stable absolute HTTPS `uri` with no credentials and no fragment. Omission means **unverified**, not invalid. A `broker` URI is on an `issuer_allowlist` origin; a `provider` URI is on the discovery origin or a subdomain.
+- [ ] `rp_attestation` does not appear anywhere in discovery. Its presence is `rp_attestation_removed`.
 - [ ] No forbidden vendor field appears anywhere, including under `extensions`.
 - [ ] CORS and cache headers follow [spec section 4](/agent-identity/v1/specification/#4-discovery-endpoint--transport); the body is within the 1 MiB cap.
 - [ ] Assertions are verified against issuer JWKS with every check in [spec section 7.1](/agent-identity/v1/specification/#71-handshake).
 - [ ] Stable [section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes) error codes are returned.
 - [ ] If a `context` pointer is used, it is on the vendor's registrable domain, uses HTTPS, and is hash-pinned. It is returned in the signup response and receipt, not in discovery.
-- [ ] A v1.2 `signup_token` is RP-signed, names `service.origin`, `service.attestation_jti`, and `service.key_id`, has no `exp`, and carries no `instance_sku` or `endpoint_url`.
+- [ ] A `signup_token` is RP-signed, names `service.origin`, `service.attestation_jti`, and `service.key_id`, has no `exp`, and carries no `instance_sku` or `endpoint_url`.
 - [ ] If the provider claims verification, it publishes a valid credential and the registry entry carries all five `verification` fields from a live check.
 - [ ] A repeated signup for an existing account, keyed as recommended in [spec section 9.1](/agent-identity/v1/specification/#91-account-identity-keys), resolves idempotently: it returns `resolution: "resolved"`, does not re-issue provider credentials and sends no duplicate welcome or legal mail. This is a `SHOULD`.
 - [ ] The vendor guide documents a credential recovery or rotation path reached after signup, and that path is not advertised in discovery or the receipt. This is a `SHOULD`.
@@ -45,14 +47,22 @@ validator](/agent-identity/v1/validator/) page.
 
 | Result | What it covers | What it does not do |
 | :--- | :--- | :--- |
-| **Document conformance** | Schema, ToS hash, scope boundary, field rules, and the `rp_attestation` field format. | It never requires Broker B to be up. |
-| **Attestation verification** | Optional JWS parse, trusted issuer before fetch, signature, `typ`/`alg`/`kid`, time, origin/audience binding. | It does not make the provider safe or change the conformance verdict. |
+| **Document conformance** | Schema, ToS hash, scope boundary, field rules, the `attestation` object, and the removed `rp_attestation` carrier. | It never requires Broker B to be up or fetches the source. |
+| **Attestation verification** | Optional source fetch, JWS parse, trusted issuer before fetch, signature, `typ`/`alg`/`kid`, time, origin/audience binding. | It does not make the provider safe or change the conformance verdict. |
 
-A malformed field (not three base64url segments, over 16384 characters, or not a
-string) makes the run exit `1` and reports `attestation.status: "not_checked"`,
-never `invalid`. An expired credential is a verification warning by default. A
-bad signature, origin mismatch, or audience mismatch is a verification failure.
-An absent field is `unverified` plus a warning.
+A malformed `attestation` object (not an object, a `mode` other than
+`broker`/`provider`, a non-string `uri`), a relative/non-HTTPS/credentialed/
+fragment-bearing `uri`, or a failed mode host binding makes the run exit `1` and
+reports `attestation.status: "not_checked"`, never `invalid`. An absent object is
+`unverified` and does not fail the run. A typed broker answer (`403`, `404`,
+`410`, `429`, `5xx`) is a verification result, not a conformance failure: `403`
+is `suspended`, `404` is `unverified`, `410` is `invalid` with reason
+`attestation_revoked`, and `429`/`5xx` are `unavailable`.
+
+A file-mode run with no fetch origin cannot check a `provider` URI's binding; it
+reports the binding as unchecked and the result as `unavailable` with reason
+`origin_unverifiable`. A `broker` URI binding is still checked from the
+document's `issuer_allowlist`.
 
 ## Validate a document
 
@@ -97,8 +107,8 @@ issuers in `issuer_allowlist` and the advertised `endpoints.agent_signup`.
 | Code | Meaning |
 | :--- | :--- |
 | `0` | Valid conformant document, and no required verification failed. Warnings are allowed and do not change the code. |
-| `1` | A document was obtained and parsed, but it failed conformance (including a malformed `rp_attestation` field or unparseable JSON), or a required attestation check failed. |
-| `2` | Could not obtain what was needed: unreadable file, network or timeout failure, redirect limit or cross-origin redirect, non-`200` status, wrong content type, over the size cap, or JWKS unavailable under `--require-attestation`. The conformance verdict is not evaluated. |
+| `1` | A document was obtained and parsed, but it failed conformance (including a malformed `attestation` object, a failed host binding, a present `rp_attestation`, or unparseable JSON), or a required attestation check failed. |
+| `2` | Could not obtain what was needed: unreadable file, network or timeout failure, redirect limit or cross-origin redirect, non-`200` status, wrong content type, over the size cap, or the attestation source or JWKS unavailable under `--require-attestation`. The conformance verdict is not evaluated. |
 
 Exit `2` is "no usable run" and exit `1` is "bad document or failed gate". Both
 are non-zero, so a gate that checks only the exit status still fails correctly.
@@ -109,8 +119,13 @@ The spec repository ships conformance and attestation fixtures:
 
 - `fixtures/valid-*` documents pass with exit `0`.
 - `fixtures/invalid-*` documents fail with exit `1` and a field-level message.
-- Attestation fixtures cover valid `domain`/`entity`, expired, invalid,
-  untrusted, unavailable, malformed, and unknown-additive-claim cases.
+- Attestation fixtures cover broker-managed, provider-managed, absent, invalid
+  mode, relative/HTTP/userinfo/fragment URI, broker or provider wrong host, the
+  removed `rp_attestation` field, typed `403`/`404`/`410`/`503`, and an expired
+  source.
+- `--source-response <path>` injects a `{status, body, contentType}` response for
+  offline source verification. It performs no network I/O and never echoes the
+  body.
 - A fixture's `__fixture_note` field is an unknown top-level field and produces a
   warning only. `__fixture_origin` declares the fetch origin for offline binding.
 

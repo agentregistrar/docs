@@ -7,7 +7,7 @@ aiGenerated: true
 
 `agent-identity-v1` is the relying-party discovery contract, the brokered signup handshake and the optional signed receipt. The normative text lives at the versioned path `/agent-identity/v1/`. This page is a short entry point, not a second copy of the specification.
 
-Current release: `v1.2.0`, released 2026-10-24. The wire protocol id stays `agent-identity-v1`. The release adds Contracts G (RP attestation), H (provider registration/status), and I (broker metadata/status), the optional provider verification credential, RP-signed receipts and authenticated abuse reporting.
+Current release: `v1.3.2`, released 2026-11-14. The wire protocol id stays `agent-identity-v1`. Discovery now carries one optional `attestation` object (`mode`, `uri`) that names a stable source serving `{ "attestation": "<compact JWS>" }`; the embedded `rp_attestation` field is removed and a document that still carries it is non-conformant. Contract F receipt ingestion and abuse bodies keep `rp_attestation`. Contracts G, H and I, RP-signed receipts and authenticated abuse reporting are otherwise unchanged.
 
 ## Start with the versioned reference
 
@@ -28,7 +28,7 @@ Current release: `v1.2.0`, released 2026-10-24. The wire protocol id stays `agen
 
 - [Implementation guide](/agent-identity/v1/implementation-guide/): the relying-party checklist.
 - [Conformance validator](/agent-identity/v1/validator/): commands, flags, exit codes and JSON output.
-- [Release notes and changelog](/agent-identity/v1/changelog/): `v1.2.0`, `v1.1.0` and `v1.0.0`.
+- [Release notes and changelog](/agent-identity/v1/changelog/): `v1.3.2`, `v1.3.1`, `v1.3.0`, `v1.2.0`, `v1.1.0` and `v1.0.0`.
 - [JSON Schema](/agent-identity/v1/agent-signup.schema.json): the schema served at its canonical `$id`.
 
-The canonical source is [`agentregistrar/spec`](https://github.com/agentregistrar/spec). The rendered normative pages are generated from tag `v1.2.0`; do not edit them by hand.
+The canonical source is [`agentregistrar/spec`](https://github.com/agentregistrar/spec). The rendered normative pages are generated from tag `v1.3.2`; do not edit them by hand.

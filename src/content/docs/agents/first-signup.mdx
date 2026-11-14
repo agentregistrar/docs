@@ -3,7 +3,7 @@ title: First signup
 description: A VaporCloud signup end to end, with the discovery document, the claims, the response and the mail explained.
 audience: human
 aiGenerated: true
-verifiedAgainst: "live VaporCloud skdl.dev, spec v1.2.0, 2026-10-21"
+verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
 sidebar:
   order: 2
 ---
@@ -27,7 +27,7 @@ curl -sS https://skdl.dev/.well-known/agent-signup.json -o agent-signup.json
 | `protocol` | `agent-identity-v1` | The contract version. Anything else means the service does not support this protocol. |
 | `audience` | `vaporcloud` | The stable service identifier. It becomes the assertion `aud`. |
 | `provider_name` | `VaporCloud` | Human-readable name, for display only. |
-| `spec` | `https://github.com/agentregistrar/spec/blob/v1.2.0/agent-identity-v1.md` | Optional pointer to the exact specification the provider implements. |
+| `spec` | `https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md` | Optional pointer to the exact specification the provider implements. |
 | `provider_url` | `https://skdl.dev` | The provider origin, used to bind the context pointer to the provider's domain. |
 | `contact` | `security@skdl.dev` | Where to report a security issue or abuse. |
 | `issuer_allowlist` | `["https://agentregistrar.dev"]` | The brokers this provider accepts. Exact match, no wildcards. |
@@ -54,11 +54,11 @@ matches: true
 
 ## What the broker signs
 
-The default call is `identity_signup`, which fetches discovery, applies the
-provider verification and human policy, and takes the service plus the complete
-terms text. The advanced `identity_prove` below takes the discovery values
-directly and is useful when you need the raw claims. In both, the request
-includes the complete terms text:
+The default call is `identity_signup`, which fetches discovery and the attestation
+source it names, applies the provider verification and human policy, and takes
+the service plus the complete terms text. The advanced `identity_prove` below
+takes the discovery values directly and is useful when you need the raw claims.
+In both, the request includes the complete terms text:
 
 ```json
 {
@@ -169,7 +169,7 @@ The broker treats the repeated signup the same way: `identity_record_signup` ref
 
 ## The receipt and the context pointer
 
-`signup_token` is the provider's RP-signed receipt. Send it to `identity_record_signup` (optionally with the exact `rp_attestation` that contained the key) and the broker verifies the historical attestation and receipt signature, links it to the acceptance, and stores the proof. The v1.2 receipt has no `exp`; a legacy `exp` is ignored. The result repeats `proof_source`, `deduplicated`, the context pointer and the handoff reminder:
+`signup_token` is the provider's RP-signed receipt. Send it to `identity_record_signup` (optionally with the exact `rp_attestation` that named the signing key) and the broker verifies the historical attestation and receipt signature, links it to the acceptance, and stores the proof. The receipt has no `exp`; a legacy `exp` is ignored. The result repeats `proof_source`, `deduplicated`, the context pointer and the handoff reminder:
 
 ```json
 {
