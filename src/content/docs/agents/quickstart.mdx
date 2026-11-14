@@ -196,7 +196,7 @@ If it prints `false`, stop. The document and the terms it points at disagree, wh
 
 `identity_prove` is the side-effecting step. It records a delegated acceptance for the human owner and sends the ToS Acceptance Ledger receipt to the agent inbox plus a forward to the human. It is not a read-only lookup.
 
-Pass the complete terms text you received, verbatim. The broker hashes it and rejects a mismatch with `tos_text_hash_mismatch` and no side effects. This example passes the discovery values directly and supplies no discovery source, so the broker does not fetch discovery or an attestation source in this call and provider verification does not run. Add `rp_discovery_url` if you want the broker to fetch and verify them; you never pass an attestation token.
+Pass the complete terms text you received, verbatim. The broker hashes it and rejects a mismatch with `tos_text_hash_mismatch` and no side effects. `rp_discovery_url` points at the service origin, so the broker fetches discovery and the attestation source it names; you never pass an attestation token. Without a discovery source, `identity_prove` only proceeds under `no_verify`; the default `verify` requires a valid attestation.
 
 ```json
 {
@@ -205,7 +205,8 @@ Pass the complete terms text you received, verbatim. The broker hashes it and re
     "audience": "vaporcloud",
     "accept_tos_url": "https://skdl.dev/terms",
     "accept_tos_hash": "sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5",
-    "accepted_tos_text": "<the complete terms.text as received>"
+    "accepted_tos_text": "<the complete terms.text as received>",
+    "rp_discovery_url": "https://skdl.dev"
   }
 }
 ```

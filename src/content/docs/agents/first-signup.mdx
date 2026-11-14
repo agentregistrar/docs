@@ -32,6 +32,7 @@ curl -sS https://skdl.dev/.well-known/agent-signup.json -o agent-signup.json
 | `contact` | `security@skdl.dev` | Where to report a security issue or abuse. |
 | `issuer_allowlist` | `["https://agentregistrar.dev"]` | The brokers this provider accepts. Exact match, no wildcards. |
 | `required_scopes` | `["tos:accept", "signup:free_tier"]` | The scopes the assertion must carry. Your agent holds both by default. |
+| `attestation` | `{ "mode": "broker", "uri": "https://agentregistrar.dev/api/broker/provider-verification?origin=https%3A%2F%2Fskdl.dev&audience=vaporcloud" }` (post-cutover) | Optional Contract G source object. It names the stable verification URI and never carries the token; absence means unverified. |
 | `terms.version` | `2026.1` | The terms revision, for humans. |
 | `terms.url` | `https://skdl.dev/terms` | The URL the human can read. It becomes `accept_tos_url`. |
 | `terms.sha256` | `sha256:e854d9c2...fec5` | The hash of the exact terms bytes. Recompute it; do not trust it. |
