@@ -66,7 +66,7 @@ A malformed `attestation` object is a conformance error with
 (provider), and `rp_attestation_removed` for the removed discovery field. An
 absent `attestation` object is `unverified`, never invalid. A typed broker
 failure such as `403`, `404`, `410`, `429`, or `503` is a verification result,
-not a conformance error. See the [validator guide](/agent-identity/v1/validator/).
+not a conformance error. See the [validator guide](/protocol/validator/).
 
 ## MCP transport and gate errors
 
@@ -80,7 +80,7 @@ The JSON-RPC `id` is `null`.
 | `-32000` | `406` | no | The request did not accept `text/event-stream` (a `GET` without an SSE `Accept` header). | Use `POST` with `Accept: application/json, text/event-stream`. |
 
 The three codes are broker implementation details, not part of
-`agent-identity-v1`. The stable part is the HTTP status and the
+`agent-identity-protocol`. The stable part is the HTTP status and the
 `WWW-Authenticate` challenge.
 
 ## MCP tool errors
@@ -101,7 +101,7 @@ lookup.
 | `tos_hash_mismatch` | `identity_signup`, `identity_prove` | no | The accepted terms URL or hash is stale for the current document. | Hard stop: re-discover, re-accept the current terms. |
 | `discovery_unreachable` | `identity_signup`, `identity_prove` | yes | The discovery document could not be fetched. Nothing was minted. | Retry the same call; the broker refetches. |
 | `discovery_invalid` | `identity_signup`, `identity_prove` | no | The discovery document failed validation or its signup endpoint is not fetchable. | Ask the provider to fix discovery. |
-| `protocol_unsupported` | `identity_signup`, `identity_prove` | no | `protocol` is not `agent-identity-v1`. | Stop; the service is not supported. |
+| `protocol_unsupported` | `identity_signup`, `identity_prove` | no | `protocol` is not `agent-identity-protocol`. | Stop; the service is not supported. |
 | `issuer_not_allowed` | `identity_signup`, `identity_prove` | no | The broker is not in the provider's `issuer_allowlist`. | Stop; this broker is not accepted by the provider. |
 | `discovery_source_not_allowed` | `identity_signup`, `identity_prove`, `identity_record_signup` | no | A forbidden or mixed discovery/attestation source was supplied, or a `strict` policy rejected `agent_supplied_discovery`. | Use `identity_signup` with `service`, or supply exactly one allowed source. |
 | `rp_unverified` | `identity_signup`, `identity_prove` | no | No attestation source, and policy is `verify` or `strict`. | Ask the human owner to change policy or use a verified provider. |
@@ -179,7 +179,7 @@ A `jti` repeated for the **same** agent, account and service is not a replay. Th
 provider resolves it idempotently, usually with `resolution: "resolved"`.
 `assertion_replayed` is reserved for a conflicting context. The normative table
 is [spec section
-7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes).
+7.2](/protocol/specification/#72-error-envelope-and-stable-codes).
 
 ## Provider API and Contract F/D.2 errors
 
@@ -256,7 +256,7 @@ HTTP-level failures, not tool results.
 
 The v2.0.0 code names and retryability were checked against the shared
 `McpToolErrorCodeSchema`, the RP verification mapping, the Contract F/D.2
-handlers, and the provider route errors against `agent-identity-v1` `v2.0.0` on
+handlers, and the provider route errors against `agent-identity-protocol` `v2.0.0` on
 2026-11-21. The live policy outcomes were exercised against the post-cutover
 broker on 2026-11-14: `verify` with a valid broker-managed and provider-managed
 attestation, `strict` with both, `blocked`, and an absent source under `verify`

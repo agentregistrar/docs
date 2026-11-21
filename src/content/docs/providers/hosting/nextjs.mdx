@@ -41,7 +41,7 @@ Save as `app/.well-known/agent-signup.json/route.js`:
 export function GET() {
   return Response.json(
     {
-      protocol: "agent-identity-v1",
+      protocol: "agent-identity-protocol",
       audience: process.env.PROVIDER_AUDIENCE ?? "example-rp",
       provider_name: "Example RP",
       provider_url: process.env.PROVIDER_URL ?? "https://example.com",

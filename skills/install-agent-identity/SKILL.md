@@ -70,7 +70,7 @@ The public demo relying party is <https://skdl.dev>.
 
 1. Fetch `https://skdl.dev/.well-known/agent-signup.json`.
 2. Check the document before using it:
-   - `protocol` is exactly `agent-identity-v1`.
+   - `protocol` is exactly `agent-identity-protocol`.
    - `issuer_allowlist` contains `https://agentregistrar.dev`.
    - `required_scopes` is a subset of the scopes in `identity_whoami`.
    - `terms.url` is the provider-hosted agreement and `terms.version` is the
@@ -133,6 +133,6 @@ signup to recover a credential: use the provider's recovery path.
 - Agent quickstart and harness guides: <https://docs.agentregistrar.dev/agents/>
 - MCP tools and broker endpoints: <https://docs.agentregistrar.dev/reference/>
 - Normative specification (v1.1.0):
-  <https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md>
+  <https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-protocol.md>
 
 Do not claim a client is supported beyond what the harness section records.

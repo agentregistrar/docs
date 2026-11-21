@@ -2,27 +2,27 @@
 title: "Implementation guide"
 description: "A relying-party checklist for publishing discovery, verifying assertions and returning a receipt."
 audience: both
-source: "spec:v2.0.0#implementing-agent-identity-v1.md"
-specTag: "v2.0.0"
+source: "spec:v2.1.0#implementing-agent-identity-protocol.md"
+specTag: "v2.1.0"
 generated: true
 lastReviewed: 2026-11-21
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/implementing-agent-identity-v1.md) at `v2.0.0` (tag `v2.0.0`).
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/implementing-agent-identity-protocol.md) at `v2.1.0` (tag `v2.1.0`).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
-# Implementing `agent-identity-v1` (Relying Party Guide)
+# Implementing the Agent Identity Protocol (Relying Party Guide)
 
 - **Status:** Implementation guide for new Relying Parties (RPs). Normative contract:
-  [`agent-identity-v1.md`](https://docs.agentregistrar.dev/agent-identity/v1/specification/); scope rulebook:
-  [`scope-boundaries.md`](https://docs.agentregistrar.dev/agent-identity/v1/scope-boundaries/).
+  [`agent-identity-protocol.md`](https://docs.agentregistrar.dev/protocol/specification/); scope rulebook:
+  [`scope-boundaries.md`](https://docs.agentregistrar.dev/protocol/scope-boundaries/).
 - **Conformance tool:** `src/validate-discovery.ts` — run with `pnpm validate:discovery`
-  ([validator guide](https://docs.agentregistrar.dev/agent-identity/v1/validator/)).
+  ([validator guide](https://docs.agentregistrar.dev/protocol/validator/)).
 - **Audience:** a service provider (cloud/infra provider, API vendor, SaaS) that wants agents to
   sign up autonomously and accept its Terms of Service, with a verified human owner behind them.
 
 This guide is a checklist, not a replacement for the specification. Where anything here disagrees
-with [`agent-identity-v1.md`](https://docs.agentregistrar.dev/agent-identity/v1/specification/), the specification wins.
+with [`agent-identity-protocol.md`](https://docs.agentregistrar.dev/protocol/specification/), the specification wins.
 
 ---
 
@@ -47,15 +47,16 @@ scope.
 
 Serve `GET /.well-known/agent-signup.json` on your canonical HTTPS origin:
 
-- `200 OK`, `Content-Type: application/json` when you support `agent-identity-v1`.
+- `200 OK`, `Content-Type: application/json` when you support `agent-identity-protocol`.
 - `404` (or `410`) when you do not. Never use `401`/`403` to signal non-support.
 - `OPTIONS` → `204` with permissive CORS.
 - `Cache-Control: public, max-age=60` (max `300`), `Access-Control-Allow-Origin: *`.
 - Public only: no secrets, no internal hostnames, no personal data. Body ≤ 1 MiB.
 
-Required fields (`agent-identity-v1.md` §5.1): `protocol` (`"agent-identity-v1"`), `audience`,
-`provider_name`, non-empty `issuer_allowlist`, unique `required_scopes` (including `tos:accept`),
-`terms` (`version` + the URL of your own hosted terms document), and `endpoints.agent_signup`.
+Required fields (`agent-identity-protocol.md` §5.1): `protocol` (`"agent-identity-protocol"`),
+`protocol_version` (`"2.0"`), `audience`, `provider_name`, non-empty `issuer_allowlist`, unique
+`required_scopes` (including `tos:accept`), `terms` (`version` + the URL of your own hosted terms
+document), and `endpoints.agent_signup`.
 
 Optional fields (§5.2): `spec`, `provider_url`, `contact`, `updated_at`, non-capability `extensions`
 keyed by reverse-DNS namespace, and the optional `attestation` source object (§10 of this guide).
@@ -100,7 +101,7 @@ discovery (e.g. in your guide or a support page).
 
 `POST endpoints.agent_signup` receives `Authorization: Bearer <agent-identity-assertion>`. The
 assertion is Contract A (Ed25519 JWT); you only verify it here. Enforce at minimum
-(`agent-identity-v1.md` §7.1):
+(`agent-identity-protocol.md` §7.1):
 
 1. Signature verifies against `GET <iss>/.well-known/jwks.json` (issuer-hosted only — never a
    `jku`/`x5u` header pointing elsewhere).
@@ -120,7 +121,7 @@ enforced by the Broker at minting time; you do not need a revocation feed for v1
 
 ## 4. Return stable error codes
 
-Return errors as JSON with a stable machine-readable code (`agent-identity-v1.md` §7.2):
+Return errors as JSON with a stable machine-readable code (`agent-identity-protocol.md` §7.2):
 
 ```json
 { "error": "tos_hash_mismatch", "error_description": "…", "retryable": false }
@@ -165,7 +166,7 @@ send that **exact** JWS; never substitute your newer attestation. Receipts are i
 `context.url` must be HTTPS (localhost dev exception), hash-pinned by `context.sha256`, and stay on
 the **signup endpoint's registrable domain**; when `provider_url` is present it must share that
 domain. The Broker validates the pointer **statically** and never fetches it. See
-`agent-identity-v1.md` §11.
+`agent-identity-protocol.md` §11.
 
 Deliver the receipt back to the Broker as described in §12. The Broker persists the context and
 returns `context_url` / `context_sha256` so the agent can fetch the guide itself.
@@ -175,7 +176,7 @@ returns `context_url` / `context_sha256` so the agent can fetch the guide itself
 A retry or a repeat signup must not create a second account or a second credential. Resolve the
 account idempotently and signal the outcome:
 
-- **Idempotent resolution.** Key accounts as recommended in `agent-identity-v1.md` §9.1 — `(iss,
+- **Idempotent resolution.** Key accounts as recommended in `agent-identity-protocol.md` §9.1 — `(iss,
   human.id)` for human-scoped accounts, `(iss, agent.id)` for agent-scoped accounts — and namespace by
   `iss` whenever you trust more than one issuer. Keying on `human.email` / `agent.email` is **not**
   recommended; keep it only as a legacy fallback.
@@ -192,8 +193,8 @@ account idempotently and signal the outcome:
   mail. You **may** mint a fresh `signup_token` so a dropped-response retry can still record the
   receipt.
 
-The wire protocol id stays `agent-identity-v1`; the `resolution` field is additive and `v1.0.0`
-implementors remain conformant. See `agent-identity-v1.md` §7.2, §7.3, §9.1, and §12.5.
+The wire protocol id stays `agent-identity-protocol`; the `resolution` field is additive and `v1.0.0`
+implementors remain conformant. See `agent-identity-protocol.md` §7.2, §7.3, §9.1, and §12.5.
 
 ---
 
@@ -288,18 +289,18 @@ under `--verify-attestation`.
 ## 8. Adoption / registry conventions
 
 The current specification release is **`v2.0.0`** (2026-11-21), the URL-hosted-terms and keyless-RP
-attestation release — see [`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v2.0.0.md). It follows
+attestation release — see [`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v2.0.0.md). It follows
 **`v1.3.2`** (documentation-correction patch), **`v1.3.1`** (contract-text corrections), and
 **`v1.3.0`** (the breaking discovery-carrier release) — see
-[`release-notes-v1.3.2.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v1.3.2.md),
-[`release-notes-v1.3.1.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v1.3.1.md), and
-[`release-notes-v1.3.0.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v1.3.0.md). Earlier releases: **`v1.2.0`** (2026-10-24,
-[`release-notes-v1.2.0.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v1.2.0.md)), **`v1.1.0`**
-(2026-10-18, [`release-notes-v1.1.0.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v1.1.0.md)) and the initial **`v1.0.0`**
-(2026-10-17, [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v1.0.0.md)). The adoption surface is
+[`release-notes-v1.3.2.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.3.2.md),
+[`release-notes-v1.3.1.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.3.1.md), and
+[`release-notes-v1.3.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.3.0.md). Earlier releases: **`v1.2.0`** (2026-10-24,
+[`release-notes-v1.2.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.2.0.md)), **`v1.1.0`**
+(2026-10-18, [`release-notes-v1.1.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.1.0.md)) and the initial **`v1.0.0`**
+(2026-10-17, [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.0.0.md)). The adoption surface is
 published in
-[`registry/README.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/registry/README.md) with the machine-readable registry in
-[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/registry/implementations.json).
+[`registry/README.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/registry/README.md) with the machine-readable registry in
+[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/registry/implementations.json).
 
 - The implementation registry lists only implementations whose discovery document passes the
   validator. Entry criteria: the validator passes, you publish a stable discovery URL, your
@@ -310,7 +311,7 @@ published in
 - Record your `discovery_url` and read `audience` / `protocol` from the validator's `--json` output
   (`validator.md` §12).
 - To submit an entry, open a pull request against `registry/implementations.json` with your
-  validator evidence; see [`registry/README.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/registry/README.md) §4. The conformance
+  validator evidence; see [`registry/README.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/registry/README.md) §4. The conformance
   badge snippet and its usage terms are in §5 of the same document.
 
 ---
@@ -319,7 +320,7 @@ published in
 
 Relying Party identity (Contract G) is optional for conformance but required for a verified profile.
 RP signing keys are a further optional step, needed only for signed receipts and authenticated abuse
-reports. The full wire contract is `agent-identity-v1.md` §15.
+reports. The full wire contract is `agent-identity-protocol.md` §15.
 
 1. **Create a provider account with your RP broker.** The account is an organization, separate from
    any individual human login. It starts `pending`; it becomes `active` when its first origin is
@@ -426,7 +427,7 @@ You host the source document and renew the token yourself through Contract H.
 - Keep the exact attestation a receipt was signed under. Contract F receipt ingestion still sends it
   as the `rp_attestation` **body** field (§12) even though discovery no longer has that field.
 - If you operate a *broker* as well, serve `/.well-known/agent-broker.json` and the signed status
-  endpoint described in `agent-identity-v1.md` §16.
+  endpoint described in `agent-identity-protocol.md` §16.
 
 > **Claim sources (non-normative; Issue 07 mapping).** When a broker assembles the claims, each field
 > is copied from the provider record rather than typed free-form: `rp.origin` from
@@ -439,7 +440,7 @@ You host the source document and renew the token yourself through Contract H.
 > `provider_accounts.entity_reviewed_at` is non-null (operator review) with a legal name present, and
 > `rp.verification.entity_reviewed_at` is that same timestamp (`null` at `domain`).
 > `provider_origins.contact`, when present, is a human-facing security/contact URL and is **not**
-> copied into the attestation. This mapping is explanatory; `agent-identity-v1.md` §14.1 is
+> copied into the attestation. This mapping is explanatory; `agent-identity-protocol.md` §14.1 is
 > normative.
 
 Test offline before publishing:
@@ -520,7 +521,7 @@ unauthenticated_report`.
 
 If you are an RP broker (or the human broker), serve `/.well-known/agent-broker.json` with `issuer`
 equal to the document origin, a same-origin `jwks_uri`, `attestation_status_uri`, `abuse_endpoint`,
-`protocol_versions` containing `agent-identity-v1`, and a contact. Cache metadata for at most an hour
+`protocol_versions` containing `agent-identity-protocol`, and a contact. Cache metadata for at most an hour
 and status responses for at most five minutes. Keep retired attestation-signing keys in the JWKS for
 at least 30 days after the last attestation they signed expires.
 

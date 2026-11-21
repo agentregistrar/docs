@@ -74,7 +74,7 @@ Use it for legitimate agent workflows, such as replying to a provider's support 
 
 `detected_otp` is the first standalone six-digit number found in the subject, the plain-text body or the HTML body, with tags stripped first so a code split across markup is not glued together. It is `null` when no code is present.
 
-That is a convenience, not a verification protocol. Vendor verification-email flows are the vendor's own: `endpoints.verify_otp` is not part of `agent-identity-v1`, and the current VaporCloud signup does not ask the agent for a code. Older demo flows did send one; if a provider sends a code today, read it, submit it to that provider's own endpoint, and do not treat the code as a broker credential.
+That is a convenience, not a verification protocol. Vendor verification-email flows are the vendor's own: `endpoints.verify_otp` is not part of `agent-identity-protocol`, and the current VaporCloud signup does not ask the agent for a code. Older demo flows did send one; if a provider sends a code today, read it, submit it to that provider's own endpoint, and do not treat the code as a broker credential.
 
 This synthetic message shows the shape a code-bearing email takes in the inbox:
 

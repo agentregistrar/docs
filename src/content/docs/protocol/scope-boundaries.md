@@ -2,19 +2,19 @@
 title: "Scope boundaries"
 description: "What the identity protocol owns, what the vendor owns, and the checklist for future protocol changes."
 audience: both
-source: "spec:v2.0.0#scope-boundaries.md"
-specTag: "v2.0.0"
+source: "spec:v2.1.0#scope-boundaries.md"
+specTag: "v2.1.0"
 generated: true
 lastReviewed: 2026-11-21
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/scope-boundaries.md) at `v2.0.0` (tag `v2.0.0`).
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/scope-boundaries.md) at `v2.1.0` (tag `v2.1.0`).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Identity vs Vendor Scope Boundaries
 
 - **Status:** Normative scope rulebook. Companion to
-  [`agent-identity-v1.md`](https://docs.agentregistrar.dev/agent-identity/v1/specification/).
+  [`agent-identity-protocol.md`](https://docs.agentregistrar.dev/protocol/specification/).
 
 This document is the rulebook the identity protocol must satisfy. It states what the identity protocol
 owns, what the vendor owns, and the checklist any future change must pass before a new protocol field
@@ -178,7 +178,7 @@ Additional gates:
       API usage.
 - [ ] The change is not a vendor capability hidden under `extensions`.
 - [ ] The change is additive within v1, or it introduces a new `protocol` value and path.
-- [ ] The change does not weaken any security consideration in `agent-identity-v1.md` §20.
+- [ ] The change does not weaken any security consideration in `agent-identity-protocol.md` §20.
 - [ ] The change is reflected consistently in the spec, the schema, the JSON Schema, the validator, and
       the reference implementation.
 
@@ -207,7 +207,7 @@ definitions, the implementation guide, or the registry.
 
 ## 9. Authority & Escalation
 
-- `agent-identity-v1.md` is the normative protocol specification; this document is the normative scope
+- `agent-identity-protocol.md` is the normative protocol specification; this document is the normative scope
   boundary. Where a proposed change is tempted to widen protocol surface, this document governs.
 - The conformance validator is the objective enforcement mechanism; a document that advertises vendor
   capability fields is **not** conformant.

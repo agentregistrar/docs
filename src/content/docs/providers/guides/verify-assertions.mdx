@@ -7,9 +7,9 @@ lastReviewed: 2026-10-24
 verifiedAgainst: "spec v2.0.0 (cc307bf), jose 6.2.13, Node 24.21.0, 2026-11-21"
 ---
 
-**Goal:** accept a compact Ed25519 JWT only when every check in [spec section 7.1](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake) passes, and map each failure to a fixed v1 code.
+**Goal:** accept a compact Ed25519 JWT only when every check in [spec section 7.1](/protocol/specification/#7-assertion--agent_signup-handshake) passes, and map each failure to a fixed v1 code.
 
-The claim set is in [Assertion claims](/agent-identity/v1/assertion-claims/). This guide is the implementation step. Verifying an assertion needs **no account and no SDK**: it uses the human broker's public JWKS. An account is required only to be a verified provider, issue authenticated receipts, or report abuse with standing.
+The claim set is in [Assertion claims](/protocol/assertion-claims/). This guide is the implementation step. Verifying an assertion needs **no account and no SDK**: it uses the human broker's public JWKS. An account is required only to be a verified provider, issue authenticated receipts, or report abuse with standing.
 
 A provider may also publish an optional **provider verification credential** (the
 RP attestation) as a stable source named by discovery. It is a separate, local
@@ -266,13 +266,13 @@ The verifier was run against synthetic variants of the same fixture. Each row is
 | Human | `human.verified === true`. | `human_unverified` (403) |
 | Terms | `delegation.accepted_rp_tos_url` equals the current `terms.url` (trailing slashes normalized). The hash is an optional second check when `terms.url` serves deterministic bytes. | `tos_hash_mismatch` (409) |
 
-Two checks are policy choices rather than fixed codes: the five-minute lifetime is the recommended maximum, and a JWKS transport failure is an operational error. Map the first to `invalid_assertion` and return a retryable `503`-style response for the second without inventing a core code. The normative table is [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes).
+Two checks are policy choices rather than fixed codes: the five-minute lifetime is the recommended maximum, and a JWKS transport failure is an operational error. Map the first to `invalid_assertion` and return a retryable `503`-style response for the second without inventing a core code. The normative table is [spec section 7.2](/protocol/specification/#72-error-envelope-and-stable-codes).
 
 ## Verify the provider verification credential
 
 The credential is optional. Do this before signup when you want to check the
 provider's identity; skip it and the provider is `unverified`, not invalid. The
-normative steps are in [spec section 14](/agent-identity/v1/specification/).
+normative steps are in [spec section 14](/protocol/specification/).
 
 1. **Fetch discovery** from the provider's canonical origin, `GET
    /.well-known/agent-signup.json`. The fetched origin is authoritative. Read

@@ -2,16 +2,16 @@
 title: "Conformance validator"
 description: "How to run the discovery conformance validator, read its exit codes and parse its JSON output."
 audience: both
-source: "spec:v2.0.0#validator.md"
-specTag: "v2.0.0"
+source: "spec:v2.1.0#validator.md"
+specTag: "v2.1.0"
 generated: true
 lastReviewed: 2026-11-21
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/validator.md) at `v2.0.0` (tag `v2.0.0`).
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/validator.md) at `v2.1.0` (tag `v2.1.0`).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
-# Discovery Conformance and Attestation Validator (`agent-identity-v1`)
+# Discovery Conformance and Attestation Validator (`agent-identity-protocol`)
 
 - **Source:** `src/validate-discovery.ts` — run with `pnpm validate:discovery`.
 - **Package:** `@agentregistrar/discovery` `2.0.0`, licensed **Apache-2.0**. It is self-contained and
@@ -19,13 +19,13 @@ lastReviewed: 2026-11-21
   npm. Run it from this repository, or after the tag exists use the pinned git dependency
   (`github:agentregistrar/spec#v2.0.0`). There is no `bin` entry — invoke it with
   `pnpm validate:discovery`.
-- **Normative references:** [`agent-identity-v1.md`](https://docs.agentregistrar.dev/agent-identity/v1/specification/),
-  [`scope-boundaries.md`](https://docs.agentregistrar.dev/agent-identity/v1/scope-boundaries/).
+- **Normative references:** [`agent-identity-protocol.md`](https://docs.agentregistrar.dev/protocol/specification/),
+  [`scope-boundaries.md`](https://docs.agentregistrar.dev/protocol/scope-boundaries/).
 - **Related harnesses:** `pnpm validate:fixtures` (standalone JWS/schema matrix) and
   `pnpm validate:registry` (implementation registry) — both in §11.
 
 The validator is the objective mechanism behind the rule “a Relying Party that claims
-`agent-identity-v1` support MUST publish a valid discovery document.” It reports **two independent
+`agent-identity-protocol` support MUST publish a valid discovery document.” It reports **two independent
 results**:
 
 1. **Document conformance** — schema, URL-hosted terms shape, scope boundary, field rules, and the
@@ -213,7 +213,7 @@ Exit status is the contract; the JSON is evidence. The v1.3.0 additions:
 
 ```json
 {
-  "validator": "agent-identity-v1",
+  "validator": "agent-identity-protocol",
   "validatorVersion": "2.0.0",
   "valid": true,
   "exitCode": 0,
@@ -407,7 +407,7 @@ same code as the CLI, and exits `0` (all rows match) or `1` (a row differs). It 
 matrix (including the `attestation` modes, host binding, the removed field, and typed broker
 403/404/410/503 rows), every attestation JWS (status plus producer/verifier schema mode, including the
 keyless `keys: []` row), source documents, receipts, abuse reports, status responses, broker metadata,
-and provider request/response examples. See [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/fixtures/README.md).
+and provider request/response examples. See [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/fixtures/README.md).
 
 ### `pnpm validate:registry [path] [--json]`
 
@@ -420,7 +420,7 @@ unparseable. `--json` emits `{valid, exitCode, errors, warnings}`.
 
 | Field | Type | Notes |
 | :--- | :--- | :--- |
-| `validator` | string | Always `"agent-identity-v1"`. |
+| `validator` | string | Always `"agent-identity-protocol"`. |
 | `validatorVersion` | string | The `VALIDATOR_VERSION` constant, `"2.0.0"`. |
 | `mode` | `"file"` \| `"url"` | How the document was obtained. |
 | `source` | string | The path or URL that was validated. |

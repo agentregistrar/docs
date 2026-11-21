@@ -16,9 +16,9 @@ only if you want to sign receipts or authenticated abuse reports.
 
 The receipt is optional. If you issue one, the broker records it as attribution
 evidence. The claim set is defined in [spec section
-11](/agent-identity/v1/specification/#11-contract-e-identity-facts--the-context-pointer);
+11](/protocol/specification/#11-contract-e-identity-facts--the-context-pointer);
 the field reference is [Receipt and
-context](/agent-identity/v1/receipt-and-context/).
+context](/protocol/receipt-and-context/).
 
 A v1.2 receipt is signed by **your** relying-party key, not the broker. The key
 must be present in the exact provider attestation named by
@@ -228,6 +228,6 @@ A pre-v1.2 broker-signed receipt is rejected for a new proof. Historical rows st
 ## Next
 
 - [Publish a context guide](/providers/guides/publish-context-guide/): the pointer target.
-- [Receipt and context](/agent-identity/v1/receipt-and-context/): the full field reference.
+- [Receipt and context](/protocol/receipt-and-context/): the full field reference.
 - [Production checklist](/providers/guides/production-checklist/): key custody and rotation.
 - [Abuse reporting](/providers/guides/abuse-reporting/): the other authenticated RP path.

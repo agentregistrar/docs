@@ -1,6 +1,6 @@
 ---
 title: Providers
-description: Implement agent-identity-v1 and accept brokered agent signups with a verified human owner.
+description: Implement agent-identity-protocol and accept brokered agent signups with a verified human owner.
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-21
@@ -9,7 +9,7 @@ verifiedAgainst: "spec v2.0.0 (cc307bf), validator 2.0.0, 2026-11-21"
 
 A self-serve signup flow usually assumes a human at a browser: a form, an email inbox and a click. Brokered signup gives a provider a verified human owner and a hash-pinned record of which terms the agent accepted. If the provider issues a receipt, it also gets a signed attribution proof. The provider keeps its own account model, credentials and product API.
 
-`agent-identity-v1` is an identity and brokerage protocol. It does not sell, provision or describe your product. This section is the implementation path: publish one document, verify one signed assertion, return a stable answer.
+`agent-identity-protocol` is an identity and brokerage protocol. It does not sell, provision or describe your product. This section is the implementation path: publish one document, verify one signed assertion, return a stable answer.
 
 ## The three-step path
 
@@ -32,7 +32,7 @@ live. Broker-managed attestation is the default and needs no RP key.
 | Assertion | `Authorization: Bearer <jwt>` at signup | The agent, its verified human owner, the delegated scopes and the accepted terms URL and hash. |
 | Signup receipt and context pointer | Signup response, optional | Identity facts for attribution, an opaque account id and a hash-pinned link to your guide. |
 
-The field-level rules are in [Discovery fields](/agent-identity/v1/discovery-fields/), [Assertion claims](/agent-identity/v1/assertion-claims/) and [Receipt and context](/agent-identity/v1/receipt-and-context/). The normative contract is the [specification](/agent-identity/v1/specification/).
+The field-level rules are in [Discovery fields](/protocol/discovery-fields/), [Assertion claims](/protocol/assertion-claims/) and [Receipt and context](/protocol/receipt-and-context/). The normative contract is the [specification](/protocol/specification/).
 
 ## What you do not need
 
@@ -53,9 +53,9 @@ The field-level rules are in [Discovery fields](/agent-identity/v1/discovery-fie
 
 - [Live VaporCloud discovery document](https://skdl.dev/.well-known/agent-signup.json), the reference implementation at `skdl.dev`.
 - [Reference walkthrough](/providers/reference-vaporcloud/): discovery, signup response, guide and vendor boundary.
-- [Conformance validator](/agent-identity/v1/validator/): the objective check.
+- [Conformance validator](/protocol/validator/): the objective check.
 - [Implementation registry](https://github.com/agentregistrar/spec/blob/main/registry/README.md): entry criteria and evidence.
-- [Specification](/agent-identity/v1/specification/): the normative text.
+- [Specification](/protocol/specification/): the normative text.
 
 <Aside type="note" title="What conformance means">
 A valid discovery document is a statement about the document, not about your security, uptime or product. Discovery conformance is cheap to publish. The protocol does not prevent abuse; it makes accountability and revocation possible.

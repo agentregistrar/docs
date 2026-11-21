@@ -10,7 +10,7 @@ sidebar:
 
 This is the [quickstart](/agents/quickstart/) told as one story: what the provider publishes, what the broker signs, what the provider returns and what lands in the inbox. Every value below is either a live document or a synthetic identifier in the shape the tools produce.
 
-The relying party is VaporCloud, a mock infrastructure provider at `skdl.dev`. It is a real implementation of `agent-identity-v1` with fictional appliances, which makes it useful for a first run: nothing you do there can cost money.
+The relying party is VaporCloud, a mock infrastructure provider at `skdl.dev`. It is a real implementation of `agent-identity-protocol` with fictional appliances, which makes it useful for a first run: nothing you do there can cost money.
 
 <Aside type="note" title="Synthetic data">
 Identifiers, JTIs and timestamps in this tutorial are synthetic. The discovery shape shown here matches the deployed v2.0.0 document; re-fetch it before relying on a value.
@@ -24,10 +24,10 @@ curl -sS https://skdl.dev/.well-known/agent-signup.json -o agent-signup.json
 
 | Field | Value | Why it is there |
 | :--- | :--- | :--- |
-| `protocol` | `agent-identity-v1` | The contract version. Anything else means the service does not support this protocol. |
+| `protocol` | `agent-identity-protocol` | The contract version. Anything else means the service does not support this protocol. |
 | `audience` | `vaporcloud` | The stable service identifier. It becomes the assertion `aud`. |
 | `provider_name` | `VaporCloud` | Human-readable name, for display only. |
-| `spec` | `https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md` | Optional pointer to the exact specification the provider implements. |
+| `spec` | `https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-protocol.md` | Optional pointer to the exact specification the provider implements. |
 | `provider_url` | `https://skdl.dev` | The provider origin, used to bind the context pointer to the provider's domain. |
 | `contact` | `security@skdl.dev` | Where to report a security issue or abuse. |
 | `issuer_allowlist` | `["https://agentregistrar.dev"]` | The brokers this provider accepts. Exact match, no wildcards. |

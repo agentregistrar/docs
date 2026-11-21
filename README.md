@@ -1,6 +1,6 @@
 # Agent Registrar Docs
 
-The public documentation site for Agent Registrar and `agent-identity-v1`. It is
+The public documentation site for Agent Registrar and `agent-identity-protocol`. It is
 built with [Cloudflare Nimbus](https://nimbus-docs.com) on Astro and deploys as
 static output.
 
@@ -91,13 +91,13 @@ Current pages:
   `/contribute/` - section landings
 - `/contribute/docs/`, `/contribute/spec/`, `/contribute/local-development/` -
   page templates and review, the spec change process, and the local runbook
-- `/agent-identity/v1/` - protocol landing, with hand-authored reference pages
+- `/protocol/` - protocol landing, with hand-authored reference pages
   for discovery fields, assertion claims, receipt and context, security,
   conformance and versioning
-- `/agent-identity/v1/specification/`, `/scope-boundaries/`,
+- `/protocol/specification/`, `/scope-boundaries/`,
   `/implementation-guide/`, `/validator/`, `/changelog/` - generated from the
   pinned spec revision; never edit these by hand
-- `/agent-identity/v1/agent-signup.schema.json` - the JSON Schema served at its
+- `/protocol/agent-signup.schema.json` - the JSON Schema served at its
   canonical `$id`
 - `/404.html` - not-found page
 
@@ -180,12 +180,12 @@ network; it verifies the pinned commit and every source hash before writing.
 
 Generated files:
 
-- `src/content/docs/agent-identity/v1/specification.md`
-- `src/content/docs/agent-identity/v1/scope-boundaries.md`
-- `src/content/docs/agent-identity/v1/implementation-guide.md`
-- `src/content/docs/agent-identity/v1/validator.md`
-- `src/content/docs/agent-identity/v1/changelog.md`
-- `public/agent-identity/v1/agent-signup.schema.json`
+- `src/content/docs/protocol/specification.md`
+- `src/content/docs/protocol/scope-boundaries.md`
+- `src/content/docs/protocol/implementation-guide.md`
+- `src/content/docs/protocol/validator.md`
+- `src/content/docs/protocol/changelog.md`
+- `public/protocol/agent-signup.schema.json`
 
 Allowed transforms are frontmatter, relative-to-absolute link rewriting, and the
 generated banner. Nothing else. To bump the spec version, run
@@ -231,7 +231,7 @@ for verification. `_headers` in `public/` is copied to `dist/_headers` and
 applied by Workers static assets: it sets the Markdown/llms/discovery content
 types, cache policy, CORS for agent artifacts and baseline security headers. The
 published JSON Schema is served at
-`/agent-identity/v1/agent-signup.schema.json` as
+`/protocol/agent-signup.schema.json` as
 `application/schema+json; charset=utf-8` with `Access-Control-Allow-Origin: *`
 and a one-hour cache. The rule names the exact path, not `/*.schema.json`, so an
 unknown schema path still returns the normal HTML 404.

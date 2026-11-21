@@ -10,7 +10,7 @@ const nimbusConfig = defineNimbusConfig({
   site: "https://docs.agentregistrar.dev",
   title: "Agent Registrar Docs",
   description:
-    "Documentation for agent-identity-v1, the Agent Registrar broker, and the harnesses that use them.",
+    "Documentation for the Agent Identity Protocol, the Agent Registrar broker, and the harnesses that use them.",
   locale: "en",
   github: "https://github.com/agentregistrar/docs",
   editPattern: "https://github.com/agentregistrar/docs/edit/main/{path}",
@@ -63,10 +63,8 @@ const nimbusConfig = defineNimbusConfig({
       },
       {
         label: "Protocol",
-        items: [
-          { autogenerate: { directory: "protocol" } },
-          { autogenerate: { directory: "agent-identity" } },
-        ],
+        autogenerate: { directory: "protocol" },
+        collapsed: false,
       },
       {
         label: "Portal",
@@ -162,26 +160,51 @@ export default defineConfig({
   redirects: {
     "/docs": { status: 308, destination: "/" },
     "/docs/": { status: 308, destination: "/" },
-    "/spec": { status: 308, destination: "/agent-identity/v1/specification/" },
-    "/spec/": { status: 308, destination: "/agent-identity/v1/specification/" },
+    "/spec": { status: 308, destination: "/protocol/specification/" },
+    "/spec/": { status: 308, destination: "/protocol/specification/" },
     "/specification": {
       status: 308,
-      destination: "/agent-identity/v1/specification/",
+      destination: "/protocol/specification/",
     },
     "/specification/": {
       status: 308,
-      destination: "/agent-identity/v1/specification/",
+      destination: "/protocol/specification/",
     },
-    // The optional `spec` field's placeholder path. It now resolves to the v1
-    // landing instead of a 404.
-    "/agent-identity/v1/agent-signup": {
+    "/protocol/agent-signup": {
       status: 308,
-      destination: "/agent-identity/v1/",
+      destination: "/protocol/",
     },
-    "/agent-identity/v1/agent-signup/": {
+    "/protocol/agent-signup/": {
       status: 308,
-      destination: "/agent-identity/v1/",
+      destination: "/protocol/",
     },
+    // Permanent redirects from the former /agent-identity/v1/ paths.
+    "/agent-identity/v1": { status: 308, destination: "/protocol/" },
+    "/agent-identity/v1/": { status: 308, destination: "/protocol/" },
+    "/agent-identity/v1/agent-signup": { status: 308, destination: "/protocol/" },
+    "/agent-identity/v1/agent-signup/": { status: 308, destination: "/protocol/" },
+    "/agent-identity/v1/specification": { status: 308, destination: "/protocol/specification/" },
+    "/agent-identity/v1/specification/": { status: 308, destination: "/protocol/specification/" },
+    "/agent-identity/v1/scope-boundaries": { status: 308, destination: "/protocol/scope-boundaries/" },
+    "/agent-identity/v1/scope-boundaries/": { status: 308, destination: "/protocol/scope-boundaries/" },
+    "/agent-identity/v1/implementation-guide": { status: 308, destination: "/protocol/implementation-guide/" },
+    "/agent-identity/v1/implementation-guide/": { status: 308, destination: "/protocol/implementation-guide/" },
+    "/agent-identity/v1/validator": { status: 308, destination: "/protocol/validator/" },
+    "/agent-identity/v1/validator/": { status: 308, destination: "/protocol/validator/" },
+    "/agent-identity/v1/discovery-fields": { status: 308, destination: "/protocol/discovery-fields/" },
+    "/agent-identity/v1/discovery-fields/": { status: 308, destination: "/protocol/discovery-fields/" },
+    "/agent-identity/v1/assertion-claims": { status: 308, destination: "/protocol/assertion-claims/" },
+    "/agent-identity/v1/assertion-claims/": { status: 308, destination: "/protocol/assertion-claims/" },
+    "/agent-identity/v1/receipt-and-context": { status: 308, destination: "/protocol/receipt-and-context/" },
+    "/agent-identity/v1/receipt-and-context/": { status: 308, destination: "/protocol/receipt-and-context/" },
+    "/agent-identity/v1/security": { status: 308, destination: "/protocol/security/" },
+    "/agent-identity/v1/security/": { status: 308, destination: "/protocol/security/" },
+    "/agent-identity/v1/conformance": { status: 308, destination: "/protocol/conformance/" },
+    "/agent-identity/v1/conformance/": { status: 308, destination: "/protocol/conformance/" },
+    "/agent-identity/v1/versioning": { status: 308, destination: "/protocol/versioning/" },
+    "/agent-identity/v1/versioning/": { status: 308, destination: "/protocol/versioning/" },
+    "/agent-identity/v1/changelog": { status: 308, destination: "/protocol/changelog/" },
+    "/agent-identity/v1/changelog/": { status: 308, destination: "/protocol/changelog/" },
     // The provider, agent, reference and registry shortcuts. Their target pages
     // landed in Issues 07, 08 and 10; the release verification issue activates
     // the shortcuts and re-checks every entry against the deployed host.

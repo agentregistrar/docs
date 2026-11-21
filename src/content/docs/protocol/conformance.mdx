@@ -7,7 +7,7 @@ lastReviewed: 2026-10-24
 verifiedAgainst: "spec v2.0.0 (cc307bf), validator 2.0.0, 2026-11-21"
 ---
 
-A relying party is `agent-identity-v1` conformant when the discovery document it
+A relying party is `agent-identity-protocol` conformant when the discovery document it
 serves at `GET /.well-known/agent-signup.json` passes the conformance validator
 with zero errors. Conformance is about the discovery document, not the vendor's
 product.
@@ -19,28 +19,28 @@ unavailable source is a separate verification result. Conformance never calls
 Broker B; only explicit attestation verification fetches the source.
 
 The normative checklist is [spec section
-21](/agent-identity/v1/specification/#21-conformance-checklist--minimal-conformant-example).
+21](/protocol/specification/#21-conformance-checklist--minimal-conformant-example).
 The validator reference is the generated [Conformance
-validator](/agent-identity/v1/validator/) page.
+validator](/protocol/validator/) page.
 
 ## Relying-party checklist
 
 - [ ] `GET /.well-known/agent-signup.json` returns `200` with `Content-Type: application/json`.
 - [ ] `GET` returns `404` or `410`, never `401` or `403`, when the service does not support the protocol.
-- [ ] `protocol` is exactly `agent-identity-v1`.
+- [ ] `protocol` is exactly `agent-identity-protocol`.
 - [ ] `audience`, `provider_name`, a non-empty `issuer_allowlist`, and unique `required_scopes` including `tos:accept` are present.
 - [ ] `terms.url` and `terms.version` are present, and `terms` carries no `text` or `sha256`. The URL serves complete, stable bytes.
 - [ ] `endpoints.agent_signup` is the only endpoint and is an absolute URL.
 - [ ] `attestation` is omitted, or is an object with `mode` exactly `broker` or `provider` and a stable absolute HTTPS `uri` with no credentials and no fragment. Omission means **unverified**, not invalid. A `broker` URI is on an `issuer_allowlist` origin; a `provider` URI is on the discovery origin or a subdomain.
 - [ ] `rp_attestation` does not appear anywhere in discovery. Its presence is `rp_attestation_removed`.
 - [ ] No forbidden vendor field appears anywhere, including under `extensions`.
-- [ ] CORS and cache headers follow [spec section 4](/agent-identity/v1/specification/#4-discovery-endpoint--transport); the body is within the 1 MiB cap.
-- [ ] Assertions are verified against issuer JWKS with every check in [spec section 7.1](/agent-identity/v1/specification/#71-handshake).
-- [ ] Stable [section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes) error codes are returned.
+- [ ] CORS and cache headers follow [spec section 4](/protocol/specification/#4-discovery-endpoint--transport); the body is within the 1 MiB cap.
+- [ ] Assertions are verified against issuer JWKS with every check in [spec section 7.1](/protocol/specification/#71-handshake).
+- [ ] Stable [section 7.2](/protocol/specification/#72-error-envelope-and-stable-codes) error codes are returned.
 - [ ] If a `context` pointer is used, it is on the vendor's registrable domain, uses HTTPS, and is hash-pinned. It is returned in the signup response and receipt, not in discovery.
 - [ ] A `signup_token` is RP-signed, names `service.origin`, `service.attestation_jti`, and `service.key_id`, has no `exp`, and carries no `instance_sku` or `endpoint_url`.
 - [ ] If the provider claims verification, it publishes a valid credential and the registry entry carries all five `verification` fields from a live check.
-- [ ] A repeated signup for an existing account, keyed as recommended in [spec section 9.1](/agent-identity/v1/specification/#91-account-identity-keys), resolves idempotently: it returns `resolution: "resolved"`, does not re-issue provider credentials and sends no duplicate welcome or legal mail. This is a `SHOULD`.
+- [ ] A repeated signup for an existing account, keyed as recommended in [spec section 9.1](/protocol/specification/#91-account-identity-keys), resolves idempotently: it returns `resolution: "resolved"`, does not re-issue provider credentials and sends no duplicate welcome or legal mail. This is a `SHOULD`.
 - [ ] The vendor guide documents a credential recovery or rotation path reached after signup, and that path is not advertised in discovery or the receipt. This is a `SHOULD`.
 
 ## Two independent results
@@ -130,7 +130,7 @@ The spec repository ships conformance and attestation fixtures:
   warning only. `__fixture_origin` declares the fetch origin for offline binding.
 
 Run `pnpm validate:fixtures` for the full matrix. See the generated
-[Conformance validator](/agent-identity/v1/validator/) page for the `--json`
+[Conformance validator](/protocol/validator/) page for the `--json`
 field reference.
 
 ## Registry entry
@@ -188,8 +188,8 @@ endorsement. The registry is a snapshot, not a live status feed.
 
 ## Related
 
-- [Conformance validator](/agent-identity/v1/validator/)
-- [Discovery fields](/agent-identity/v1/discovery-fields/)
+- [Conformance validator](/protocol/validator/)
+- [Discovery fields](/protocol/discovery-fields/)
 - [Validate and register](/providers/guides/validate-and-register/)
-- [Scope boundaries](/agent-identity/v1/scope-boundaries/)
-- [Implementation guide](/agent-identity/v1/implementation-guide/)
+- [Scope boundaries](/protocol/scope-boundaries/)
+- [Implementation guide](/protocol/implementation-guide/)

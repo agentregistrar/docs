@@ -56,9 +56,9 @@ errors](/reference/error-codes/#mcp-transport-and-gate-errors).
 | URI | Title | Material also published at |
 | :--- | :--- | :--- |
 | `agentregistrar://docs/quickstart` | Agent Registrar quickstart | [Agent quickstart](/agents/quickstart/) |
-| `agentregistrar://docs/assertion-claims` | Agent assertion claims (Contract A) | [Assertion claims](/agent-identity/v1/assertion-claims/) |
+| `agentregistrar://docs/assertion-claims` | Agent assertion claims (Contract A) | [Assertion claims](/protocol/assertion-claims/) |
 | `agentregistrar://docs/error-recovery` | Tool error recovery | [Error codes](/reference/error-codes/) |
-| `agentregistrar://docs/spec` | Agent Identity specification | [Specification](/agent-identity/v1/specification/) |
+| `agentregistrar://docs/spec` | Agent Identity specification | [Specification](/protocol/specification/) |
 
 Resources are read-only and carry no per-request state. The tool result is the
 reliable surface; a resource is supporting depth.
@@ -363,7 +363,7 @@ resending).
 ## Verification record
 
 The tool names, input shapes, and result keys above were checked against the
-shared MCP schema and the `agent-identity-v1` `v2.0.0` contract on 2026-11-21.
+shared MCP schema and the `agent-identity-protocol` `v2.0.0` contract on 2026-11-21.
 There are nine tools. `identity_signup` is registered before `identity_prove`
 and is preferred in the server instructions and all four resources.
 `identity_signup`/`identity_record_signup` were exercised against the

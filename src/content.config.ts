@@ -27,7 +27,7 @@ export const collections = {
          *   its source. Set it when the review happens; never backfill or
          *   guess a date.
          * - `source` - the canonical source of a generated page, e.g.
-         *   "spec:v1.1.0#agent-identity-v1.md". Hand-edited pages have no
+         *   "spec:v1.1.0#agent-identity-protocol.md". Hand-edited pages have no
          *   `source`.
          * - `specTag` - the pinned spec tag a generated page came from.
          * - `sourceRef` - the ref named in `spec.lock.json` when the pin is a

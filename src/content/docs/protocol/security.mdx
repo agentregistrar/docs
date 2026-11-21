@@ -1,13 +1,13 @@
 ---
 title: Security
-description: Prompt injection, SSRF, replay, attestation and trust policy, key handling and the known limits of agent-identity-v1 v2.0.0.
+description: Prompt injection, SSRF, replay, attestation and trust policy, key handling and the known limits of agent-identity-protocol v2.0.0.
 audience: both
 aiGenerated: true
 lastReviewed: 2026-10-24
 verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
 ---
 
-The normative security rules are [spec section 20](/agent-identity/v1/specification/#20-security-considerations), with agent consumption rules in [section 8](/agent-identity/v1/specification/#8-agent-consumption-rules-prompt-injection--ssrf), verdicts in [section 19](/agent-identity/v1/specification/#19-verification-rules), and issuer assumptions in [section 10](/agent-identity/v1/specification/#10-issuer--jwks-assumptions). This page summarizes the threat model for implementers. It does not weaken the specification.
+The normative security rules are [spec section 20](/protocol/specification/#20-security-considerations), with agent consumption rules in [section 8](/protocol/specification/#8-agent-consumption-rules-prompt-injection--ssrf), verdicts in [section 19](/protocol/specification/#19-verification-rules), and issuer assumptions in [section 10](/protocol/specification/#10-issuer--jwks-assumptions). This page summarizes the threat model for implementers. It does not weaken the specification.
 
 ## Prompt injection and untrusted data
 
@@ -36,7 +36,7 @@ Discovery content, the terms at `terms.url`, and the post-signup guide are data,
 - A relying party must not treat a fresh assertion that references an existing acceptance as a new consent.
 - v1 imposes no protocol-mandated re-acceptance interval. An acceptance remains the recorded consent for its `terms.url` and recorded hash until the terms change or the human re-consents. A broker may impose its own documented policy.
 
-See [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes) and [section 7.3](/agent-identity/v1/specification/#73-acceptance-lifetime).
+See [spec section 7.2](/protocol/specification/#72-error-envelope-and-stable-codes) and [section 7.3](/protocol/specification/#73-acceptance-lifetime).
 
 ## Provider verification and trust policy
 
@@ -94,6 +94,6 @@ See [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-s
 
 ## Related
 
-- [Scope boundaries](/agent-identity/v1/scope-boundaries/)
-- [Assertion claims](/agent-identity/v1/assertion-claims/)
-- [Receipt and context](/agent-identity/v1/receipt-and-context/)
+- [Scope boundaries](/protocol/scope-boundaries/)
+- [Assertion claims](/protocol/assertion-claims/)
+- [Receipt and context](/protocol/receipt-and-context/)

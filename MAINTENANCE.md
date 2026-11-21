@@ -173,7 +173,7 @@ This is a fast path. Do not wait for the quarterly audit.
   turns an old URL into a 404.
 - **Spec sync:** revert the lock and the generated pages together. Never leave a
   half-synced tree; `pnpm sync:spec:check` fails the build if the hashes drift.
-- **Schema asset:** restore the previous `public/agent-identity/v1/agent-signup.schema.json`
+- **Schema asset:** restore the previous `public/protocol/agent-signup.schema.json`
   with its lock entry, so the served bytes and the hash agree.
 - **DNS or custom domain:** do not change DNS from a content pull request. The
   operator runbook owns domain detach and reattach order.

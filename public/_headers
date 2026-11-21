@@ -72,7 +72,7 @@
 # exact path, not `/*.schema.json`: Workers static assets apply _headers to 404
 # responses too, so a wildcard would serve the Nimbus HTML 404 body as
 # `application/schema+json` with a one-hour cache.
-/agent-identity/v1/agent-signup.schema.json
+/protocol/agent-signup.schema.json
   Content-Type: application/schema+json; charset=utf-8
   Access-Control-Allow-Origin: *
   Cache-Control: public, max-age=3600

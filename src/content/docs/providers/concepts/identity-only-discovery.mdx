@@ -9,7 +9,7 @@ verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
 
 `agent-signup.json` answers one question: can this agent, acting for this human, accept these terms and create an account here? It is a parameter document for that decision. It is not a capability catalog, a product description or an API index.
 
-The normative field rules are in [the specification](/agent-identity/v1/specification/#5-discovery-document-reference-identity-only). This page explains the design choice and the boundary.
+The normative field rules are in [the specification](/protocol/specification/#5-discovery-document-reference-identity-only). This page explains the design choice and the boundary.
 
 ## What belongs in discovery
 
@@ -22,7 +22,7 @@ The normative field rules are in [the specification](/agent-identity/v1/specific
 | One endpoint | `endpoints.agent_signup` | The only place the assertion may be sent. |
 | Optional provider identity | `attestation` | The source of the broker-issued provider verification credential: `{mode, uri}` naming a stable document `{attestation}`. It never carries the token. Broker-managed is the default and may be keyless (`keys: []`). Absence means unverified, not invalid. |
 
-All required and optional fields, with types and spec sections, are in [Discovery fields](/agent-identity/v1/discovery-fields/).
+All required and optional fields, with types and spec sections, are in [Discovery fields](/protocol/discovery-fields/).
 
 ## What does not belong in discovery
 
@@ -34,7 +34,7 @@ Anything that answers "what do you sell?" or "how do I call your API?" is vendor
 - broker receipt callbacks;
 - API or SDK usage metadata.
 
-The prohibition applies at any nesting depth, including under `extensions`. Moving `instance_catalog` under `extensions.dev.example` does not make it conformant; the validator fails it. This is the one-way door described in [Scope boundaries](/agent-identity/v1/scope-boundaries/): the protocol owns identity and liability, the vendor guide owns capability.
+The prohibition applies at any nesting depth, including under `extensions`. Moving `instance_catalog` under `extensions.dev.example` does not make it conformant; the validator fails it. This is the one-way door described in [Scope boundaries](/protocol/scope-boundaries/): the protocol owns identity and liability, the vendor guide owns capability.
 
 The reason is not minimalism for its own sake. A catalog in a document that any agent fetches before any relationship exists is unversioned marketing data, and it invites the broker to validate commercial claims it cannot verify. Keeping discovery identity-only makes the conformance question precise and keeps liability with the party that wrote the terms.
 
@@ -57,7 +57,7 @@ Use it for things like a status page or a support URL. Do not use it to smuggle 
 ## Transport and caching
 
 - Serve `GET /.well-known/agent-signup.json` from the canonical HTTPS origin.
-- Return `200` with `application/json` when you support `agent-identity-v1`.
+- Return `200` with `application/json` when you support `agent-identity-protocol`.
 - Return `404` or `410` when you do not. Do not use `401` or `403` to signal non-support.
 - No authentication, no redirect, no HTML.
 - `Cache-Control: public, max-age=60` (maximum 300) and `Access-Control-Allow-Origin: *` are recommended; the validator reports them as warnings when absent.
@@ -84,7 +84,7 @@ Run the validator against your document and confirm that no forbidden field appe
 pnpm --silent validate:discovery https://example.com/.well-known/agent-signup.json --json
 ```
 
-The command and output are documented in the [conformance validator](/agent-identity/v1/validator/).
+The command and output are documented in the [conformance validator](/protocol/validator/).
 
 ## Next
 

@@ -15,7 +15,7 @@ Agent Registrar is an agent identity and brokerage service. A verified human sig
 | Thing | What it is | What it owns |
 | :--- | :--- | :--- |
 | The product | The service a human signs up for, and the portal behind it | Human accounts, agent sub-identities, inboxes, the acceptance ledger, the kill switch |
-| The protocol, `agent-identity-v1` | The relying-party contract | The discovery document shape, how an assertion is presented, the optional receipt, the stable error codes |
+| The protocol, `agent-identity-protocol` | The relying-party contract | The discovery document shape, how an assertion is presented, the optional receipt, the stable error codes |
 | The broker | The running service at `agentregistrar.dev` | Human verification, assertion minting, acceptance records, the MCP tools, the agent inbox |
 
 The protocol is not the broker. Any broker that follows the specification can mint an assertion a conformant relying party accepts, and any relying party that follows it can accept assertions from any allowed issuer. The broker is one implementation, and the only one this site documents in detail.
@@ -58,4 +58,4 @@ authenticated receipts, and abuse standing, not to accept an assertion.
 - [Key concepts](/start/concepts/) for the vocabulary.
 - [How it works](/start/how-it-works/) for the handshake.
 - [Trust and limits](/start/trust-and-limits/) for what the model does not cover.
-- The [specification](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md) for the normative text.
+- The [specification](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-protocol.md) for the normative text.

@@ -28,7 +28,7 @@ The scope rule is in [scope boundaries](https://github.com/agentregistrar/spec/b
 4. Update the release notes with the version, date, changes and compatibility.
 5. Merge to `main`, then tag the release. The docs site pins a tag, so an untagged `main` is not a docs input.
 
-A change that affects the wire protocol id needs a new version collection and a migration note. Text-only clarifications that keep `agent-identity-v1` unchanged are additive releases.
+A change that affects the wire protocol id needs a new version collection and a migration note. Text-only clarifications that keep `agent-identity-protocol` unchanged are additive releases.
 
 ## Conformance evidence
 
@@ -40,7 +40,7 @@ pnpm validate:discovery https://example.com/.well-known/agent-signup.json --json
 
 Record the command, the validator version, the protocol and audience observed, and the result. Warnings are allowed and must be reported. A passing document is a statement about the document, not about the implementation's security, uptime or product.
 
-The command and flag reference is in the [conformance validator](/agent-identity/v1/validator/). The field-level rules are in [Discovery fields](/agent-identity/v1/discovery-fields/).
+The command and flag reference is in the [conformance validator](/protocol/validator/). The field-level rules are in [Discovery fields](/protocol/discovery-fields/).
 
 ## Add a registry entry
 
@@ -70,5 +70,5 @@ That runbook is in [MAINTENANCE.md](https://github.com/agentregistrar/docs/blob/
 
 - [Contribute to the docs](/contribute/docs/): the docs side of a change.
 - [Local development](/contribute/local-development/): run the validator, the sync and the docs gates.
-- [Specification](/agent-identity/v1/specification/): the rendered normative text.
+- [Specification](/protocol/specification/): the rendered normative text.
 - [Protocol section](/protocol/): the page map for implementors.

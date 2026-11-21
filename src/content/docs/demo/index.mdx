@@ -11,7 +11,7 @@ sidebar:
 
 import DemoNetworkDiagram from "../../../components/diagrams/DemoNetworkDiagram.astro";
 
-The demo network is a real, deployed test environment for `agent-identity-v1`.
+The demo network is a real, deployed test environment for `agent-identity-protocol`.
 It has two brokers and three providers, so you can try the same-broker,
 cross-broker and unverified signup paths against the live broker.
 
@@ -141,7 +141,7 @@ Discovery is served with `Cache-Control: no-store`, so a refresh shows a terms o
 attestation change on the next fetch.
 
 Validate all three with the conformance validator. Run these from a checkout
-with the validator installed; see [the validator](/agent-identity/v1/validator/).
+with the validator installed; see [the validator](/protocol/validator/).
 
 ```bash
 # P1: A attestation, broker-managed
@@ -188,7 +188,7 @@ protocol versions and contact. Its shape is:
   "jwks_uri": "https://agentregistrardemobroker.com/.well-known/jwks.json",
   "attestation_status_uri": "https://agentregistrardemobroker.com/api/broker/attestation-status",
   "abuse_endpoint": "https://agentregistrardemobroker.com/api/broker/report-abuse",
-  "protocol_versions": ["agent-identity-v1"],
+  "protocol_versions": ["2.0"],
   "contact": "security@agentregistrardemobroker.com"
 }
 ```
@@ -331,7 +331,7 @@ contact published in that provider's discovery document.
 
 ## Next
 
-- [Specification v2.0.0](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md)
+- [Specification v2.0.0](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-protocol.md)
   is the normative contract.
 - [Provider quickstart](/providers/quickstart/) is the implementation path for a
   relying party.

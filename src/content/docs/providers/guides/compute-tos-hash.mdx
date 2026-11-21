@@ -17,7 +17,7 @@ response bytes as `sha256:<64 lowercase hex>`, and records that value in the
 assertion `delegation.accepted_rp_tos_hash` and in the ToS ledger. The provider
 checks `delegation.accepted_rp_tos_url` and may also check the digest when it
 serves deterministic bytes. The normative rule is
-[ToS binding](/agent-identity/v1/specification/#6-tos-binding).
+[ToS binding](/protocol/specification/#6-tos-binding).
 
 ## Serve stable bytes
 
@@ -118,7 +118,7 @@ curl -sS -o /dev/null -w '%{http_code} %{content_type}\n' https://example.com/te
 
 A passing run reports `"valid": true` and no errors. The v2.0.0 validator does
 not require or report `terms.text` or `terms.sha256`. See the
-[conformance validator](/agent-identity/v1/validator/).
+[conformance validator](/protocol/validator/).
 
 ## Next
 

@@ -32,7 +32,8 @@ synthetic values.
 
 ```json
 {
-  "protocol": "agent-identity-v1",
+  "protocol": "agent-identity-protocol",
+  "protocol_version": "2.0",
   "audience": "example-rp",
   "provider_name": "Example RP",
   "provider_url": "https://example.com",
@@ -66,7 +67,7 @@ of the exact bytes it fetches at signup.
 The optional `extensions` value is non-capability metadata under a reverse-DNS
 key. Do not put catalogs, SKUs, provisioning endpoints or credentials anywhere
 in this document, including under `extensions`. Every field and its rule is in
-[Discovery fields](/agent-identity/v1/discovery-fields/).
+[Discovery fields](/protocol/discovery-fields/).
 
 ## Attestation is optional and keyless by default
 
@@ -118,7 +119,7 @@ compatibility field, embedded fallback, or dual publication.
    so a changed page is a stale-terms hard stop for an assertion minted for the
    old version.
 4. Revalidate with validator `2.0.0`. The fixtures and stable reasons are in
-   [the validator](/agent-identity/v1/validator/) and
+   [the validator](/protocol/validator/) and
    [Error codes](/reference/error-codes/).
 
 ## Serve the route
@@ -132,7 +133,7 @@ segment keeps the dot in the URL.
 export function GET() {
   return Response.json(
     {
-      protocol: "agent-identity-v1",
+      protocol: "agent-identity-protocol",
       audience: process.env.PROVIDER_AUDIENCE ?? "example-rp",
       provider_name: "Example RP",
       provider_url: process.env.PROVIDER_URL ?? "https://example.com",
@@ -226,7 +227,7 @@ Expected for the document above, file mode:
 
 URL mode adds transport checks and, with `--probe-jwks`, checks that each
 issuer publishes a usable JWKS. The command reference is in the
-[conformance validator](/agent-identity/v1/validator/).
+[conformance validator](/protocol/validator/).
 
 ## Verify your work
 

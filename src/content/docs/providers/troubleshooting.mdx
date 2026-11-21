@@ -18,7 +18,7 @@ Find the symptom, fix the cause, then re-run the check. Each row links to the pa
 | Validator fails a forbidden field | Catalog, SKU, provisioning or OTP field under `endpoints` or `extensions` | Remove the capability surface; move it to the vendor guide. See [Identity-only discovery](/providers/concepts/identity-only-discovery/). |
 | Validator exits `2` | No usable document: DNS, TLS, timeout, redirect, wrong content type or oversize body; or the attestation source or JWKS could not be obtained under `--require-attestation` | Fetch the URL with `curl -D -`; fix transport before changing the JSON. |
 | Validator warns on cache or CORS | Missing `Cache-Control` or `Access-Control-Allow-Origin` | Add `public, max-age=60` and `*` where appropriate. Warnings do not fail conformance. |
-| `protocol` rejected | A typo or a version such as `v1` | Use exactly `agent-identity-v1`. |
+| `protocol` rejected | A typo or a version such as `v1` | Use exactly `agent-identity-protocol`. |
 | `issuer_allowlist` rejected | Empty, wildcard, path or trailing slash | Use exact origins such as `https://agentregistrar.dev`, no path. |
 | `audience` rejected | Whitespace, mixed case or a display name | Use a stable, case-sensitive service identifier. |
 | `agent_signup` rejected | Relative URL, or an `http` URL outside localhost | Use an absolute HTTPS URL. |

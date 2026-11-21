@@ -9,7 +9,7 @@ verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
 
 The handshake has one job: turn an agent's request into an account that is attributable to a verified human who accepted the terms hosted at a specific URL. The provider performs one verification and one account operation; the broker is not in the request path.
 
-The normative sequence is [spec section 7](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake).
+The normative sequence is [spec section 7](/protocol/specification/#7-assertion--agent_signup-handshake).
 
 ## Sequence
 
@@ -49,7 +49,7 @@ The request body is empty or irrelevant. The proof is the `Authorization: Bearer
 - `human.id`, `human.name`, `human.email`, `human.verified`
 - `delegation.master_tos_version`, `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash`, `delegation.accepted_at`, `delegation.scopes`
 
-The full claim set is in [Assertion claims](/agent-identity/v1/assertion-claims/). Do not read identity from query parameters, a JSON body, a header such as `X-Agent-Id`, or anything else the caller controls.
+The full claim set is in [Assertion claims](/protocol/assertion-claims/). Do not read identity from query parameters, a JSON body, a header such as `X-Agent-Id`, or anything else the caller controls.
 
 ## What you must not trust
 
@@ -67,7 +67,7 @@ After verification, key the account and make the operation idempotent:
 - Return provider credentials only on creation. They are show-once.
 - A repeated assertion for the same agent, account and service resolves; it is not a replay. `assertion_replayed` is reserved for a conflicting context.
 
-The account-key recommendation is [spec section 9.1](/agent-identity/v1/specification/#91-account-identity-keys). The response fields and credential rules are in [Receipt and context](/agent-identity/v1/receipt-and-context/).
+The account-key recommendation is [spec section 9.1](/protocol/specification/#91-account-identity-keys). The response fields and credential rules are in [Receipt and context](/protocol/receipt-and-context/).
 
 ## Receipt and context
 

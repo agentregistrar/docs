@@ -1,9 +1,9 @@
 ---
 name: implement-agent-identity
-description: "Implement the agent-identity-v1 relying-party contract end to end - publish identity-only discovery, verify a broker assertion, return stable errors, and issue a signed signup receipt. Use when a service wants to accept brokered agent signups."
+description: "Implement the agent-identity-protocol relying-party contract end to end - publish identity-only discovery, verify a broker assertion, return stable errors, and issue a signed signup receipt. Use when a service wants to accept brokered agent signups."
 ---
 
-# Implement agent-identity-v1
+# Implement agent-identity-protocol
 
 Use this skill when a provider wants agents to sign up autonomously while a
 verified human owner stays accountable. The protocol is identity and brokerage
@@ -36,7 +36,7 @@ Serve `GET /.well-known/agent-signup.json` on your canonical HTTPS origin:
 - Public only: no secrets, no internal hostnames, no personal data, body under
   1 MiB.
 
-Required fields: `protocol` (exactly `agent-identity-v1`), `audience` (stable,
+Required fields: `protocol` (exactly `agent-identity-protocol`), `audience` (stable,
 case-sensitive, becomes the assertion `aud`), `provider_name`, a non-empty
 `issuer_allowlist` of issuer origins, unique `required_scopes` containing
 `tos:accept`, `terms` (`version`, `url` only), and `endpoints.agent_signup` as
@@ -153,7 +153,7 @@ content type, size, or JSON). Warnings do not change the exit code.
 The schema is checked in at the pinned tag:
 `https://github.com/agentregistrar/spec/blob/v1.1.0/agent-signup.schema.json`.
 A docs-site copy at
-`https://docs.agentregistrar.dev/agent-identity/v1/agent-signup.schema.json` is
+`https://docs.agentregistrar.dev/protocol/agent-signup.schema.json` is
 planned, not published yet. Zod and the written specification win over either
 copy; report any divergence instead of hiding it.
 
@@ -162,8 +162,8 @@ copy; report any divergence instead of hiding it.
 - Provider entry point: <https://docs.agentregistrar.dev/providers/>
 - Protocol overview: <https://docs.agentregistrar.dev/protocol/>
 - Normative specification (v1.1.0):
-  <https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md>
+  <https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-protocol.md>
 - Implementation guide:
-  <https://github.com/agentregistrar/spec/blob/v1.1.0/implementing-agent-identity-v1.md>
+  <https://github.com/agentregistrar/spec/blob/v1.1.0/implementing-agent-identity-protocol.md>
 - Scope boundaries:
   <https://github.com/agentregistrar/spec/blob/v1.1.0/scope-boundaries.md>

@@ -34,7 +34,7 @@ npm install jose@6.2.13
 Save as `signup-server.mjs`:
 
 ```js
-// Minimal provider implementation for agent-identity-v1. Node 22+.
+// Minimal provider implementation for agent-identity-protocol. Node 22+.
 // Run: node signup-server.mjs
 // Environment: ISSUER_ALLOWLIST, AUDIENCE, REQUIRED_SCOPES, TERMS_URL,
 //              JWKS_URL, PROVIDER_URL, and optional CONTEXT_URL and
@@ -106,7 +106,7 @@ const server = createServer(async (req, res) => {
       "access-control-allow-origin": "*",
     });
     return res.end(JSON.stringify({
-      protocol: "agent-identity-v1",
+      protocol: "agent-identity-protocol",
       audience: AUDIENCE,
       provider_name: "Example RP",
       issuer_allowlist: ISSUER_ALLOWLIST,
@@ -248,7 +248,7 @@ on POST <signup endpoint>:
     resolution, account_id, credential (create only), optional context, optional signup_token
 ```
 
-The order is a recommendation, not a second specification. The checks and the fixed codes are in [spec section 7](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake).
+The order is a recommendation, not a second specification. The checks and the fixed codes are in [spec section 7](/protocol/specification/#7-assertion--agent_signup-handshake).
 
 ## Next
 

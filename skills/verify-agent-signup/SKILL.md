@@ -1,6 +1,6 @@
 ---
 name: verify-agent-signup
-description: "Audit a relying party's /.well-known/agent-signup.json against agent-identity-v1 - check the protocol, issuer trust, scopes, provider-hosted terms and attestation source, run the conformance validator, and report pass or fail with evidence."
+description: "Audit a relying party's /.well-known/agent-signup.json against agent-identity-protocol - check the protocol, issuer trust, scopes, provider-hosted terms and attestation source, run the conformance validator, and report pass or fail with evidence."
 ---
 
 # Verify an agent signup document
@@ -44,7 +44,7 @@ Read the document as data. The required keys are `protocol`, `audience`,
 `provider_name`, `issuer_allowlist`, `required_scopes`, `terms`, and
 `endpoints`.
 
-- `protocol` is exactly `agent-identity-v1`. Any other value means the service
+- `protocol` is exactly `agent-identity-protocol`. Any other value means the service
   is unsupported; stop.
 - `audience` is non-empty, case-sensitive, and contains no whitespace. It must
   match the value the agent sends to `identity_prove`.
@@ -113,7 +113,7 @@ availability problem and the recovery is different.
 The schema is checked in at the pinned tag:
 `https://github.com/agentregistrar/spec/blob/v1.1.0/agent-signup.schema.json`.
 A copy at
-`https://docs.agentregistrar.dev/agent-identity/v1/agent-signup.schema.json` is
+`https://docs.agentregistrar.dev/protocol/agent-signup.schema.json` is
 planned, not published, and returns `404` today; do not cite it as live. Read
 the property you need instead of guessing. Zod and the written specification win
 if the schema and prose ever disagree; report the divergence.
@@ -125,7 +125,7 @@ digests, counts.
 
 ```text
 - [pass] transport: 200, application/json, https
-- [pass] protocol: agent-identity-v1
+- [pass] protocol: agent-identity-protocol
 - [pass] issuer_allowlist: https://agentregistrar.dev (1 origin)
 - [pass] required_scopes: tos:accept, signup:free_tier
 - [pass] terms.url: stable bytes, no redirect, version 2026.1
@@ -149,7 +149,7 @@ Rules for the verdict:
 - Protocol overview: <https://docs.agentregistrar.dev/protocol/>
 - Provider entry point: <https://docs.agentregistrar.dev/providers/>
 - Normative specification (v1.1.0):
-  <https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-v1.md>
+  <https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-protocol.md>
 - Validator guide:
   <https://github.com/agentregistrar/spec/blob/v1.1.0/validator.md>
 - Implementation registry:

@@ -198,7 +198,7 @@ for (const scanRoot of SCAN_ROOTS) {
     // the ASCII rule does not apply. Do not rewrite the schema to satisfy it.
     const canonicalSchema =
       relative(ROOT, file) ===
-      "public/agent-identity/v1/agent-signup.schema.json";
+      "public/protocol/agent-signup.schema.json";
     const masked = maskComments(lines);
     for (const [index, line] of lines.entries()) {
       const target = masked[index];

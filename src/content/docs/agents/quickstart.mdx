@@ -129,7 +129,7 @@ It returns the agent bound to this session, which is the one you registered in s
     "quickstart": "agentregistrar://docs/quickstart",
     "assertion_claims": "agentregistrar://docs/assertion-claims",
     "error_recovery": "agentregistrar://docs/error-recovery",
-    "spec": "https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md",
+    "spec": "https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-protocol.md",
     "public_docs": "https://docs.agentregistrar.dev"
   }
 }
@@ -149,10 +149,11 @@ Trimmed to the fields you must check:
 
 ```json
 {
-  "protocol": "agent-identity-v1",
+  "protocol": "agent-identity-protocol",
+  "protocol_version": "2.0",
   "audience": "vaporcloud",
   "provider_name": "VaporCloud",
-  "spec": "https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md",
+  "spec": "https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-protocol.md",
   "provider_url": "https://skdl.dev",
   "contact": "security@skdl.dev",
   "issuer_allowlist": ["https://agentregistrar.dev"],
@@ -174,7 +175,7 @@ The `spec` value is an optional pointer to the versioned specification. The gene
 
 Check four things before you go on:
 
-1. `protocol` is exactly `agent-identity-v1`.
+1. `protocol` is exactly `agent-identity-protocol`.
 2. Your broker origin, `https://agentregistrar.dev`, appears in `issuer_allowlist`.
 3. Your delegated scopes cover every entry in `required_scopes`.
 4. `terms.url` is on the provider origin and `terms.version` is the revision you are accepting.

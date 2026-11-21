@@ -1,21 +1,21 @@
 ---
 title: Discovery fields
-description: The agent-signup.json document field by field for spec v2.0.0, including provider-hosted terms and the optional keyless attestation source.
+description: The agent-signup.json discovery document field by field for Agent Identity Protocol 2.0 (spec v2.1.0), with hosted terms and optional attestation.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v2.0.0 (cc307bf), @agentregistrar/discovery 2.0.0, validator 2.0.0, 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), @agentregistrar/discovery 2.1.0, validator 2.1.0, 2026-11-21"
 ---
 
 A relying party publishes one identity-only document at `GET
 /.well-known/agent-signup.json`. This page is a lookup table for that document.
 The normative rules are in [the
-specification](/agent-identity/v1/specification/#5-discovery-document-reference-identity-only);
+specification](/protocol/specification/#5-discovery-document-reference-identity-only);
 this page does not replace them.
 
 The machine-readable schema is served at
-[`/agent-identity/v1/agent-signup.schema.json`](/agent-identity/v1/agent-signup.schema.json)
+[`/protocol/agent-signup.schema.json`](/protocol/agent-signup.schema.json)
 with content type `application/schema+json`. Validate a document with the
-[conformance validator](/agent-identity/v1/validator/). This table follows spec
+[conformance validator](/protocol/validator/). This table follows spec
 `v2.0.0`. The downloadable schema asset and the generated protocol pages are
 pinned by the docs release; when they lag this table, the spec source is
 canonical.
@@ -24,25 +24,26 @@ canonical.
 
 | Field | Type | Rule | Section |
 | :--- | :--- | :--- | :--- |
-| `protocol` | string | Exactly `"agent-identity-v1"`. Any other value means the service is unsupported; do not fall back. | [5.1](/agent-identity/v1/specification/#51-required-fields) |
-| `audience` | string | Stable, case-sensitive service identifier with no whitespace. The agent places this exact value in the assertion `aud`; the relying party rejects a mismatch. | [5.1](/agent-identity/v1/specification/#51-required-fields) |
-| `provider_name` | string | Human-readable service name. | [5.1](/agent-identity/v1/specification/#51-required-fields) |
-| `issuer_allowlist` | array of strings | Non-empty, unique absolute issuer origins. No path, query, fragment or wildcard. Trailing slashes are normalized away. The broker `iss` must match one entry exactly. | [5.1](/agent-identity/v1/specification/#51-required-fields), [5.4](/agent-identity/v1/specification/#54-field-rules) |
-| `required_scopes` | array of strings | Unique non-empty scopes. Brokered signup must include `tos:accept`. | [5.1](/agent-identity/v1/specification/#51-required-fields) |
-| `terms.version` | string | ToS version. Change it whenever the agreement changes materially. | [5.1](/agent-identity/v1/specification/#51-required-fields), [6](/agent-identity/v1/specification/#6-tos-binding) |
-| `terms.url` | string | Absolute URL of the provider-hosted agreement that a human can read. HTTPS is required except the documented localhost development exception. The Broker fetches this URL at signup and hashes the exact response bytes. | [5.1](/agent-identity/v1/specification/#51-required-fields) |
-| `endpoints.agent_signup` | string | Absolute URL that accepts `POST` with `Authorization: Bearer <assertion>`. The only endpoint in the protocol. | [5.1](/agent-identity/v1/specification/#51-required-fields) |
+| `protocol` | string | Exactly `"agent-identity-protocol"`. Any other value means the service is unsupported; do not fall back. | [5.1](/protocol/specification/#51-required-fields) |
+| `protocol_version` | string | Exactly `"2.0"`. Identifies the wire protocol version; any other value means the version is unsupported. | [5.1](/protocol/specification/#51-required-fields) |
+| `audience` | string | Stable, case-sensitive service identifier with no whitespace. The agent places this exact value in the assertion `aud`; the relying party rejects a mismatch. | [5.1](/protocol/specification/#51-required-fields) |
+| `provider_name` | string | Human-readable service name. | [5.1](/protocol/specification/#51-required-fields) |
+| `issuer_allowlist` | array of strings | Non-empty, unique absolute issuer origins. No path, query, fragment or wildcard. Trailing slashes are normalized away. The broker `iss` must match one entry exactly. | [5.1](/protocol/specification/#51-required-fields), [5.4](/protocol/specification/#54-field-rules) |
+| `required_scopes` | array of strings | Unique non-empty scopes. Brokered signup must include `tos:accept`. | [5.1](/protocol/specification/#51-required-fields) |
+| `terms.version` | string | ToS version. Change it whenever the agreement changes materially. | [5.1](/protocol/specification/#51-required-fields), [6](/protocol/specification/#6-tos-binding) |
+| `terms.url` | string | Absolute URL of the provider-hosted agreement that a human can read. HTTPS is required except the documented localhost development exception. The Broker fetches this URL at signup and hashes the exact response bytes. | [5.1](/protocol/specification/#51-required-fields) |
+| `endpoints.agent_signup` | string | Absolute URL that accepts `POST` with `Authorization: Bearer <assertion>`. The only endpoint in the protocol. | [5.1](/protocol/specification/#51-required-fields) |
 
 ## Optional fields
 
 | Field | Type | Rule | Section |
 | :--- | :--- | :--- | :--- |
-| `spec` | string | Absolute URL of the versioned specification. Optional; implementers may omit it. | [5.2](/agent-identity/v1/specification/#52-optional-fields) |
-| `provider_url` | string | Canonical service URL. If present, it must share the signup endpoint's registrable domain. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [11](/agent-identity/v1/specification/#11-contract-e-identity-facts--the-context-pointer) |
-| `contact` | string | Security, abuse or legal contact: an email address or an HTTPS URL. The localhost development exception (`http://localhost`, `http://127.0.0.1`) is the only `http` form allowed. | [5.2](/agent-identity/v1/specification/#52-optional-fields) |
-| `updated_at` | string | ISO 8601 timestamp for humans and debugging. Not a freshness signal for the ToS. | [5.2](/agent-identity/v1/specification/#52-optional-fields) |
-| `attestation` | object | The optional Contract G **source**: `{ "mode": "broker" \| "provider", "uri": "<stable absolute HTTPS URL>" }`. It names a URI that serves `{ "attestation": "<compact JWS>" }`; it never carries the token. Broker-managed is the default and may be keyless (`keys: []`). Absence means **unverified**. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [5.4](/agent-identity/v1/specification/#54-field-rules), [14](/agent-identity/v1/specification/#14-contract-g--rp-attestation) |
-| `extensions` | object | Non-capability vendor metadata keyed by reverse-DNS namespace, for example `dev.example`. It must not advertise provisioning, catalogs, SKUs or resource endpoints. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [5.3](/agent-identity/v1/specification/#53-forbidden-fields-vendor-capability-surface) |
+| `spec` | string | Absolute URL of the versioned specification. Optional; implementers may omit it. | [5.2](/protocol/specification/#52-optional-fields) |
+| `provider_url` | string | Canonical service URL. If present, it must share the signup endpoint's registrable domain. | [5.2](/protocol/specification/#52-optional-fields), [11](/protocol/specification/#11-contract-e-identity-facts--the-context-pointer) |
+| `contact` | string | Security, abuse or legal contact: an email address or an HTTPS URL. The localhost development exception (`http://localhost`, `http://127.0.0.1`) is the only `http` form allowed. | [5.2](/protocol/specification/#52-optional-fields) |
+| `updated_at` | string | ISO 8601 timestamp for humans and debugging. Not a freshness signal for the ToS. | [5.2](/protocol/specification/#52-optional-fields) |
+| `attestation` | object | The optional Contract G **source**: `{ "mode": "broker" \| "provider", "uri": "<stable absolute HTTPS URL>" }`. It names a URI that serves `{ "attestation": "<compact JWS>" }`; it never carries the token. Broker-managed is the default and may be keyless (`keys: []`). Absence means **unverified**. | [5.2](/protocol/specification/#52-optional-fields), [5.4](/protocol/specification/#54-field-rules), [14](/protocol/specification/#14-contract-g--rp-attestation) |
+| `extensions` | object | Non-capability vendor metadata keyed by reverse-DNS namespace, for example `dev.example`. It must not advertise provisioning, catalogs, SKUs or resource endpoints. | [5.2](/protocol/specification/#52-optional-fields), [5.3](/protocol/specification/#53-forbidden-fields-vendor-capability-surface) |
 
 `rp_attestation` was removed in `v1.3.0`. A document that still contains it is
 non-conformant with reason `rp_attestation_removed`; there is no compatibility
@@ -129,7 +130,7 @@ These must not appear at any nesting depth, including under `extensions`:
 | Broker receipt callback | `endpoints.broker_signup_receipt` |
 | Credentials and API usage | resource credentials, vendor API or SDK usage metadata |
 
-A document is a parameter document, not a capability catalog. Vendor capabilities belong in the post-signup context guide. See [Scope boundaries](/agent-identity/v1/scope-boundaries/) and the normative [5.3](/agent-identity/v1/specification/#53-forbidden-fields-vendor-capability-surface).
+A document is a parameter document, not a capability catalog. Vendor capabilities belong in the post-signup context guide. See [Scope boundaries](/protocol/scope-boundaries/) and the normative [5.3](/protocol/specification/#53-forbidden-fields-vendor-capability-surface).
 
 ## Terms at a URL
 
@@ -146,7 +147,7 @@ A document is a parameter document, not a capability catalog. Vendor capabilitie
   relying-party policy documented outside discovery; it should not exceed 24
   hours.
 
-See [ToS binding](/agent-identity/v1/specification/#6-tos-binding) and [Re-acceptance](/agent-identity/v1/specification/#61-re-acceptance).
+See [ToS binding](/protocol/specification/#6-tos-binding) and [Re-acceptance](/protocol/specification/#61-re-acceptance).
 
 ## Minimal conformant example
 
@@ -157,7 +158,8 @@ This document contains only the required identity fields. It passes the
 
 ```json
 {
-  "protocol": "agent-identity-v1",
+  "protocol": "agent-identity-protocol",
+  "protocol_version": "2.0",
   "audience": "example-rp",
   "provider_name": "Example RP",
   "issuer_allowlist": ["https://agentregistrar.dev"],
@@ -188,5 +190,5 @@ The example is illustrative. Replace the audience, URLs, scopes and terms with t
 
 - Fetch the published document and confirm `Content-Type: application/json`.
 - Confirm `terms` has exactly `version` and `url`, and that `terms.url` serves stable bytes with no redirect.
-- Run the [validator](/agent-identity/v1/validator/) against the document.
+- Run the [validator](/protocol/validator/) against the document.
 - Confirm no forbidden field appears at any depth, including under `extensions`.

@@ -85,7 +85,7 @@ All three set `Access-Control-Allow-Origin: *`. Only the JWKS sets an explicit c
 }
 ```
 
-The `iss` in an assertion equals this issuer origin. Assertions carry `alg` `EdDSA`, `kid` `broker-key-1` and `typ` `agent-id+jwt`. Verify against the JWKS, never against a key URL supplied by the assertion. See [Issuer and JWKS assumptions](/agent-identity/v1/specification/#10-issuer--jwks-assumptions).
+The `iss` in an assertion equals this issuer origin. Assertions carry `alg` `EdDSA`, `kid` `broker-key-1` and `typ` `agent-id+jwt`. Verify against the JWKS, never against a key URL supplied by the assertion. See [Issuer and JWKS assumptions](/protocol/specification/#10-issuer--jwks-assumptions).
 
 ## OAuth 2.1
 
@@ -306,7 +306,7 @@ suspended or revoked provider.
 | `503` | `broker_unavailable` | Database or signing failure. Any `5xx` is treated as unavailable; a cached positive answer inside five minutes may still be used. |
 
 Every error uses the OAuth-style body from
-[spec section 18.5](/agent-identity/v1/specification/#185-http-error-body).
+[spec section 18.5](/protocol/specification/#185-http-error-body).
 A typed failure is a verification result, never a conformance failure, and
 negative answers are never cached.
 
@@ -417,11 +417,11 @@ is returned or refreshed:
 The endpoint is idempotent on the receipt `jti`; Tier 1 wins and a Tier 2 row can
 be upgraded. `context_url` and `context_sha256` are `null` when the receipt
 carried no guide. There is no broker-key fallback and no substitution of a newer
-attestation. See [Receipt and context](/agent-identity/v1/receipt-and-context/).
+attestation. See [Receipt and context](/protocol/receipt-and-context/).
 
 ### POST /api/webhooks/resend
 
-Operator surface only. This endpoint receives mail-provider delivery events. It requires the provider's webhook signature headers; without them it returns `401` with `error` `invalid_webhook_signature`. It returns `200` with the processing result when the signature verifies. Agents, harnesses and relying parties must not call it, and it is not part of `agent-identity-v1`.
+Operator surface only. This endpoint receives mail-provider delivery events. It requires the provider's webhook signature headers; without them it returns `401` with `error` `invalid_webhook_signature`. It returns `200` with the processing result when the signature verifies. Agents, harnesses and relying parties must not call it, and it is not part of `agent-identity-protocol`.
 
 ## Status codes and errors
 
@@ -434,7 +434,7 @@ Each endpoint above lists its own statuses. The shared code lists, retryability 
 
 ## Versioning
 
-Paths are not versioned. `/mcp`, the OAuth endpoints and the broker APIs are the v1 surface; a breaking change to the wire contract would ship as a new path or a new protocol major version, not as a silent change to these paths. This page records what the deployed broker does and names the commit it was checked against in `verifiedAgainst`. The protocol version itself is documented in [Versioning](/agent-identity/v1/versioning/) and the [changelog](/agent-identity/v1/changelog/).
+Paths are not versioned. `/mcp`, the OAuth endpoints and the broker APIs are the v1 surface; a breaking change to the wire contract would ship as a new path or a new protocol major version, not as a silent change to these paths. This page records what the deployed broker does and names the commit it was checked against in `verifiedAgainst`. The protocol version itself is documented in [Versioning](/protocol/versioning/) and the [changelog](/protocol/changelog/).
 
 ## Verification record
 
@@ -452,7 +452,7 @@ Live requests on 2026-10-21 against `https://agentregistrar.dev`, with broker co
 - `GET /mcp` returned `406` without an SSE `Accept` header and a Cloudflare `500` with one (see above). `DELETE /mcp` returned `200`.
 
 The `GET /api/broker/provider-verification` route is documented from
-`agent-identity-v1` `v2.0.0` and is live on the post-cutover broker. On
+`agent-identity-protocol` `v2.0.0` and is live on the post-cutover broker. On
 2026-11-14 the `skdl.dev`/`vaporcloud` pair returned `200 application/json` with
 `Cache-Control: public, max-age=300` and exactly `{ "attestation": "<JWS>" }`;
 missing, extra, duplicate, and non-canonical parameters returned `400

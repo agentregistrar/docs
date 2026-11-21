@@ -40,7 +40,7 @@ recorded signup responses reproduce. In production it is your own
 Save as `worker.js`:
 
 ```js
-// Cloudflare Worker example for agent-identity-v1. The wire behavior is the
+// Cloudflare Worker example for agent-identity-protocol. The wire behavior is the
 // same as any other host: two routes, stable errors, one assertion check.
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
@@ -129,7 +129,7 @@ export default {
     if (url.pathname === "/.well-known/agent-signup.json" && request.method === "GET") {
       return new Response(
         JSON.stringify({
-          protocol: "agent-identity-v1",
+          protocol: "agent-identity-protocol",
           audience: cfg.audience,
           provider_name: "Example RP",
           provider_url: cfg.providerUrl,

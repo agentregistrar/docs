@@ -94,7 +94,7 @@ before any JWKS fetch. Local verification does not need a status call.
 The credential is **optional**. A conformant discovery document without the
 object is **unverified**, never invalid. Absence, expiry, a bad signature, an
 untrusted broker, and an unavailable source are different results, and the
-[validator](/agent-identity/v1/validator/) reports conformance and attestation
+[validator](/protocol/validator/) reports conformance and attestation
 verification separately.
 
 ## The two publication modes
@@ -290,7 +290,7 @@ action sets `suspended`; the human cannot silently clear a suspension.
 
 ## Known gaps
 
-These are limitations of `agent-identity-v1` and of this broker. They are stated
+These are limitations of `agent-identity-protocol` and of this broker. They are stated
 here so no page has to soften them.
 
 1. **Unverified providers still exist.** A conformant provider can omit the
@@ -349,13 +349,13 @@ it, the broker abuse endpoint.
 
 ## Read the contract
 
-- [Contract G, RP attestation](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md#14-contract-g--rp-attestation): source, modes and verification.
-- [Trust model, assurance levels, and policy](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md#17-trust-model-assurance-levels-and-policy): spec section 17.
-- [Verification rules](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md#19-verification-rules): spec section 19.
-- [Discovery JSON Schema](/agent-identity/v1/agent-signup.schema.json): the published schema with the `attestation` object.
+- [Contract G, RP attestation](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-protocol.md#14-contract-g--rp-attestation): source, modes and verification.
+- [Trust model, assurance levels, and policy](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-protocol.md#17-trust-model-assurance-levels-and-policy): spec section 17.
+- [Verification rules](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-protocol.md#19-verification-rules): spec section 19.
+- [Discovery JSON Schema](/protocol/agent-signup.schema.json): the published schema with the `attestation` object.
 - [Registry verification](/providers/guides/validate-and-register/): the recorded snapshot and badge rules.
 - [Verify assertions](/providers/guides/verify-assertions/): the verifier and the provider credential check.
-- [Receipt and context](/agent-identity/v1/receipt-and-context/): Contract E and proof sources.
+- [Receipt and context](/protocol/receipt-and-context/): Contract E and proof sources.
 - [Error codes](/reference/error-codes/): stable MCP and HTTP codes.
 - [Scope boundaries](https://github.com/agentregistrar/spec/blob/v2.0.0/scope-boundaries.md): what the protocol must never absorb.
 - [How it works](/start/how-it-works/): the mechanics these limits apply to.

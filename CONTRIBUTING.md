@@ -1,7 +1,7 @@
 # Contributing to the Agent Registrar docs
 
 This repository is the public documentation site for Agent Registrar and the
-`agent-identity-v1` protocol, live at <https://docs.agentregistrar.dev>. It is
+`agent-identity-protocol` protocol, live at <https://docs.agentregistrar.dev>. It is
 Apache-2.0. Anyone can open a pull request.
 
 The site owns explanation, onboarding and lookup. It never owns the protocol
@@ -85,7 +85,7 @@ Provenance fields, validated by `src/content.config.ts`:
 | `aiGenerated` | boolean | `true` while an agent drafted the page and no human has reviewed it. The page actions row shows "awaiting review". |
 | `verifiedAgainst` | string | Behavior pages only: the exact artifact checked, for example `broker e7b53b4, 2026-10-21` or `Nimbus 0.18.1`. |
 | `lastReviewed` | date | The date a human last checked the page against its source. Never guess or backfill. |
-| `source` | string | Generated pages only: the pinned source, for example `spec:v1.1.0#agent-identity-v1.md`. |
+| `source` | string | Generated pages only: the pinned source, for example `spec:v1.1.0#agent-identity-protocol.md`. |
 
 Rules:
 

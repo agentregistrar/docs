@@ -50,7 +50,7 @@ const LOCK_PATH = join(ROOT, "spec.lock.json");
 const SPEC_REPO = "agentregistrar/spec";
 const SPEC_ORIGIN = `https://github.com/${SPEC_REPO}`;
 const DOCS_ORIGIN = "https://docs.agentregistrar.dev";
-const CANONICAL_SCHEMA_ID = `${DOCS_ORIGIN}/agent-identity/v1/agent-signup.schema.json`;
+const CANONICAL_SCHEMA_ID = `${DOCS_ORIGIN}/protocol/agent-signup.schema.json`;
 const API_ROOT = `https://api.github.com/repos/${SPEC_REPO}`;
 const USER_AGENT = "agentregistrar-docs-sync";
 
@@ -61,9 +61,9 @@ const USER_AGENT = "agentregistrar-docs-sync";
  * this script (and an old one cannot be reused under a new tag).
  */
 const CORE_SOURCE_FILES = [
-  "agent-identity-v1.md",
+  "agent-identity-protocol.md",
   "scope-boundaries.md",
-  "implementing-agent-identity-v1.md",
+  "implementing-agent-identity-protocol.md",
   "validator.md",
 ];
 const SCHEMA_SOURCE = "agent-signup.schema.json";
@@ -75,29 +75,29 @@ const RELEASE_NOTES_PATTERN = /^release-notes-(.+)\.md$/;
  */
 const PAGES = [
   {
-    source: "agent-identity-v1.md",
-    output: "src/content/docs/agent-identity/v1/specification.md",
-    title: "agent-identity-v1 specification",
+    source: "agent-identity-protocol.md",
+    output: "src/content/docs/protocol/specification.md",
+    title: "Agent Identity Protocol specification",
     description:
-      "The normative definition of the agent-identity-v1 discovery document and brokered signup handshake.",
+      "The normative definition of the Agent Identity Protocol discovery document and brokered signup handshake.",
   },
   {
     source: "scope-boundaries.md",
-    output: "src/content/docs/agent-identity/v1/scope-boundaries.md",
+    output: "src/content/docs/protocol/scope-boundaries.md",
     title: "Scope boundaries",
     description:
       "What the identity protocol owns, what the vendor owns, and the checklist for future protocol changes.",
   },
   {
-    source: "implementing-agent-identity-v1.md",
-    output: "src/content/docs/agent-identity/v1/implementation-guide.md",
+    source: "implementing-agent-identity-protocol.md",
+    output: "src/content/docs/protocol/implementation-guide.md",
     title: "Implementation guide",
     description:
       "A relying-party checklist for publishing discovery, verifying assertions and returning a receipt.",
   },
   {
     source: "validator.md",
-    output: "src/content/docs/agent-identity/v1/validator.md",
+    output: "src/content/docs/protocol/validator.md",
     title: "Conformance validator",
     description:
       "How to run the discovery conformance validator, read its exit codes and parse its JSON output.",
@@ -105,19 +105,19 @@ const PAGES = [
 ];
 
 const CHANGELOG = {
-  output: "src/content/docs/agent-identity/v1/changelog.md",
+  output: "src/content/docs/protocol/changelog.md",
   title: "Release notes and changelog",
 };
 
-const SCHEMA_OUTPUT = "public/agent-identity/v1/agent-signup.schema.json";
+const SCHEMA_OUTPUT = "public/protocol/agent-signup.schema.json";
 
 /** Generated docs pages that correspond to a spec file. */
 const DOCS_PAGE_BY_SOURCE = {
-  "agent-identity-v1.md": "/agent-identity/v1/specification/",
-  "scope-boundaries.md": "/agent-identity/v1/scope-boundaries/",
-  "implementing-agent-identity-v1.md":
-    "/agent-identity/v1/implementation-guide/",
-  "validator.md": "/agent-identity/v1/validator/",
+  "agent-identity-protocol.md": "/protocol/specification/",
+  "scope-boundaries.md": "/protocol/scope-boundaries/",
+  "implementing-agent-identity-protocol.md":
+    "/protocol/implementation-guide/",
+  "validator.md": "/protocol/validator/",
 };
 
 function sha256(bytes) {
@@ -621,7 +621,7 @@ function buildChangelog(sources, pin, lastReviewed) {
   const versions = notes.map((source) => releaseNoteVersion(source));
   const page = {
     ...CHANGELOG,
-    description: `Release notes for agent-identity-v1 ${formatVersionList(versions)}, newest first.`,
+    description: `Release notes for Agent Identity Protocol ${formatVersionList(versions)}, newest first.`,
     source: `spec:${pin.tag}#release-notes`,
   };
   const sourceUrl = `${SPEC_ORIGIN}/tree/${pin.commit}`;

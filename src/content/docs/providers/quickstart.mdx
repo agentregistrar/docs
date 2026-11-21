@@ -52,7 +52,7 @@ acts for a verified human owner, and that human owner is bound by these terms.
 EOF
 ```
 
-The content rules are in [ToS binding](/agent-identity/v1/specification/#6-tos-binding). Serve stable bytes: no redirect, no per-request token, no wrapper that changes between fetches. See [Serve terms at a URL](/providers/guides/compute-tos-hash/).
+The content rules are in [ToS binding](/protocol/specification/#6-tos-binding). Serve stable bytes: no redirect, no per-request token, no wrapper that changes between fetches. See [Serve terms at a URL](/providers/guides/compute-tos-hash/).
 
 ## 2. Generate the document
 
@@ -63,7 +63,7 @@ and version; the agreement stays on your origin.
 import { writeFileSync } from "node:fs";
 
 const document = {
-  protocol: "agent-identity-v1",
+  protocol: "agent-identity-protocol",
   audience: "example-rp",
   provider_name: "Example RP",
   provider_url: "https://example.com",
@@ -97,7 +97,8 @@ The generated document:
 
 ```json
 {
-  "protocol": "agent-identity-v1",
+  "protocol": "agent-identity-protocol",
+  "protocol_version": "2.0",
   "audience": "example-rp",
   "provider_name": "Example RP",
   "provider_url": "https://example.com",
@@ -119,7 +120,7 @@ The generated document:
 ```
 
 Every field above is identity-only. The allowed and forbidden fields are in
-[Discovery fields](/agent-identity/v1/discovery-fields/). Do not add product
+[Discovery fields](/protocol/discovery-fields/). Do not add product
 catalogs, SKUs, provisioning endpoints or OTP endpoints.
 
 ## 3. Serve it
@@ -224,12 +225,13 @@ Both paths use `--probe-jwks`, so both report one probe. Expected from either pa
 
 ```json
 {
-  "validator": "agent-identity-v1",
+  "validator": "agent-identity-protocol",
   "validatorVersion": "2.0.0",
   "mode": "url",
   "valid": true,
   "exitCode": 0,
-  "protocol": "agent-identity-v1",
+  "protocol": "agent-identity-protocol",
+  "protocol_version": "2.0",
   "audience": "example-rp",
   "providerName": "Example RP",
   "errors": [],
@@ -240,7 +242,7 @@ Both paths use `--probe-jwks`, so both report one probe. Expected from either pa
 The result also carries separate `conformance` and `attestation` objects; a
 document with no `attestation` object reports `attestation.status: "unverified"`
 and still exits `0`. The exact field reference is in the [conformance
-validator](/agent-identity/v1/validator/).
+validator](/protocol/validator/).
 
 Exit code `0` means valid. `1` means the document was read and rejected; `2`
 means it could not be fetched. `--probe-jwks` additionally checks that every

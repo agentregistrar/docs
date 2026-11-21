@@ -15,7 +15,7 @@ artifacts.
 
 This page is a reference for the claims and the relying-party checks. The
 normative handshake is [spec section
-7](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake); the
+7](/protocol/specification/#7-assertion--agent_signup-handshake); the
 assertion format itself is Contract A and is referenced, not redefined, by the
 discovery specification.
 
@@ -109,7 +109,7 @@ A relying party verifies at least these checks before creating or resolving an a
 10. **Check the terms URL.** `delegation.accepted_rp_tos_url` must equal the currently advertised `terms.url` after normalizing trailing slashes. Optionally, when `terms.url` serves deterministic bytes, compare `delegation.accepted_rp_tos_hash` with the digest of those bytes. A mismatch is `tos_hash_mismatch` and a hard stop for the agent.
 11. **Record the proof.** Keep the assertion `jti`, the accepted ToS URL, version and hash, and the attribution for audit.
 
-The stable error codes and their HTTP statuses are in [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes).
+The stable error codes and their HTTP statuses are in [spec section 7.2](/protocol/specification/#72-error-envelope-and-stable-codes).
 
 ## Inspection-only rule
 
@@ -131,7 +131,7 @@ Never decode, re-encode or modify the compact JWT to guess fields. Send `asserti
 
 ## Related
 
-- [Assertion and agent_signup handshake](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake)
-- [Issuer and JWKS assumptions](/agent-identity/v1/specification/#10-issuer--jwks-assumptions)
-- [Receipt and context](/agent-identity/v1/receipt-and-context/)
+- [Assertion and agent_signup handshake](/protocol/specification/#7-assertion--agent_signup-handshake)
+- [Issuer and JWKS assumptions](/protocol/specification/#10-issuer--jwks-assumptions)
+- [Receipt and context](/protocol/receipt-and-context/)
 - [Reference](/reference/) for the broker's MCP tools and endpoints.

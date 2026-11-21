@@ -1,23 +1,24 @@
 ---
-title: "agent-identity-v1 specification"
-description: "The normative definition of the agent-identity-v1 discovery document and brokered signup handshake."
+title: "Agent Identity Protocol specification"
+description: "The normative definition of the Agent Identity Protocol discovery document and brokered signup handshake."
 audience: both
-source: "spec:v2.0.0#agent-identity-v1.md"
-specTag: "v2.0.0"
+source: "spec:v2.1.0#agent-identity-protocol.md"
+specTag: "v2.1.0"
 generated: true
 lastReviewed: 2026-11-21
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/agent-identity-v1.md) at `v2.0.0` (tag `v2.0.0`).
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/agent-identity-protocol.md) at `v2.1.0` (tag `v2.1.0`).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
-# Agent Identity Relying Party Discovery v1 (`agent-signup.json`)
+# Agent Identity Protocol — Relying Party Discovery (`agent-signup.json`)
 
-- **Status:** Normative specification — `v2.0.0`. Maintained in [`agentregistrar/spec`](https://github.com/agentregistrar/spec).
-- **Protocol identifier:** `agent-identity-v1`
+- **Status:** Normative specification — `v2.1.0`. Maintained in [`agentregistrar/spec`](https://github.com/agentregistrar/spec).
+- **Protocol identifier:** `agent-identity-protocol`
+- **Protocol version:** `2.0`
 - **Well-known URI:** `GET /.well-known/agent-signup.json`
-- **Version:** `v2.0.0` (see §1.3)
-- **Companion document:** [`scope-boundaries.md`](https://docs.agentregistrar.dev/agent-identity/v1/scope-boundaries/) — the identity-vs-vendor boundary and the future-change review checklist.
+- **Specification release:** `v2.1.0` (see §1.3)
+- **Companion document:** [`scope-boundaries.md`](https://docs.agentregistrar.dev/protocol/scope-boundaries/) — the identity-vs-vendor boundary and the future-change review checklist.
 
 This document is the single normative definition of the `agent-signup.json` discovery contract and the
 brokered signup handshake. The historical reference implementation's documentation carries a short
@@ -52,29 +53,29 @@ scope.
 
 | Version | Date | Change |
 | :--- | :--- | :--- |
-| `v2.0.0` | 2026-11-21 | **Protocol simplification (breaking spec release).** Discovery `terms` becomes URL-hosted: only `version` and `url` are required, and the broker fetches `terms.url` at signup time and hashes the exact response bytes. `terms.text` and `terms.sha256` are removed from discovery and are no longer required or validated. Contract G `keys` allows **0–8** entries, so a domain-verified provider without RP signing keys receives a valid keyless attestation (`keys: []`). The `protocol` id stays `agent-identity-v1`; the signup handshake and assertion format are unchanged. See [`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v2.0.0.md). |
+| `v2.0.0` | 2026-11-21 | **Protocol simplification (breaking spec release).** Discovery `terms` becomes URL-hosted: only `version` and `url` are required, and the broker fetches `terms.url` at signup time and hashes the exact response bytes. `terms.text` and `terms.sha256` are removed from discovery and are no longer required or validated. Contract G `keys` allows **0–8** entries, so a domain-verified provider without RP signing keys receives a valid keyless attestation (`keys: []`). The `protocol` id stays `agent-identity-protocol`; the signup handshake and assertion format are unchanged. See [`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v2.0.0.md). |
 | `v1.3.2` | 2026-11-14 | **Documentation correction only.** Fixes two normative contradictions in the `v1.3.1` text: issuance with no active key is `409 no_active_key`, not `403 provider_not_eligible`; and the "binding unchecked" rule applies to a `provider` source without a fetch origin, while a `broker` source is always checked from `issuer_allowlist`. No wire format, schema, validator behavior, fixture, or attestation claim changes. |
 | `v1.3.1` | 2026-11-13 | **Contract-text correction only.** Makes the published normative text match the D18 decisions that `v1.3.0` shipped without: Contract H attestation issuance is not plan-, billing-, or subscription-gated, and the client policy contract is `no_verify`/`verify`/`strict` with a separate `blocked` action and a `verify` default. No wire format, schema, validator behavior, fixture, or attestation claim changes. |
-| `v1.3.0` | 2026-11-13 | **Breaking discovery change.** The embedded `rp_attestation` field is removed and replaced by one OPTIONAL `attestation` object (`mode`: `broker` \| `provider`, `uri` naming a stable attestation source). A document that still carries `rp_attestation` is non-conformant; there is no compatibility field, embedded fallback, or dual publication. The attestation JWT, claims, signature, key snapshot, 24-hour lifetime, origin/audience binding, and the Contract F receipt/abuse bodies are unchanged. The wire protocol id stays `agent-identity-v1`. |
-| `v1.2.0` | 2026-10-24 | Adds Contracts G/H/I, optional `rp_attestation`, authenticated D.2, RP-signed E, authenticated F, the trust model, assurance levels, verification rules, and the status/error taxonomy. **The wire protocol id stays `agent-identity-v1`; `rp_attestation` is OPTIONAL and `v1.0.0`/`v1.1.0` documents remain conformant.** Superseded by `v1.3.0`, which removes `rp_attestation` from discovery: a `v1.2.0` document is no longer conformant. |
-| `v1.1.0` | 2026-10-18 | Additive clarifications: replay vs resolve (idempotent resolution, `assertion_replayed` reserved for conflicting reuse), the optional `resolution: "created" \| "resolved"` success field, acceptance lifetime, a knowledge-of-text restatement, recommended account identity keys (§9.1), and credential handoff & recovery (§12.5). **No field removals or renames; the wire protocol id stays `agent-identity-v1`; `v1.0.0` implementors remain conformant.** |
+| `v1.3.0` | 2026-11-13 | **Breaking discovery change.** The embedded `rp_attestation` field is removed and replaced by one OPTIONAL `attestation` object (`mode`: `broker` \| `provider`, `uri` naming a stable attestation source). A document that still carries `rp_attestation` is non-conformant; there is no compatibility field, embedded fallback, or dual publication. The attestation JWT, claims, signature, key snapshot, 24-hour lifetime, origin/audience binding, and the Contract F receipt/abuse bodies are unchanged. The wire protocol id stays `agent-identity-protocol`. |
+| `v1.2.0` | 2026-10-24 | Adds Contracts G/H/I, optional `rp_attestation`, authenticated D.2, RP-signed E, authenticated F, the trust model, assurance levels, verification rules, and the status/error taxonomy. **The wire protocol id stays `agent-identity-protocol`; `rp_attestation` is OPTIONAL and `v1.0.0`/`v1.1.0` documents remain conformant.** Superseded by `v1.3.0`, which removes `rp_attestation` from discovery: a `v1.2.0` document is no longer conformant. |
+| `v1.1.0` | 2026-10-18 | Additive clarifications: replay vs resolve (idempotent resolution, `assertion_replayed` reserved for conflicting reuse), the optional `resolution: "created" \| "resolved"` success field, acceptance lifetime, a knowledge-of-text restatement, recommended account identity keys (§9.1), and credential handoff & recovery (§12.5). **No field removals or renames; the wire protocol id stays `agent-identity-protocol`; `v1.0.0` implementors remain conformant.** |
 | `v1.0.0` | 2026-10-17 | Initial identity-only v1 specification. Discovery is identity-only; vendor catalogs, provisioning endpoints, legacy OTP endpoints, and broker receipt callbacks are removed from the protocol and are forbidden. Adds the optional signed post-signup `context` pointer. |
 
 **Release record.** `v1.0.0` was recorded on **2026-10-17**, once the identity-only
-`AgentSignupDiscoverySchema`, the checked-in [`agent-signup.schema.json`](https://docs.agentregistrar.dev/agent-identity/v1/agent-signup.schema.json),
+`AgentSignupDiscoverySchema`, the checked-in [`agent-signup.schema.json`](https://docs.agentregistrar.dev/protocol/agent-signup.schema.json),
 the conformance validator (`src/validate-discovery.ts`, `validatorVersion` `1.0.0`), the
 VaporCloud reference implementation, and this documentation were confirmed to agree. Release notes,
 including the release evidence and the change process, are in
-[`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v1.0.0.md). The published adoption surface is the
-implementation registry in [`registry/README.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/registry/README.md) (machine-readable:
-[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/registry/implementations.json)).
+[`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.0.0.md). The published adoption surface is the
+implementation registry in [`registry/README.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/registry/README.md) (machine-readable:
+[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/registry/implementations.json)).
 
 **Release record (`v1.1.0`).** `v1.1.0` was recorded on **2026-10-18** as a **text-only, additive**
 revision: it changes no schema/Zod/JSON-Schema, no validator, and no wire-protocol behaviour — it adds
 the optional `resolution` success field and clarifies replay vs resolve, acceptance lifetime,
 account identity keys, and credential handoff & recovery. Release notes, including the
 conformance-validator evidence and the change process, are in
-[`release-notes-v1.1.0.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v1.1.0.md). `v1.0.0` implementors remain conformant.
+[`release-notes-v1.1.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.1.0.md). `v1.0.0` implementors remain conformant.
 
 **Release record (`v1.2.0`).** `v1.2.0` is the **2026-10-24** revision. It adds the Contracts
 G/H/I text in §14–§19, the optional `rp_attestation` field (§5.2, §5.4), the authenticated abuse
@@ -82,38 +83,38 @@ contract (§11.5) and receipt ingestion contract (§11.6), the v1.2 receipt rule
 renumbers the former §14–§17 to §20–§23. The release ships in the same tag with the JSON Schemas
 `rp-attestation.schema.json`, `broker-metadata.schema.json`, `attestation-status.schema.json`,
 `signup-receipt.schema.json`, `abuse-report.schema.json`, and the updated `agent-signup.schema.json`;
-the fixture matrix in [`fixtures/`](https://github.com/agentregistrar/spec/tree/cc307bfbd935385736d7e237b5aca0d6cb06e269/fixtures) with `fixtures/expected.json`; the validator
+the fixture matrix in [`fixtures/`](https://github.com/agentregistrar/spec/tree/563525ef688a6f114cbe39509255adc81b61ecfc/fixtures) with `fixtures/expected.json`; the validator
 (`validatorVersion` and package version `1.2.0`) with `pnpm validate:discovery`,
 `pnpm validate:fixtures`, and `pnpm validate:registry`; and
-[`release-notes-v1.2.0.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v1.2.0.md). This branch is the reviewed artifact, not the
+[`release-notes-v1.2.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.2.0.md). This branch is the reviewed artifact, not the
 publication: the tag, npm release, and GitHub release follow the merge (release notes §6). Document
 conformance never requires a live RP broker: only `--verify-attestation` contacts one.
 
 **Release record (`v1.3.0`).** `v1.3.0` is the **2026-11-13** revision and the first **breaking
-discovery** revision of `agent-identity-v1`. It removes the embedded `rp_attestation` carrier and
+discovery** revision of `agent-identity-protocol`. It removes the embedded `rp_attestation` carrier and
 replaces it with one OPTIONAL `attestation` object that names a stable source URI (§5.2, §5.4, §14).
-The release ships the updated [`agent-signup.schema.json`](https://docs.agentregistrar.dev/agent-identity/v1/agent-signup.schema.json), the new
-[`attestation-source.schema.json`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/attestation-source.schema.json), the fixture matrix in
-[`fixtures/`](https://github.com/agentregistrar/spec/tree/cc307bfbd935385736d7e237b5aca0d6cb06e269/fixtures) with `fixtures/expected.json`, the validator (`validatorVersion` and package
+The release ships the updated [`agent-signup.schema.json`](https://docs.agentregistrar.dev/protocol/agent-signup.schema.json), the new
+[`attestation-source.schema.json`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/attestation-source.schema.json), the fixture matrix in
+[`fixtures/`](https://github.com/agentregistrar/spec/tree/563525ef688a6f114cbe39509255adc81b61ecfc/fixtures) with `fixtures/expected.json`, the validator (`validatorVersion` and package
 version `1.3.0`) with the new conformance checks, reason codes, and `--source-response`, and
-[`release-notes-v1.3.0.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v1.3.0.md). The attestation JWT format, claims, signature,
+[`release-notes-v1.3.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.3.0.md). The attestation JWT format, claims, signature,
 key snapshot, 24-hour lifetime, origin/audience binding, and the Contract F receipt/abuse bodies are
 unchanged. There is no compatibility field: a document that still publishes `rp_attestation` is
 non-conformant, and the validator reports `rp_attestation_removed`. Providers must republish discovery
 with the new object; see the release notes' migration steps.
 
 **Release record (`v1.3.1`).** `v1.3.1` is a **contract-text correction** patch on `v1.3.0`, shipped
-under `protocol` `agent-identity-v1` with **no** wire, schema, fixture, or validator-behavior change.
+under `protocol` `agent-identity-protocol` with **no** wire, schema, fixture, or validator-behavior change.
 It corrects two normative statements that `v1.3.0` omitted: Contract H attestation issuance is not
 plan-, billing-, or subscription-gated (§15.3, §15.4), and the client policy contract is
 `no_verify`/`verify`/`strict` with a separate `blocked` action, a `verify` default, and no `enforced`
 field (§17.2, §17.3, §18.3). It also aligns §19–§20, the implementation guide, the validator guide's
 policy-adjacent wording, and the scope rulebook with those decisions. The changed text describes the
 already-decided D18 contract; no attestation claim, discovery field, reason code, or check id changes.
-See [`release-notes-v1.3.1.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v1.3.1.md).
+See [`release-notes-v1.3.1.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.3.1.md).
 
 **Release record (`v1.3.2`).** `v1.3.2` is a **documentation-correction** patch on `v1.3.1`, shipped
-under `protocol` `agent-identity-v1` with **no** wire, schema, fixture, or validator-behavior change.
+under `protocol` `agent-identity-protocol` with **no** wire, schema, fixture, or validator-behavior change.
 It resolves two normative contradictions in the published text: §15.3 now splits a non-active
 provider / non-verified origin (`403 provider_not_eligible`) from a missing active key
 (`409 no_active_key`, §15.5), and §14.2 step 2 now scopes the unchecked-binding rule to a `provider`
@@ -121,7 +122,7 @@ source while keeping the `broker` host binding enforced from `issuer_allowlist`.
 file-mode binding note, the skip annotation in the reason table, the exit-`2` enumeration, the
 producer-revision label in `rp-attestation.schema.json`, and adds a provider note that a second
 attestation broker must appear in `issuer_allowlist`. See
-[`release-notes-v1.3.2.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v1.3.2.md).
+[`release-notes-v1.3.2.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.3.2.md).
 
 **Release record (`v2.0.0`).** `v2.0.0` is the **2026-11-21** revision and the first release of the
 `@agentregistrar/discovery` package under a new major version. It simplifies two surfaces that added
@@ -138,23 +139,23 @@ friction without adding trust:
   still require a registered key. The `protocol` id, assertion format, attestation claims, signature,
   lifetime, and origin/audience binding are unchanged.
 
-The release ships the updated [`agent-signup.schema.json`](https://docs.agentregistrar.dev/agent-identity/v1/agent-signup.schema.json),
-[`rp-attestation.schema.json`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/rp-attestation.schema.json), the fixture matrix (including
+The release ships the updated [`agent-signup.schema.json`](https://docs.agentregistrar.dev/protocol/agent-signup.schema.json),
+[`rp-attestation.schema.json`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/rp-attestation.schema.json), the fixture matrix (including
 `attestations/valid-domain-keyless.jwt`), the validator/package version `2.0.0`, and
-[`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v2.0.0.md).
+[`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v2.0.0.md).
 
 ### 1.3 Version identity
 
 - The protocol version is carried **major-only** in the discovery document's `protocol` field:
-  `agent-identity-v1`.
+  `agent-identity-protocol`.
 - This specification revision is `v2.0.0`. Minor/patch revisions are additive and do not change
   the `protocol` value; breaking changes require a new `protocol` value and a new discovery path (§13).
   `v2.0.0` simplifies two optional/parameter surfaces — URL-hosted `terms` and keyless Contract G
   attestations — while the signup handshake and assertion/attestation wire formats stay
-  `agent-identity-v1`. The `protocol` id identifies the handshake, not the terms carrier or the RP key
+  `agent-identity-protocol`. The `protocol` id identifies the handshake, not the terms carrier or the RP key
   snapshot. Additive v1 changes are recorded in the changelog above and must pass the
-  [`scope-boundaries.md`](https://docs.agentregistrar.dev/agent-identity/v1/scope-boundaries/) review checklist; the process is written down in
-  [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/release-notes-v1.0.0.md) §3.
+  [`scope-boundaries.md`](https://docs.agentregistrar.dev/protocol/scope-boundaries/) review checklist; the process is written down in
+  [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.0.0.md) §3.
 - The embedded `rp_attestation` carrier is **removed** in `v1.3.0`. A document that still carries it is
   non-conformant, with no compatibility field, embedded fallback, or dual publication (§14.7).
 - `attestation` (§5.2) is **OPTIONAL**. Absence is conformant and means **unverified**, never
@@ -279,7 +280,7 @@ Agent                         Broker                         Relying Party
 - The document **MUST** be served at `/.well-known/agent-signup.json` on the Relying Party's canonical
   HTTPS origin.
 - `GET` **MUST** return `200 OK` with `Content-Type: application/json` when the service supports
-  `agent-identity-v1`.
+  `agent-identity-protocol`.
 - `GET` **MUST** return `404 Not Found` (or `410 Gone`) when the service does not support the protocol.
   A `401`/`403` **MUST NOT** be used to signal non-support.
 - `OPTIONS` **SHOULD** return `204` with permissive CORS headers so browser-based inspectors and agent
@@ -299,8 +300,8 @@ Agent                         Broker                         Relying Party
 
 ### 4.1 Error behavior at the discovery endpoint
 
-- `200 OK` — the service supports `agent-identity-v1`; the body is the discovery document.
-- `404 Not Found` / `410 Gone` — the service does not support `agent-identity-v1`. The agent **MUST**
+- `200 OK` — the service supports `agent-identity-protocol`; the body is the discovery document.
+- `404 Not Found` / `410 Gone` — the service does not support `agent-identity-protocol`. The agent **MUST**
   treat the service as unsupported and stop.
 - `5xx` or a transport failure — treat as a transient fetch failure. The agent **SHOULD NOT** retry
   more than a small bounded number of times and **MUST NOT** proceed to signup without a valid document.
@@ -315,7 +316,8 @@ Agent                         Broker                         Relying Party
 
 | Field | Requirement | Semantics |
 | :--- | :--- | :--- |
-| `protocol` | **REQUIRED** | Literal `"agent-identity-v1"`. Any other value means the agent **MUST** treat the service as unsupported — never "best effort". |
+| `protocol` | **REQUIRED** | Literal `"agent-identity-protocol"`. Any other value means the agent **MUST** treat the service as unsupported — never "best effort". |
+| `protocol_version` | **REQUIRED** | Literal `"2.0"`. Identifies the wire protocol version; any other value means the version is unsupported. |
 | `audience` | **REQUIRED** | Stable, case-sensitive service identifier. The agent **MUST** place this exact value in the assertion `aud`; the RP **MUST** reject a mismatch. |
 | `provider_name` | **REQUIRED** | Human-readable service name. |
 | `issuer_allowlist` | **REQUIRED**, non-empty | Absolute issuer origins accepted by this RP. Trailing slashes are normalized away. The agent's broker `iss` **MUST** match one entry exactly. No wildcards. |
@@ -328,7 +330,7 @@ Agent                         Broker                         Relying Party
 
 | Field | Requirement | Semantics |
 | :--- | :--- | :--- |
-| `spec` | **OPTIONAL** | Absolute URL of the versioned specification. Placeholder canonical URL: `https://<canonical-spec-host>/agent-identity/v1/agent-signup` (final hosting URL undecided — §22). |
+| `spec` | **OPTIONAL** | Absolute URL of the versioned specification. Placeholder canonical URL: `https://<canonical-spec-host>/protocol/agent-signup` (final hosting URL undecided — §22). |
 | `provider_url` | **OPTIONAL** | Canonical service URL. |
 | `contact` | **OPTIONAL** | Security/abuse/legal contact (email or URL). |
 | `updated_at` | **OPTIONAL** | ISO 8601 timestamp for human/debuggability. Not a freshness signal for ToS. |
@@ -411,7 +413,7 @@ Both modes serve the same minimal JSON document at `attestation.uri`:
   signed; the JWS is the only trust anchor, so a producer **MUST NOT** put agent, human, or other
   private data in the envelope and a verifier **MUST NOT** treat any envelope field as authoritative.
 - The document shape is published as
-  [`attestation-source.schema.json`](https://github.com/agentregistrar/spec/blob/cc307bfbd935385736d7e237b5aca0d6cb06e269/attestation-source.schema.json) and is identical for both modes.
+  [`attestation-source.schema.json`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/attestation-source.schema.json) and is identical for both modes.
   It is not a second parsing mode and not a second token format.
 
 The source document is **not** discovery: it is fetched only by an explicit verification, and it never
@@ -424,7 +426,8 @@ publish (every required field, no optionals):
 
 ```json
 {
-  "protocol": "agent-identity-v1",
+  "protocol": "agent-identity-protocol",
+  "protocol_version": "2.0",
   "audience": "vaporcloud",
   "provider_name": "VaporCloud",
   "issuer_allowlist": ["https://id.agentregistrar.dev"],
@@ -643,7 +646,7 @@ Agents **MUST**:
 
 RPs **MUST**:
 
-1. Publish the document for as long as they claim `agent-identity-v1` support.
+1. Publish the document for as long as they claim `agent-identity-protocol` support.
 2. Keep `terms.url` and `terms.version` mutually consistent and atomically updated; the terms
    document served at `terms.url` is the single source of truth.
 3. Verify assertions rather than merely parsing them; never trust an unsigned or unverified JWT.
@@ -972,7 +975,7 @@ lifecycle:
 
 ## 13. Versioning, Extension & Deprecation Policy
 
-- `protocol` carries the **major** version only: `agent-identity-v1`.
+- `protocol` carries the **major** version only: `agent-identity-protocol`.
 - Additive identity fields are allowed within v1. Consumers **MUST** ignore unknown fields.
 - Vendor catalogs, provisioning endpoints, resource metadata, and API-usage documentation are **not**
   additive protocol fields; they belong in the post-signup guide.
@@ -1019,7 +1022,7 @@ Every claim is **REQUIRED** unless the Rule says OPTIONAL.
 | :--- | :--- |
 | `iss` | Broker B issuer origin: lowercase, no path, query, or fragment. |
 | `sub`, `rp.id` | Provider UUID; the two **MUST** be equal. |
-| `aud` | Literal `agent-identity-v1` (protocol label, never the human broker issuer). |
+| `aud` | Literal `agent-identity-protocol` (protocol label, never the human broker issuer). |
 | `jti` | `^rpa_[0-9a-hjkmnp-tv-z]{26}$` (lowercase Crockford base32 ULID, no `i/l/o/u`), unique per issuance. |
 | `iat`, `exp` | Integer seconds; `exp - iat = 86400` exactly; the issuer **MUST NOT** widen it. |
 | `rp.origin` | Canonical origin: lowercase scheme and host, default port omitted, no trailing slash, path, query, or fragment. |
@@ -1342,7 +1345,7 @@ six fields are **REQUIRED**:
 | `jwks_uri` | Absolute HTTPS URL, **same origin** as `issuer`. |
 | `attestation_status_uri` | Absolute HTTPS URL of the status endpoint. |
 | `abuse_endpoint` | Absolute HTTPS URL accepting Contract D.2 (§11.5). |
-| `protocol_versions` | Non-empty, unique, **MUST** contain `agent-identity-v1`. |
+| `protocol_versions` | Non-empty, unique, **MUST** contain `"2.0"`. |
 | `contact` | Email address or absolute HTTPS URL. |
 
 - `issuer` differing from the document origin **invalidates the document**. `issuer` is a canonical
@@ -1382,7 +1385,7 @@ The plaintext field is named `attestation_jti` so it cannot be confused with the
 `{"alg":"EdDSA","typ":"agent-rp-attestation-status+jwt","kid":"<broker kid>"}` and the claims are:
 
 ```json
-{ "iss": "https://agentregistrar.dev", "aud": "agent-identity-v1",
+{ "iss": "https://agentregistrar.dev", "aud": "agent-identity-protocol",
   "jti": "<uuidv4>", "sub": "rpa_01j...",
   "iat": 1760000000, "exp": 1760000300,
   "status": "active", "status_changed_at": "2026-10-24T00:00:00.000Z" }
@@ -1394,7 +1397,7 @@ The plaintext field is named `attestation_jti` so it cannot be confused with the
 - `status_changed_at` **MUST NOT** be after `iat`.
 - The plaintext `attestation_jti` is **advisory**. Clients **MUST** verify the JWS and use `sub`, and
   **MUST** check `typ`, `alg`, exactly one `kid`, the B signature, `iss` equal to the metadata
-  `issuer`, `aud` equal to `agent-identity-v1`, `exp`/`iat` with 60 seconds of skew, and `sub` equal
+  `issuer`, `aud` equal to `agent-identity-protocol`, `exp`/`iat` with 60 seconds of skew, and `sub` equal
   to the queried `attestation_jti`.
 - `suspended` maps to `RpVerificationStatus.suspended`. `revoked` maps to `invalid` with
   `reason:"attestation_revoked"` because the frozen enum has no `revoked` (§18). The status response
@@ -1596,7 +1599,7 @@ Document **conformance** and attestation **verification** are separate outcomes:
 
 ### 19.2 Validator behavior
 
-The validator ([`validator.md`](https://docs.agentregistrar.dev/agent-identity/v1/validator/)) keeps its conformance job and adds an independent
+The validator ([`validator.md`](https://docs.agentregistrar.dev/protocol/validator/)) keeps its conformance job and adds an independent
 attestation result:
 
 | Flag | Behavior |
@@ -1756,7 +1759,7 @@ document, in `extensions`, or in a cached copy from another origin.
 
 - [ ] `GET /.well-known/agent-signup.json` returns `200` with `Content-Type: application/json`.
 - [ ] `GET` returns `404`/`410` (never `401`/`403`) when the service does not support the protocol.
-- [ ] `protocol` is exactly `agent-identity-v1`.
+- [ ] `protocol` is exactly `agent-identity-protocol`.
 - [ ] `audience`, `provider_name`, a non-empty `issuer_allowlist`, and unique `required_scopes`
       (including `tos:accept`) are present.
 - [ ] `terms.url` and `terms.version` are present, `terms.url` is absolute HTTPS (localhost
@@ -1825,7 +1828,7 @@ and §12.5); canonical hosting remains open.
 | What happens to an abuse report with no linked receipt? | Resolved in `v1.2.0`: it is `unverified`, creates a case, and does not suspend the agent; only a verified, receipt-linked report can request protective suspension (§11.5). |
 | How does the registry distinguish conformance from verification? | Resolved in `v1.2.0`: an OPTIONAL `verification` object in the registry with broker, level, attestation `jti`, `checked_at`, and status; only `active` earns a badge (`registry/README.md`). |
 | IANA registration of the well-known URI. | Evaluate after v1 stabilizes; do **not** block v1. |
-| Final canonical public hosting URL for this specification. | This repository is the canonical location of the specification until a rendered copy exists in the documentation site. The optional `spec` field points at a versioned copy and **stays OPTIONAL**; the placeholder `https://<canonical-spec-host>/agent-identity/v1/agent-signup` is illustrative only. |
+| Final canonical public hosting URL for this specification. | This repository is the canonical location of the specification until a rendered copy exists in the documentation site. The optional `spec` field points at a versioned copy and **stays OPTIONAL**; the placeholder `https://<canonical-spec-host>/protocol/agent-signup` is illustrative only. |
 | A future alias such as `agent-identity.json`. | Keep `agent-signup.json` for v1; consider an alias in v2. |
 | Structured `issuers` metadata beyond `issuer_allowlist`. | Not in v1; a fixed `<issuer>/.well-known/jwks.json` path is required. Add structured metadata later only if a real need appears. |
 | Signing the discovery document. | Not in v1; TLS + issuer JWKS + signed assertions are the trust path. |
@@ -1848,5 +1851,5 @@ and §12.5); canonical hosting remains open.
 | **Contract I — broker metadata and attestation status** | New public metadata document and signed status response (§16). |
 
 The scope boundary between this identity protocol and vendor responsibilities is defined in
-[`scope-boundaries.md`](https://docs.agentregistrar.dev/agent-identity/v1/scope-boundaries/). Any proposed new protocol field must pass that
+[`scope-boundaries.md`](https://docs.agentregistrar.dev/protocol/scope-boundaries/). Any proposed new protocol field must pass that
 document's review checklist before it is added here.

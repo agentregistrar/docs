@@ -17,7 +17,7 @@ operating detail; where the two overlap, the stricter rule wins. Do not copy
 
 ## 1. What this repo is
 
-The public documentation site for Agent Registrar and `agent-identity-v1`.
+The public documentation site for Agent Registrar and `agent-identity-protocol`.
 Static Astro build via Cloudflare Nimbus, live at
 <https://docs.agentregistrar.dev> on the Cloudflare Worker
 `agentregistrar-docs` (static assets; section 15). Apache-2.0.
@@ -26,8 +26,8 @@ Canonical sources live outside this repo. Do not restate normative text here.
 
 | Subject | Canonical source |
 | :--- | :--- |
-| Protocol `agent-identity-v1` | `agentregistrar/spec` at tag `v1.1.0` |
-| Discovery JSON Schema | `agentregistrar/spec/agent-signup.schema.json` at the pinned revision; served byte-for-byte at `/agent-identity/v1/agent-signup.schema.json` |
+| Protocol `agent-identity-protocol` | `agentregistrar/spec` at tag `v1.1.0` |
+| Discovery JSON Schema | `agentregistrar/spec/agent-signup.schema.json` at the pinned revision; served byte-for-byte at `/protocol/agent-signup.schema.json` |
 | Broker behavior, MCP tools, portal | the monorepo (`apps/broker-portal`, `packages/shared`) |
 | Product definitions and IA | `docs/12-docs-push/01-docs-ia-audit-and-decisions.md` |
 | Visual system | `THEME.md` and `docs/08-visual-identity/` |
@@ -64,7 +64,7 @@ skills/<name>/SKILL.md     published Agent Skills (section 9)
 spec.lock.json             pinned spec tag/ref/commit, source/output hashes
 scripts/sync-spec.mjs      spec sync and offline drift check (section 11)
 public/_headers            host headers for paths Nimbus does not own
-public/agent-identity/v1/  JSON Schema served at its canonical $id
+public/protocol/  JSON Schema served at its canonical $id
 src/
   components.ts            components usable in MDX without an import
   components/              layout chrome and the Nimbus UI components
@@ -114,7 +114,7 @@ Provenance fields, validated by `src/content.config.ts`:
 | `aiGenerated` | boolean | `true` while an agent drafted the page and no human has reviewed it. Shows "awaiting review" in the page actions row. |
 | `verifiedAgainst` | string | Behavior pages only: the exact artifact the page was checked against, e.g. `broker e7b53b4, 2026-10-21` or `Nimbus 0.18.1`. |
 | `lastReviewed` | date | The date a human last reviewed the page against its source. Set it when the review happens; never backfill or guess. |
-| `source` | string | Generated pages only: the pinned source, e.g. `spec:v1.1.0#agent-identity-v1.md`. |
+| `source` | string | Generated pages only: the pinned source, e.g. `spec:v1.1.0#agent-identity-protocol.md`. |
 
 Rules:
 
@@ -538,15 +538,15 @@ launch, and record the date and findings.
   noise.
 - The redirect stubs are not pages, so the build reports "4 pages found without
   an <html> element" (`/docs/`, `/spec/`, `/specification/`,
-  `/agent-identity/v1/agent-signup/`). Harmless. `/docs` is a 308 to `/`;
-  `/spec`, `/specification` and `/agent-identity/v1/agent-signup` are 308s to
+  `/protocol/agent-signup/`). Harmless. `/docs` is a 308 to `/`;
+  `/spec`, `/specification` and `/protocol/agent-signup` are 308s to
   the protocol pages. The redirect map registers both the slashless and the
   trailing-slash key, so both URL shapes are one permanent hop. The remaining
   staged redirects stay commented in `astro.config.ts` until their destination
   page exists. Do not activate a redirect before its destination exists.
 - `pnpm check:theme` exempts generated pages (`generated: true` in
   frontmatter) and the canonical JSON Schema asset
-  (`public/agent-identity/v1/agent-signup.schema.json`) from the non-ASCII rule.
+  (`public/protocol/agent-signup.schema.json`) from the non-ASCII rule.
   The spec text and the schema are canonical and contain typographic
   punctuation; they are not hand-authored prose and must not be rewritten.
   Every hand-authored page is still ASCII.
