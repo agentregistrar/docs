@@ -3,16 +3,16 @@ title: OpenCode V2
 description: Add the broker to OpenCode V2, complete OAuth and confirm the broker tools.
 audience: human
 aiGenerated: true
-verifiedAgainst: "OpenCode v2.0.23 on Linux aarch64, live broker agentregistrar.dev, 2026-10-21"
+verifiedAgainst: "OpenCode v2.3.2 on Linux aarch64, live broker agentregistrar.dev, 2026-11-21"
 sidebar:
   order: 1
 ---
 
-**Tier 2: configuration verified on 2026-10-21 with OpenCode v2.0.23.** The server was added to a clean project, the client connected to the live broker and reported that the server needs authentication, and the written configuration was inspected. The browser sign-in and the first tool call were not completed on the verification machine.
+**Tier 2: configuration verified on 2026-11-21 with OpenCode v2.3.2.** The server was added to a clean project, the client connected to the live broker and reported that the server needs authentication, and the written configuration was inspected. The browser sign-in and the first tool call were not completed on the verification machine.
 
 ## Before you start
 
-- OpenCode V2 installed and on your `PATH`. Check with `opencode --version`. The version used here was `v2.0.23`.
+- OpenCode V2 installed and on your `PATH`. Check with `opencode --version`. The version used here was `v2.3.2`.
 - A browser on the same machine, signed in to the GitHub account that owns the agents.
 - A verified human account with the master delegation agreement signed. See the [agent quickstart](/agents/quickstart/).
 - The server URL has no trailing slash: `https://agentregistrar.dev/mcp`.
@@ -40,7 +40,7 @@ Add `--global` to make it available in every project instead of writing the proj
 }
 ```
 
-Each field is deliberate. `mcp.servers` is the V2 shape. A server name placed directly under `mcp` is the older V1 shape: the V2 schema marks it deprecated, but v2.0.23 still reads it, so use `mcp.servers` to stay on the documented shape. `type` is `remote` for a remote server. `url` is the Streamable HTTP endpoint. Do not add an `enabled` field: V2 uses `disabled` to keep a configured server from connecting.
+Each field is deliberate. `mcp.servers` is the V2 shape. A server name placed directly under `mcp` is the older V1 shape: the V2 schema marks it deprecated, but v2.3.2 still reads it, so use `mcp.servers` to stay on the documented shape. `type` is `remote` for a remote server. `url` is the Streamable HTTP endpoint. Do not add an `enabled` field: V2 uses `disabled` to keep a configured server from connecting.
 
 To add it by hand instead, write the same object into `opencode.json`. There is no token field, because OAuth supplies the credential.
 
@@ -126,15 +126,15 @@ If the browser does not open, `opencode mcp auth` prints the authorization URL; 
 opencode mcp logout agentregistrar
 ```
 
-That removes the stored OAuth credentials. To remove the server itself, delete its entry from `mcp.servers` in the project or global `opencode.json`; there is no `mcp remove` subcommand in v2.0.23. Re-add it and authorize again to start a new session with a different account.
+That removes the stored OAuth credentials. To remove the server itself, delete its entry from `mcp.servers` in the project or global `opencode.json`; there is no `mcp remove` subcommand in v2.3.2. Re-add it and authorize again to start a new session with a different account.
 
 ## Verification record
 
 | Field | Value |
 | :--- | :--- |
-| Client | OpenCode v2.0.23 (`opencode --version`) |
+| Client | OpenCode v2.3.2 (`opencode --version`) |
 | Operating system | Linux 7.2.9 aarch64 |
-| Date | 2026-10-21 |
+| Date | 2026-11-21 |
 | Add command | `opencode mcp add agentregistrar --url https://agentregistrar.dev/mcp` |
 | Configuration | Project `opencode.json` written with `mcp.servers.agentregistrar`, `type: "remote"` and the broker URL |
 | Live connection | `opencode mcp list` reported the server as needing authentication against the live broker, which returns `401` with `WWW-Authenticate` |
