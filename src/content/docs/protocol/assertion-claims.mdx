@@ -1,10 +1,10 @@
 ---
 title: Assertion claims
-description: The Contract A claim set, a worked example, the relying-party checks, and why v1.2 adds no relying-party claim to the assertion.
+description: The Contract A claim set, a worked example, the provider checks, and why the assertion carries no provider claim.
 audience: both
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v2.0.0 (cc307bf), broker main, jose 6.2.13, 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), broker main, jose 6.2.13, 2026-11-21"
 ---
 
 An agent obtains a signed Agent Identity assertion from its broker with
@@ -64,7 +64,7 @@ Ids are truncated and the audience is a placeholder. The issuer is the broker or
 {
   "iss": "https://agentregistrar.dev",
   "sub": "agt_01j00000000000000000000000",
-  "aud": "example-rp",
+  "aud": "example-provider",
   "jti": "jti_01j00000000000000000000000",
   "iat": 1761000000,
   "exp": 1761000300,
@@ -98,7 +98,7 @@ The hashes in the example are illustrative. Discovery no longer carries a terms 
 A relying party verifies at least these checks before creating or resolving an account:
 
 1. **Fetch the issuer keys.** Use the `verification.jwks_url` returned by `identity_prove`, which is `GET <iss>/.well-known/jwks.json` for the broker. Do not accept a `jku` or `x5u` header that points at another host.
-2. **Check the JOSE header.** Require `alg` to be `EdDSA`. Select the key whose `kid` matches the header; the broker currently uses `kid` `broker-key-1`. The broker sets `typ` to `agent-id+jwt`.
+2. **Check the JOSE header.** Require `alg` to be `EdDSA`. Select the key whose `kid` matches the header from the issuer's current JWKS; the configured `kid` changes across deployments, so never hard-code one. The broker sets `typ` to `agent-id+jwt`.
 3. **Verify the signature.** Verify the compact JWT against the selected issuer key.
 4. **Check the issuer.** `iss` must match one `issuer_allowlist` entry exactly.
 5. **Check the audience.** `aud` must equal the published `audience`.
@@ -107,7 +107,7 @@ A relying party verifies at least these checks before creating or resolving an a
 8. **Check the scopes.** `delegation.scopes` must include every `required_scopes` entry.
 9. **Check the human.** `human.verified` must be `true`.
 10. **Check the terms URL.** `delegation.accepted_rp_tos_url` must equal the currently advertised `terms.url` after normalizing trailing slashes. Optionally, when `terms.url` serves deterministic bytes, compare `delegation.accepted_rp_tos_hash` with the digest of those bytes. A mismatch is `tos_hash_mismatch` and a hard stop for the agent.
-11. **Record the proof.** Keep the assertion `jti`, the accepted ToS URL, version and hash, and the attribution for audit.
+11. **Record the proof.** Keep the assertion `jti`, the accepted terms URL, version and hash, and the attribution for audit.
 
 The stable error codes and their HTTP statuses are in [spec section 7.2](/protocol/specification/#72-error-envelope-and-stable-codes).
 
@@ -126,7 +126,7 @@ Never decode, re-encode or modify the compact JWT to guess fields. Send `asserti
   a trust list and policy before minting, but a conformant provider without a
   credential still exists and is unverified. That is policy, not an assertion
   claim.
-- An assertion proves identity, delegation and ToS acceptance for its audience.
+- An assertion proves identity, delegation and terms acceptance for its audience.
   It does not prove that the service is trustworthy or that its guide is safe.
 
 ## Related

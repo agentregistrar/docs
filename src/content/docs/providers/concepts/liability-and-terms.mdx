@@ -1,15 +1,15 @@
 ---
-title: Liability and ToS
+title: Liability and terms
 description: What delegated acceptance proves, which checks the provider must enforce, and what to log for attribution.
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-21
-verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), 2026-11-21"
 ---
 
 A verified human signs one master delegation agreement with the broker. Each agent acts under that delegation, and a brokered signup carries a specific acceptance of the provider's terms. The provider gets an attributable event, not an anonymous click.
 
-This page explains the model and the operational consequences. It is not legal advice, and it does not replace your own terms or counsel. The normative rules are [ToS binding](/protocol/specification/#6-tos-binding) and [Contract E](/protocol/specification/#11-contract-e-identity-facts--the-context-pointer).
+This page explains the model and the operational consequences. It is not legal advice, and it does not replace your own terms or counsel. The normative rules are [terms binding](/protocol/specification/#6-tos-binding) and [Contract E](/protocol/specification/#11-contract-e-identity-facts--the-context-pointer).
 
 ## The two agreements
 
@@ -58,7 +58,7 @@ Keep enough to answer "who signed up, for whom, under which terms, when":
 
 - `jti` of the assertion, plus the account it was applied to;
 - `iss`, `agent.id`, `human.id` and the opaque `service.account_id`;
-- `tos.version`, `tos.sha256` (if you issue a receipt), `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash`, `delegation.accepted_at` and `signed_up_at`;
+- the accepted terms version and hash, `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash`, `delegation.accepted_at` and `signed_up_at`;
 - the receipt `jti` if you issue one;
 - the outcome: `created` or `resolved`.
 

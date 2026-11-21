@@ -1,9 +1,9 @@
 ---
-title: ToS and ledger
+title: Terms and ledger
 description: What the agent accepted, where the record lives, who receives the receipt, how status at signup differs from current status, and what happens when terms change.
 audience: human
 aiGenerated: true
-verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), 2026-11-21"
 sidebar:
   order: 6
 ---
@@ -18,17 +18,17 @@ One acceptance records:
 | :--- | :--- | :--- |
 | `service_audience` | `vaporcloud` | Which service |
 | `service_tos_url` | `https://skdl.dev/terms` | The URL the human can read |
-| `service_tos_hash` | `sha256:e854d9c2...fec5` | The Broker-computed hash of the exact bytes it fetched at `service_tos_url` |
+| `service_tos_hash` | `sha256:e854d9c2...fec5` | The broker-computed hash of the exact bytes it fetched at `service_tos_url` |
 | `master_tos_version` | `2026-10-01` | The master agreement in force |
 | `accepted_at` | `2026-10-21T18:02:11.000Z` | The original consent time, not the last mint time |
 | assertion `jti` | `jti_01JAB...` | The first assertion minted against it |
 
-The Broker fetches `terms.url` at mint time and records the URL, the exact bytes digest and the published version. It does not compare against a provider-supplied digest, because `v2.0.0` discovery carries none. If a provider changes the terms between your read and the mint, the Broker records the bytes it actually fetched; the provider then rejects an assertion that carries a stale accepted URL or version.
+The broker fetches `terms.url` at mint time and records the URL, the exact bytes digest and the published version. It does not compare against a provider-supplied digest, because discovery carries none. If a provider changes the terms between your read and the mint, the broker records the bytes it actually fetched; the provider then rejects an assertion that carries a stale accepted URL or version.
 
 ## Where the record lives
 
 - **The broker ledger.** One row per acceptance, visible in the portal under "ToS liability ledger" on the agent page.
-- **The receipt email.** Sent to the agent inbox with the assertion JTI, timestamp, target service, accepted ToS URL and hash, and master agreement version. Headers carry `x-ledger-type`, `x-assertion-jti`, `x-service-audience` and `x-service-tos-hash`.
+- **The receipt email.** Sent to the agent inbox with the assertion JTI, timestamp, target service, accepted terms URL and hash, and master agreement version. Headers carry `x-ledger-type`, `x-assertion-jti`, `x-service-audience` and `x-service-tos-hash`.
 - **The human forward.** The same receipt, forwarded to the verified human email with the subject prefix `[Fwd: Agent ToS Ledger]`.
 - **The assertion.** `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash`, `delegation.accepted_at` and `delegation.master_tos_version` carry the acceptance to the provider. The provider checks the URL and may check the hash when it serves deterministic bytes.
 - **`identity_whoami`.** `signup_state.last_acceptances` reports the newest acceptance per service for that agent, including `ledger_email_delivered`.
@@ -52,8 +52,8 @@ The correct sequence is:
 
 1. Re-fetch the discovery document.
 2. Read `terms.version` and, if you need to, the new agreement at `terms.url`.
-3. Call `identity_signup` with `accept_terms: true` (or `identity_prove` for an advanced flow). The Broker fetches `terms.url` and hashes the exact bytes.
-4. Sign up again. A conformant provider resolves the existing account, returns `resolution: "resolved"`, and sends no duplicate welcome mail; the Broker refreshes the proof row instead of creating a second one.
+3. Call `identity_signup` with `accept_terms: true` (or `identity_prove` for an advanced flow). The broker fetches `terms.url` and hashes the exact bytes.
+4. Sign up again. A conformant provider resolves the existing account, returns `resolution: "resolved"`, and sends no duplicate welcome mail; the broker refreshes the proof row instead of creating a second one.
 
 That creates a new acceptance, which is correct: it is a new consent event. The old acceptance stays in the ledger with its original timestamp. Nothing rewrites history.
 
@@ -63,7 +63,7 @@ An acceptance lasts until the terms URL or version changes, the served bytes cha
 
 The human signed the master agreement, and the agent acted under delegated authority. In plain terms: the human is the accountable party for the accounts the agent creates, and for what the agent does with them. The broker records that chain; it does not absorb the liability.
 
-Before relying on any of it, a provider must check the signature against the issuer JWKS, `iss` against its allowlist, `aud`, `exp`, `jti` reuse, the scopes, `human.verified`, and the accepted terms hash against its current terms. Provider verification is a separate, optional check: the provider may publish an `attestation` object naming a broker-issued source, but the assertion itself carries no RP claim. The ledger shows the provider's status at signup and its latest recorded status with `checked_at`; current is historical, not a live feed.
+Before relying on any of it, a provider must check the signature against the issuer's public keys, `iss` against its allowlist, `aud`, `exp`, `jti` reuse, the scopes, `human.verified`, and the accepted terms URL and optional hash against its current terms. Provider verification is a separate, optional check: the provider may publish an `attestation` object naming a broker-issued source, but the assertion itself carries no provider claim. The ledger shows the provider's status at signup and its latest recorded status with `checked_at`; current is historical, not a live feed.
 
 ## What this page is not
 

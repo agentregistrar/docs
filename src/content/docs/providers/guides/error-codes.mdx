@@ -1,13 +1,13 @@
 ---
 title: Stable error codes
-description: Return the fixed v1 error envelope, keep it distinct from MCP and broker codes, and map each failed assertion check to a status and retryability.
+description: Return the fixed signup error envelope, keep it distinct from MCP and broker codes, and map each failed assertion check to a status and retryability.
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), generic HTTP sample, 2026-10-24"
+verifiedAgainst: "spec v2.1.0 (563525e), generic HTTP sample, 2026-11-21"
 ---
 
-**Goal:** every rejected signup returns a JSON envelope with one fixed v1 code, so an agent can act without reading prose.
+**Goal:** every rejected signup returns a JSON envelope with one fixed code, so an agent can act without reading prose.
 
 The normative table is [spec section 7.2](/protocol/specification/#72-error-envelope-and-stable-codes). This page is the implementation step and the recorded output from the samples.
 
@@ -16,7 +16,7 @@ The normative table is [spec section 7.2](/protocol/specification/#72-error-enve
 ```json
 {
   "error": "tos_hash_mismatch",
-  "error_description": "Accepted ToS hash does not match the published terms",
+  "error_description": "Accepted terms do not match the published terms",
   "retryable": false
 }
 ```
@@ -76,11 +76,11 @@ HTTP 403
 {"error":"human_unverified","error_description":"The human owner is not verified","retryable":false}
 ```
 
-Stale terms hash:
+Stale terms acceptance:
 
 ```text
 HTTP 409
-{"error":"tos_hash_mismatch","error_description":"Accepted ToS hash does not match the published terms","retryable":false}
+{"error":"tos_hash_mismatch","error_description":"Accepted terms do not match the published terms","retryable":false}
 ```
 
 Issuer not in the allowlist, recorded from the Worker sample:

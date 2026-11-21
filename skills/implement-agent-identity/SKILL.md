@@ -1,9 +1,9 @@
 ---
 name: implement-agent-identity
-description: "Implement the agent-identity-protocol relying-party contract end to end - publish identity-only discovery, verify a broker assertion, return stable errors, and issue a signed signup receipt. Use when a service wants to accept brokered agent signups."
+description: "Implement the Agent Identity Protocol relying-party contract end to end - publish identity-only discovery, verify a broker assertion, return stable errors, and issue a signed signup receipt. Use when a service wants to accept brokered agent signups."
 ---
 
-# Implement agent-identity-protocol
+# Implement the Agent Identity Protocol
 
 Use this skill when a provider wants agents to sign up autonomously while a
 verified human owner stays accountable. The protocol is identity and brokerage
@@ -36,11 +36,11 @@ Serve `GET /.well-known/agent-signup.json` on your canonical HTTPS origin:
 - Public only: no secrets, no internal hostnames, no personal data, body under
   1 MiB.
 
-Required fields: `protocol` (exactly `agent-identity-protocol`), `audience` (stable,
-case-sensitive, becomes the assertion `aud`), `provider_name`, a non-empty
-`issuer_allowlist` of issuer origins, unique `required_scopes` containing
-`tos:accept`, `terms` (`version`, `url` only), and `endpoints.agent_signup` as
-the only endpoint.
+Required fields: `protocol` (exactly `agent-identity-protocol`),
+`protocol_version` (exactly `"2.0"`), `audience` (stable, case-sensitive,
+becomes the assertion `aud`), `provider_name`, a non-empty `issuer_allowlist` of
+issuer origins, unique `required_scopes` containing `tos:accept`, `terms`
+(`version`, `url` only), and `endpoints.agent_signup` as the only endpoint.
 
 Optional fields: `spec`, `provider_url`, `contact`, `updated_at`, and
 non-capability `extensions` keyed by reverse-DNS namespace.
@@ -75,7 +75,7 @@ assertion is an Ed25519 JWT. Verify, in this order:
 
 Record the assertion `jti`, the accepted terms version and hash, and the
 attribution facts for audit. Revocation is enforced by the issuer when it mints
-assertions; no revocation feed is needed for v1.
+assertions; the current protocol does not require a revocation feed.
 
 ## 4. Return stable errors
 
@@ -124,10 +124,12 @@ On success return `200` or `201` with your credentials plus a signed
 `signup_token` and, optionally, a context pointer
 `{ "url": "https://...", "sha256": "sha256:..." }`.
 
-The receipt is identity only: `iss`, `sub`, `aud`, `jti`, `iat`, `exp`,
+The receipt is identity only: `iss`, `sub`, `aud`, `jti`, `iat`,
 `assertion_jti`, `service.*` (audience, provider name and URL, opaque
-`account_id`), `agent.*`, `human.*`, `tos.*`, `signed_up_at`. No SKU, endpoint
-URL, or free-form resource metadata.
+`account_id`), `agent.*`, `human.*`, `tos.*`, `signed_up_at`. There is no `exp`
+in a current receipt; a legacy `exp` is ignored, because a receipt is a
+historical fact rather than an access token. No SKU, endpoint URL, or free-form
+resource metadata.
 
 `context.url` must be HTTPS, stay on the signup endpoint's registrable domain,
 and be hash-pinned by `context.sha256`. It points at your post-signup guide -
@@ -141,29 +143,30 @@ Run the conformance validator before publishing and before each release:
 ```bash
 git clone https://github.com/agentregistrar/spec
 cd spec
-git checkout v1.1.0
+git checkout v2.1.0
 pnpm install
 pnpm --silent validate:discovery https://your-service.example/.well-known/agent-signup.json --json
 ```
 
 Exit `0` means conformant, `1` means the document was fetched but is not
 conformant, `2` means no usable document was obtained (transport, status,
-content type, size, or JSON). Warnings do not change the exit code.
+content type, size, or JSON). Warnings do not change the exit code. Report the
+validator version (`2.1.0`) with the result.
 
 The schema is checked in at the pinned tag:
-`https://github.com/agentregistrar/spec/blob/v1.1.0/agent-signup.schema.json`.
-A docs-site copy at
-`https://docs.agentregistrar.dev/protocol/agent-signup.schema.json` is
-planned, not published yet. Zod and the written specification win over either
-copy; report any divergence instead of hiding it.
+`https://github.com/agentregistrar/spec/blob/v2.1.0/agent-signup.schema.json`.
+The docs site also serves it at
+`https://docs.agentregistrar.dev/protocol/agent-signup.schema.json`. Zod and the
+written specification win over either copy; report any divergence instead of
+hiding it.
 
 ## 8. References
 
 - Provider entry point: <https://docs.agentregistrar.dev/providers/>
 - Protocol overview: <https://docs.agentregistrar.dev/protocol/>
-- Normative specification (v1.1.0):
-  <https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-protocol.md>
+- Normative specification (Agent Identity Protocol `v2.1.0`):
+  <https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md>
 - Implementation guide:
-  <https://github.com/agentregistrar/spec/blob/v1.1.0/implementing-agent-identity-protocol.md>
+  <https://github.com/agentregistrar/spec/blob/v2.1.0/implementing-agent-identity-protocol.md>
 - Scope boundaries:
-  <https://github.com/agentregistrar/spec/blob/v1.1.0/scope-boundaries.md>
+  <https://github.com/agentregistrar/spec/blob/v2.1.0/scope-boundaries.md>

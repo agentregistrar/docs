@@ -4,7 +4,7 @@ description: Serve the identity-only agent-signup.json document with provider-ho
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-21
-verifiedAgainst: "spec v2.0.0 (cc307bf), validator 2.0.0, 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), validator 2.1.0, 2026-11-21"
 ---
 
 **Goal:** a live `GET /.well-known/agent-signup.json` that returns your identity
@@ -26,16 +26,16 @@ example below when you publish it yourself. Both produce the same shape.
 
 ## The document
 
-This example is identity-only and passes the `v2.0.0` validator in file mode
-with zero errors and zero warnings. `example.com` and `example-rp` are
+This example is identity-only and passes the current validator in file mode
+with zero errors and zero warnings. `example.com` and `example-provider` are
 synthetic values.
 
 ```json
 {
   "protocol": "agent-identity-protocol",
   "protocol_version": "2.0",
-  "audience": "example-rp",
-  "provider_name": "Example RP",
+  "audience": "example-provider",
+  "provider_name": "Example Provider",
   "provider_url": "https://example.com",
   "contact": "security@example.com",
   "updated_at": "2026-11-21T00:00:00Z",
@@ -50,7 +50,7 @@ synthetic values.
   },
   "attestation": {
     "mode": "broker",
-    "uri": "https://agentregistrar.dev/api/broker/provider-verification?origin=https%3A%2F%2Fexample.com&audience=example-rp"
+    "uri": "https://agentregistrar.dev/api/broker/provider-verification?origin=https%3A%2F%2Fexample.com&audience=example-provider"
   },
   "extensions": {
     "dev.example": {
@@ -60,7 +60,7 @@ synthetic values.
 }
 ```
 
-`terms` is `{ version, url }`. Spec `v2.0.0` removed `terms.text` and
+`terms` is `{ version, url }`. The current spec removed `terms.text` and
 `terms.sha256`: the provider hosts the agreement, and the Broker records a hash
 of the exact bytes it fetches at signup.
 
@@ -107,7 +107,23 @@ compatibility field, embedded fallback, or dual publication.
    `{signup_token, rp_attestation}` and `{rp_attestation, report}`. Only
    discovery changed.
 
-## Migrate terms to v2.0.0
+## Migrate to Agent Identity Protocol v2.1.0
+
+`v2.1.0` renamed the protocol and separated its name from its wire version. A
+`v2.0.0` or earlier discovery document must be republished:
+
+1. Change `protocol` from `agent-identity-v1` to `agent-identity-protocol`.
+2. Add the required top-level `protocol_version: "2.0"`. Any other value means
+   the service is unsupported.
+3. Update the `spec` link and any copied schema `$id` to the `v2.1.0` or
+   `/protocol/` path.
+4. If you publish broker metadata, set `protocol_versions` to `["2.0"]`.
+5. Re-run the validator at `v2.1.0` and record the validator version in the
+   result.
+
+The signup handshake, assertion format, and receipt body are unchanged.
+
+## Migrate terms to v2.0.0 (historical)
 
 1. Host the complete agreement at an HTTPS URL on your origin. Serve stable
    bytes at that URL: no redirect, no HTML wrapper around a different text, no
@@ -118,9 +134,9 @@ compatibility field, embedded fallback, or dual publication.
    Broker fetches `terms.url` at signup and records the exact bytes it received,
    so a changed page is a stale-terms hard stop for an assertion minted for the
    old version.
-4. Revalidate with validator `2.0.0`. The fixtures and stable reasons are in
+4. Revalidate with the current validator. The fixtures and stable reasons are in
    [the validator](/protocol/validator/) and
-   [Error codes](/reference/error-codes/).
+   [Stable error codes](/providers/guides/error-codes/).
 
 ## Serve the route
 
@@ -134,8 +150,9 @@ export function GET() {
   return Response.json(
     {
       protocol: "agent-identity-protocol",
-      audience: process.env.PROVIDER_AUDIENCE ?? "example-rp",
-      provider_name: "Example RP",
+      protocol_version: "2.0",
+      audience: process.env.PROVIDER_AUDIENCE ?? "example-provider",
+      provider_name: "Example Provider",
       provider_url: process.env.PROVIDER_URL ?? "https://example.com",
       contact: process.env.PROVIDER_CONTACT ?? "security@example.com",
       issuer_allowlist: [process.env.BROKER_ORIGIN ?? "https://agentregistrar.dev"],
@@ -244,7 +261,7 @@ issuer publishes a usable JWKS. The command reference is in the
 
 ## Next
 
-- [Serve terms at a URL](/providers/guides/compute-tos-hash/): what the Broker
+- [Serve terms at a URL](/providers/guides/serve-terms/): what the Broker
   fetches and why the digest is no longer in discovery.
 - [Verify assertions](/providers/guides/verify-assertions/): the signup side.
 - [Validate and register](/providers/guides/validate-and-register/): registry

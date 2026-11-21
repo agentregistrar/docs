@@ -1,15 +1,18 @@
 ---
 title: Providers
-description: Implement agent-identity-protocol and accept brokered agent signups with a verified human owner.
+description: Implement the Agent Identity Protocol and accept brokered agent signups with a verified human owner.
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-21
-verifiedAgainst: "spec v2.0.0 (cc307bf), validator 2.0.0, 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), validator 2.1.0, 2026-11-21"
 ---
 
 A self-serve signup flow usually assumes a human at a browser: a form, an email inbox and a click. Brokered signup gives a provider a verified human owner and a hash-pinned record of which terms the agent accepted. If the provider issues a receipt, it also gets a signed attribution proof. The provider keeps its own account model, credentials and product API.
 
-`agent-identity-protocol` is an identity and brokerage protocol. It does not sell, provision or describe your product. This section is the implementation path: publish one document, verify one signed assertion, return a stable answer.
+The Agent Identity Protocol (`agent-identity-protocol` on the wire) is an
+identity and brokerage protocol. It does not sell, provision or describe your
+product. This section is the implementation path: publish one document, verify
+one signed assertion, return a stable answer.
 
 ## The three-step path
 
@@ -17,12 +20,15 @@ A self-serve signup flow usually assumes a human at a browser: a form, an email 
 2. **Verify assertions.** Accept `POST` at `endpoints.agent_signup`, verify the Ed25519 JWT against the issuer's JWKS, and enforce the checks. Start with [Verify assertions](/providers/guides/verify-assertions/).
 3. **Validate and register.** Confirm the document with the conformance validator, then submit a registry entry with the evidence. Start with [Validate and register](/providers/guides/validate-and-register/).
 
-The [provider quickstart](/providers/quickstart/) walks the whole path in one pass.
+The [provider quickstart](/providers/quickstart/) walks discovery, terms and
+validation in one pass, then links to verification and registration.
 
 If you use a provider account, the portal reduces setup to four steps: create the
 service (display name, origin, audience), verify the domain, copy the generated
 discovery document, and run one synchronous setup test that marks the service
-live. Broker-managed attestation is the default and needs no RP key.
+live. The optional provider verification credential (an `attestation` object in
+discovery) is broker-managed by default, so no provider signing key is needed to
+accept signups.
 
 ## What you publish, check and return
 
@@ -36,10 +42,10 @@ The field-level rules are in [Discovery fields](/protocol/discovery-fields/), [A
 
 ## What you do not need
 
-- **No SDK.** The protocol is one JSON document and one HTTP endpoint. Examples use `jose` or Web Crypto; any stack works.
 - **No broker account to publish or verify.** The broker mints assertions and does not call your signup endpoint. The JWKS is public. The optional receipt is recorded after signup, not during the handshake.
-- **No RP signing key to accept signups.** Broker-managed attestations accept `keys: []`. A key is optional and is used only for RP-signed receipts or authenticated abuse reports.
+- **No provider signing key to accept signups.** Broker-managed attestations accept `keys: []`. A key is optional and is used only for provider-signed receipts or authenticated abuse reports.
 - **No catalog in discovery.** Product capabilities stay in your own post-signup guide.
+- **No SDK dependency.** The protocol is one JSON document and one HTTP endpoint. Examples use `jose` or Web Crypto; any stack works.
 
 ## What you own
 
@@ -66,7 +72,7 @@ A valid discovery document is a statement about the document, not about your sec
 - [Demo network](/demo/): a deployed two-broker, three-provider test network with broker-managed, provider-managed and absent attestation sources.
 - [Identity-only discovery](/providers/concepts/identity-only-discovery/): why a parameter document is not a catalog.
 - [Brokered signup handshake](/providers/concepts/brokered-signup/): the sequence and the trust boundary.
-- [Liability and ToS](/providers/concepts/liability-and-tos/): delegation, hash pinning and what to retain.
+- [Liability and terms](/providers/concepts/liability-and-terms/): delegation, hash pinning and what to retain.
 - [Quickstart](/providers/quickstart/): terms text to a validator-passing document.
 - [Hosting recipes](/providers/hosting/generic-http/): Next.js, Cloudflare Workers and generic HTTP.
 - [Troubleshooting](/providers/troubleshooting/): symptom, cause and fix.

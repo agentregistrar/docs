@@ -1,6 +1,6 @@
 ---
 name: verify-agent-signup
-description: "Audit a relying party's /.well-known/agent-signup.json against agent-identity-protocol - check the protocol, issuer trust, scopes, provider-hosted terms and attestation source, run the conformance validator, and report pass or fail with evidence."
+description: "Audit a relying party's /.well-known/agent-signup.json against the Agent Identity Protocol - check the protocol, version, issuer trust, scopes, provider-hosted terms and attestation source, run the conformance validator, and report pass or fail with evidence."
 ---
 
 # Verify an agent signup document
@@ -40,21 +40,23 @@ or `403` is a bug in the service, not a "no".
 
 ## 2. Check the required fields
 
-Read the document as data. The required keys are `protocol`, `audience`,
-`provider_name`, `issuer_allowlist`, `required_scopes`, `terms`, and
-`endpoints`.
+Read the document as data. The required keys are `protocol`,
+`protocol_version`, `audience`, `provider_name`, `issuer_allowlist`,
+`required_scopes`, `terms`, and `endpoints`.
 
 - `protocol` is exactly `agent-identity-protocol`. Any other value means the service
   is unsupported; stop.
+- `protocol_version` is exactly `"2.0"`. Any other value means the service is
+  unsupported; stop.
 - `audience` is non-empty, case-sensitive, and contains no whitespace. It must
-  match the value the agent sends to `identity_prove`.
+  match the value the agent sends to `identity_signup`.
 - `issuer_allowlist` is non-empty, unique, and contains origins only: no path,
   query, fragment, or wildcard. Each origin must be one you trust to mint
   assertions.
 - `required_scopes` is unique and contains `tos:accept`. Every entry must
   already be granted to the agent.
 - `terms.version` and `terms.url` are present, and `terms.url` is absolute HTTPS.
-  `terms` carries no `text` or `sha256` in `v2.0.0`.
+  `terms` carries only `version` and `url`; discovery carries no text or digest.
 - `endpoints.agent_signup` is the only endpoint and is absolute HTTPS.
 
 Forbidden at any depth, including under `extensions`: `instance_catalog`,
@@ -87,7 +89,7 @@ implementation registry.
 ```bash
 git clone https://github.com/agentregistrar/spec
 cd spec
-git checkout v1.1.0
+git checkout v2.1.0
 pnpm install
 pnpm --silent validate:discovery https://skdl.dev/.well-known/agent-signup.json --json
 ```
@@ -111,12 +113,11 @@ availability problem and the recovery is different.
 ## 5. Inspect the schema when a field is unclear
 
 The schema is checked in at the pinned tag:
-`https://github.com/agentregistrar/spec/blob/v1.1.0/agent-signup.schema.json`.
-A copy at
-`https://docs.agentregistrar.dev/protocol/agent-signup.schema.json` is
-planned, not published, and returns `404` today; do not cite it as live. Read
-the property you need instead of guessing. Zod and the written specification win
-if the schema and prose ever disagree; report the divergence.
+`https://github.com/agentregistrar/spec/blob/v2.1.0/agent-signup.schema.json`.
+The docs site serves the same schema at
+`https://docs.agentregistrar.dev/protocol/agent-signup.schema.json`. Read the
+property you need instead of guessing. Zod and the written specification win if
+the schema and prose ever disagree; report the divergence.
 
 ## 6. Report the verdict
 
@@ -126,6 +127,7 @@ digests, counts.
 ```text
 - [pass] transport: 200, application/json, https
 - [pass] protocol: agent-identity-protocol
+- [pass] protocol_version: 2.0
 - [pass] issuer_allowlist: https://agentregistrar.dev (1 origin)
 - [pass] required_scopes: tos:accept, signup:free_tier
 - [pass] terms.url: stable bytes, no redirect, version 2026.1
@@ -148,9 +150,9 @@ Rules for the verdict:
 
 - Protocol overview: <https://docs.agentregistrar.dev/protocol/>
 - Provider entry point: <https://docs.agentregistrar.dev/providers/>
-- Normative specification (v1.1.0):
-  <https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-protocol.md>
+- Normative specification (Agent Identity Protocol `v2.1.0`):
+  <https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md>
 - Validator guide:
-  <https://github.com/agentregistrar/spec/blob/v1.1.0/validator.md>
+  <https://github.com/agentregistrar/spec/blob/v2.1.0/validator.md>
 - Implementation registry:
-  <https://github.com/agentregistrar/spec/blob/v1.1.0/registry/README.md>
+  <https://github.com/agentregistrar/spec/blob/main/registry/README.md>

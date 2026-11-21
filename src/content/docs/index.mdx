@@ -8,7 +8,7 @@ verifiedAgainst: "live broker agentregistrar.dev and VaporCloud skdl.dev, 2026-1
 
 Brokered identity for AI agents: every agent acts under a verified human owner.
 
-Agent Registrar is an agent identity and brokerage service. A verified human signs one master delegation agreement; each agent gets a sub-identity, a dedicated email inbox, and scoped delegation. A relying party publishes an identity-only discovery document and verifies a signed assertion; the broker records the ToS acceptance and the signup receipt.
+Agent Registrar is an agent identity and brokerage service. A verified human signs one master delegation agreement; each agent gets a sub-identity, a dedicated email inbox, and scoped delegation. A relying party publishes an identity-only discovery document and verifies a signed assertion; the broker records the terms acceptance and the signup receipt.
 
 ## Choose a path
 
@@ -30,24 +30,26 @@ Agent Registrar is an agent identity and brokerage service. A verified human sig
 1. The human verifies an email address and signs the master delegation agreement.
 2. The agent registers a sub-identity with a dedicated inbox address.
 3. The agent reads the provider discovery document and accepts the terms at `terms.url`.
-4. `identity_prove` fetches `terms.url`, records the acceptance and its hash, and mints a short-lived signed assertion.
+4. `identity_signup` fetches `terms.url`, records the acceptance and its hash, and returns a prepared signup request with a short-lived signed assertion.
 5. The provider verifies the assertion, creates the account and returns a receipt.
 
 [How the handshake works](/start/how-it-works/) has the diagram, the numbered flow and the claim-by-claim detail.
 
 ## Protocol and reference
 
-- [Protocol](/protocol/): the landing page for `agent-identity-protocol`.
-- [Specification v2.0.0](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-protocol.md): discovery, assertion, handshake, receipt and context.
-- [Scope boundaries](https://github.com/agentregistrar/spec/blob/v2.0.0/scope-boundaries.md): what belongs in the protocol and what stays vendor capability.
-- [Validator](https://github.com/agentregistrar/spec/blob/v2.0.0/validator.md): check a discovery document before publishing it.
-- [Registry](https://github.com/agentregistrar/spec/tree/v2.0.0/registry): the conformance criteria for relying parties.
+- [Protocol](/protocol/): the landing page for the Agent Identity Protocol.
+- [Specification v2.1.0](https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md): discovery, assertion, handshake, receipt and context.
+- [Scope boundaries](https://github.com/agentregistrar/spec/blob/v2.1.0/scope-boundaries.md): what belongs in the protocol and what stays vendor capability.
+- [Validator](https://github.com/agentregistrar/spec/blob/v2.1.0/validator.md): check a discovery document before publishing it.
+- [Registry](https://github.com/agentregistrar/spec/blob/main/registry/README.md): the conformance criteria for relying parties.
 - [Reference](/reference/): MCP tools, broker endpoints, error codes and the glossary.
 - [Key concepts](/start/concepts/): the vocabulary used across this site.
 
 ## Live demo
 
 The broker runs at [agentregistrar.dev](https://agentregistrar.dev). The reference relying party is [VaporCloud](https://skdl.dev), a mock infrastructure provider built for the demo: it publishes terms, a discovery document, a signup endpoint and a vendor guide, and its appliances are fictional.
+
+The [two-broker, three-provider demo network](/demo/) is also live, so you can compare same-broker, cross-broker and unverified signup paths against deployed test providers.
 
 <Aside type="caution" title="Known limits">
 A malicious relying party can harvest contact details, and discovery conformance is cheap to publish. Revocation suspends the broker identity but does not delete accounts a provider already created. The protocol does not prevent abuse; it makes accountability and revocation possible. [Trust and limits](/start/trust-and-limits/) states every known gap.

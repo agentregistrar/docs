@@ -1,23 +1,23 @@
 ---
 title: Serve terms at a URL
-description: Serve stable terms bytes at terms.url, reproduce the Broker-computed digest when you need to, and know how re-acceptance works.
+description: Serve stable terms bytes at terms.url, reproduce the broker-computed digest when you need to, and know how re-acceptance works.
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-21
-verifiedAgainst: "spec v2.0.0 (cc307bf), validator 2.0.0, Node 24.21.0, 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), validator 2.1.0, Node 24.21.0, 2026-11-21"
 ---
 
 **Goal:** serve one complete agreement at `terms.url` with stable bytes, and
 understand when a digest is computed and compared.
 
-Spec `v2.0.0` moved the terms out of `/.well-known/agent-signup.json`. Discovery
-carries `terms: { version, url }`; it no longer carries `terms.text` or
-`terms.sha256`. At signup the Broker fetches `terms.url`, hashes the exact
+The current spec moved the terms out of `/.well-known/agent-signup.json`.
+Discovery carries `terms: { version, url }`; it no longer carries `terms.text`
+or `terms.sha256`. At signup the broker fetches `terms.url`, hashes the exact
 response bytes as `sha256:<64 lowercase hex>`, and records that value in the
-assertion `delegation.accepted_rp_tos_hash` and in the ToS ledger. The provider
-checks `delegation.accepted_rp_tos_url` and may also check the digest when it
-serves deterministic bytes. The normative rule is
-[ToS binding](/protocol/specification/#6-tos-binding).
+assertion `delegation.accepted_rp_tos_hash` and in the terms ledger. The
+provider checks `delegation.accepted_rp_tos_url` and may also check the digest
+when it serves deterministic bytes. The normative rule is
+[terms binding](/protocol/specification/#6-tos-binding).
 
 ## Serve stable bytes
 
@@ -87,7 +87,7 @@ was accepted.
 
 | Mistake | Result |
 | :--- | :--- |
-| Publishing `terms.text` or `terms.sha256` again | Ignored under `v2.0.0`: `terms` passes through unknown fields, and discovery carries only `version` and `url`. |
+| Publishing `terms.text` or `terms.sha256` again | Ignored by the current validator: `terms` passes through unknown fields, and discovery carries only `version` and `url`. |
 | Serving a per-request challenge page | The Broker hashes a different response on each fetch; the digest is not reproducible. |
 | Redirecting `terms.url` | The Broker follows up to three same-origin redirects and hashes the final response bytes; a cross-origin redirect fails the fetch. |
 | Hashing a summary while serving the full agreement | The recorded digest covers bytes the human was not shown. |
@@ -116,7 +116,7 @@ pnpm --silent validate:discovery https://example.com/.well-known/agent-signup.js
 curl -sS -o /dev/null -w '%{http_code} %{content_type}\n' https://example.com/terms
 ```
 
-A passing run reports `"valid": true` and no errors. The v2.0.0 validator does
+A passing run reports `"valid": true` and no errors. The current validator does
 not require or report `terms.text` or `terms.sha256`. See the
 [conformance validator](/protocol/validator/).
 
@@ -124,4 +124,4 @@ not require or report `terms.text` or `terms.sha256`. See the
 
 - [Publish discovery](/providers/guides/publish-discovery/): the route and transport.
 - [Stable error codes](/providers/guides/error-codes/): how to return `tos_hash_mismatch`.
-- [Liability and ToS](/providers/concepts/liability-and-tos/): re-acceptance and retention.
+- [Liability and terms](/providers/concepts/liability-and-terms/): re-acceptance and retention.

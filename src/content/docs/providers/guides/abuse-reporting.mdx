@@ -4,7 +4,7 @@ description: Send an authenticated abuse report with the RP attestation and a si
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), 2026-10-24"
+verifiedAgainst: "spec v2.1.0 (563525e), 2026-11-21"
 ---
 
 **Goal:** report a compromised or abusive agent sub-identity to the broker with an
@@ -133,7 +133,7 @@ includes key material or internal paths.
 - It does not guarantee that an in-flight assertion is rejected; assertions are
   short-lived and revocation/suspension is enforced at minting time.
 - It does not suspend on an unverified or unlinked report.
-- It does not expose a report-status call in v1.2.
+- There is no report-status endpoint.
 
 Your own termination, credential rotation and data-retention policy still apply.
 
@@ -181,6 +181,6 @@ beyond what the report requires. Do not paste secrets into the reason field.
 ## Next
 
 - [Production checklist](/providers/guides/production-checklist/): incidents, keys and contacts.
-- [Liability and ToS](/providers/concepts/liability-and-tos/): attribution and retention.
+- [Liability and terms](/providers/concepts/liability-and-terms/): attribution and retention.
 - [Trust and limits](/start/trust-and-limits/): what suspension and revocation do and do not do.
 - [Specification](/protocol/specification/): the normative D.2 rules.

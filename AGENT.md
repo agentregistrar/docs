@@ -17,8 +17,8 @@ operating detail; where the two overlap, the stricter rule wins. Do not copy
 
 ## 1. What this repo is
 
-The public documentation site for Agent Registrar and `agent-identity-protocol`.
-Static Astro build via Cloudflare Nimbus, live at
+The public documentation site for Agent Registrar and the Agent Identity
+Protocol (`agent-identity-protocol`). Static Astro build via Cloudflare Nimbus, live at
 <https://docs.agentregistrar.dev> on the Cloudflare Worker
 `agentregistrar-docs` (static assets; section 15). Apache-2.0.
 
@@ -26,7 +26,7 @@ Canonical sources live outside this repo. Do not restate normative text here.
 
 | Subject | Canonical source |
 | :--- | :--- |
-| Protocol `agent-identity-protocol` | `agentregistrar/spec` at tag `v1.1.0` |
+| Agent Identity Protocol (`agent-identity-protocol`) | `agentregistrar/spec` at tag `v2.1.0` |
 | Discovery JSON Schema | `agentregistrar/spec/agent-signup.schema.json` at the pinned revision; served byte-for-byte at `/protocol/agent-signup.schema.json` |
 | Broker behavior, MCP tools, portal | the monorepo (`apps/broker-portal`, `packages/shared`) |
 | Product definitions and IA | `docs/12-docs-push/01-docs-ia-audit-and-decisions.md` |
@@ -83,8 +83,9 @@ scripts/fetch-history.mjs  full-history gate for sitemap dates (not a test)
 
 ## 4. The content tree is the IA
 
-- A page is `src/content/docs/<path>/index.mdx` (or `.md` for generated
-  normative text). Its URL is `/<path>/`.
+- A page is `src/content/docs/<section>/<page>.mdx` (or `.md` for generated
+  normative text); a section landing is `src/content/docs/<section>/index.mdx`.
+  Its URL is `/<section>/<page>/`.
 - The sidebar is generated from the same tree. A folder is a group; its
   `index.mdx` is the group landing page and its `sidebar.group.label` names the
   group.
@@ -114,7 +115,7 @@ Provenance fields, validated by `src/content.config.ts`:
 | `aiGenerated` | boolean | `true` while an agent drafted the page and no human has reviewed it. Shows "awaiting review" in the page actions row. |
 | `verifiedAgainst` | string | Behavior pages only: the exact artifact the page was checked against, e.g. `broker e7b53b4, 2026-10-21` or `Nimbus 0.18.1`. |
 | `lastReviewed` | date | The date a human last reviewed the page against its source. Set it when the review happens; never backfill or guess. |
-| `source` | string | Generated pages only: the pinned source, e.g. `spec:v1.1.0#agent-identity-protocol.md`. |
+| `source` | string | Generated pages only: the pinned source, e.g. `spec:v2.1.0#agent-identity-protocol.md`. |
 
 Rules:
 
@@ -141,7 +142,7 @@ title: Publish discovery
 description: Serve an identity-only discovery document that the validator accepts.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.1.0, validator 1.0.0, 2026-10-21"
+verifiedAgainst: "spec v2.1.0, validator 2.1.0, 2026-11-21"
 ---
 ```
 
@@ -215,8 +216,9 @@ The build emits, for every discoverable page:
 - `/llms.txt` - site index with one hop to each section.
 - `/llms-full.txt` - all discoverable pages in one document.
 - `/<section>/llms.txt` - per-section index, nested one level at a time. Emitted
-  only when a section has more than one page; every section is a single landing
-  today, so only the root `/llms.txt` exists.
+  only when a section has more than one page. The current sections are `agents`,
+  `contribute`, `portal`, `protocol`, `providers`, `reference` and `start`;
+  `demo` has one page and therefore no per-section index.
 - `/<slug>/index.md` - clean Markdown of the page, components flattened.
 - `/<slug>/index.mdx` - authored source, including imports and JSX.
 - JSON-LD in every page `<head>`, plus `sitemap.xml`, `robots.txt`.
@@ -550,7 +552,7 @@ launch, and record the date and findings.
   The spec text and the schema are canonical and contain typographic
   punctuation; they are not hand-authored prose and must not be rewritten.
   Every hand-authored page is still ASCII.
-- `nimbus-docs lint` reads the 15 hand-authored `.mdx` pages only. The five
+- `nimbus-docs lint` reads the hand-authored `.mdx` pages only. The five
   generated `.md` pages are deliberately outside that lint pass (the spec text
   is canonical), but they are inside the build: `pnpm build` runs
   `scripts/check-links.mjs` over `dist/`, including both root-relative links and

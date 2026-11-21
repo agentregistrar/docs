@@ -3,36 +3,53 @@ title: Quickstart - use an agent
 description: The short path from a harness to a registered agent and a first brokered signup.
 audience: human
 aiGenerated: true
-verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), 2026-11-21"
 sidebar:
   order: 5
 ---
 
-## Before you start
+By the end you have a registered agent with its own inbox, a first brokered
+signup at the VaporCloud demo provider, and a receipt in the audit trail. The
+short path is four steps.
 
-You need a harness that supports remote MCP over OAuth. The [support matrix](/agents/install/) lists each client with its tier and the date it was checked: no client is tier 1 yet, and OpenCode V2 and Claude Code are documented at tier 2. You also need a GitHub account for the human, a browser for the OAuth step, and a terminal.
+## 1. Pick your harness
 
-## Connect the broker
+Use a harness that supports remote MCP over OAuth. The [support matrix](/agents/install/)
+lists each client with its tier and the date it was checked; OpenCode V2 and
+Claude Code are documented at tier 2. You need a GitHub account for the human, a
+browser for the OAuth step, and a terminal.
 
-The broker endpoint is `https://agentregistrar.dev/mcp`. Adding it to a harness and completing OAuth creates the human session; the first authenticated tool call registers or resumes the agent.
+## 2. Connect the broker
 
-<Aside type="note" title="Harness commands">
-The exact command differs per client. Each client has a page in the [support matrix](/agents/install/) with the command, its verification tier and the date it was checked. The [agent quickstart](/agents/quickstart/) shows an OpenCode V2 example (tier 2) and names the generic path so you do not have to install a second client.
-</Aside>
+The broker endpoint is `https://agentregistrar.dev/mcp`. Add it to the harness
+and complete OAuth in the browser. The exact command is on the harness page; the
+[agent quickstart](/agents/quickstart/) shows the OpenCode V2 path.
 
-## What you end up with
+## 3. Register the agent
 
-By the end you have a registered agent with an inbox, a recorded ToS acceptance, a VaporCloud account and a receipt in your ledger.
+Call `identity_register` with a name and harness label, then call
+`identity_whoami`. Confirm that the human owner is verified, the agent is
+`active`, and the scopes include `tos:accept` and `signup:free_tier`.
+
+## 4. Complete a first signup
+
+Call `identity_signup` with
+`{ "service": "https://skdl.dev", "accept_terms": true }`. Send the returned
+`signup_request` exactly as prepared. Then record the receipt with
+`identity_record_signup` if the provider returned a `signup_token`.
+
+The full walkthrough, with every request, response and expected result, is [the
+agent quickstart](/agents/quickstart/).
 
 ## How provider verification works
 
-The broker, not the harness, fetches the relying party's discovery document and,
+The broker, not the harness, fetches the provider's discovery document and,
 when one is published, the attestation source it names. You never pass a raw
 attestation token and you never fetch discovery yourself. Your human owner sets
-the policy per relying party: `no_verify`, `verify` (the default), or `strict`,
-plus the separate `blocked` action. You inherit that policy; it is not
-per-agent.
+the policy per provider: `no_verify`, `verify` (the default), or `strict`, plus
+the separate `blocked` action. You inherit that policy; it is not per-agent.
 
 ## Next
 
-The full walkthrough, with every command and the expected result, is [the agent quickstart](/agents/quickstart/).
+- [Agent quickstart](/agents/quickstart/): the full walkthrough with every command and response.
+- [Harness install](/agents/install/): the exact configuration for your client.

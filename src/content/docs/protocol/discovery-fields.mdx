@@ -16,7 +16,7 @@ The machine-readable schema is served at
 [`/protocol/agent-signup.schema.json`](/protocol/agent-signup.schema.json)
 with content type `application/schema+json`. Validate a document with the
 [conformance validator](/protocol/validator/). This table follows spec
-`v2.0.0`. The downloadable schema asset and the generated protocol pages are
+`v2.1.0`. The downloadable schema asset and the generated protocol pages are
 pinned by the docs release; when they lag this table, the spec source is
 canonical.
 
@@ -30,7 +30,7 @@ canonical.
 | `provider_name` | string | Human-readable service name. | [5.1](/protocol/specification/#51-required-fields) |
 | `issuer_allowlist` | array of strings | Non-empty, unique absolute issuer origins. No path, query, fragment or wildcard. Trailing slashes are normalized away. The broker `iss` must match one entry exactly. | [5.1](/protocol/specification/#51-required-fields), [5.4](/protocol/specification/#54-field-rules) |
 | `required_scopes` | array of strings | Unique non-empty scopes. Brokered signup must include `tos:accept`. | [5.1](/protocol/specification/#51-required-fields) |
-| `terms.version` | string | ToS version. Change it whenever the agreement changes materially. | [5.1](/protocol/specification/#51-required-fields), [6](/protocol/specification/#6-tos-binding) |
+| `terms.version` | string | Terms version. Change it whenever the agreement changes materially. | [5.1](/protocol/specification/#51-required-fields), [6](/protocol/specification/#6-tos-binding) |
 | `terms.url` | string | Absolute URL of the provider-hosted agreement that a human can read. HTTPS is required except the documented localhost development exception. The Broker fetches this URL at signup and hashes the exact response bytes. | [5.1](/protocol/specification/#51-required-fields) |
 | `endpoints.agent_signup` | string | Absolute URL that accepts `POST` with `Authorization: Bearer <assertion>`. The only endpoint in the protocol. | [5.1](/protocol/specification/#51-required-fields) |
 
@@ -138,7 +138,7 @@ A document is a parameter document, not a capability catalog. Vendor capabilitie
   no per-request token, no variant that changes between fetches.
 - The Broker fetches `terms.url` at signup and records
   `sha256:<64 lowercase hex>` over the exact response bytes in
-  `delegation.accepted_rp_tos_hash` and in the ToS ledger.
+  `delegation.accepted_rp_tos_hash` and in the terms ledger.
 - The relying party checks `delegation.accepted_rp_tos_url` against its current
   `terms.url` (trailing slashes normalized). It may also check the hash when the
   URL serves deterministic bytes.
@@ -147,12 +147,12 @@ A document is a parameter document, not a capability catalog. Vendor capabilitie
   relying-party policy documented outside discovery; it should not exceed 24
   hours.
 
-See [ToS binding](/protocol/specification/#6-tos-binding) and [Re-acceptance](/protocol/specification/#61-re-acceptance).
+See [terms binding](/protocol/specification/#6-tos-binding) and [Re-acceptance](/protocol/specification/#61-re-acceptance).
 
 ## Minimal conformant example
 
-This document contains only the required identity fields. It passes the
-`v2.0.0` validator in file mode with zero errors and zero warnings. The optional
+This document contains only the required identity fields. It passes the current
+validator in file mode with zero errors and zero warnings. The optional
 `attestation` object is absent, so the document is conformant and
 **unverified**.
 
@@ -160,8 +160,8 @@ This document contains only the required identity fields. It passes the
 {
   "protocol": "agent-identity-protocol",
   "protocol_version": "2.0",
-  "audience": "example-rp",
-  "provider_name": "Example RP",
+  "audience": "example-provider",
+  "provider_name": "Example Provider",
   "issuer_allowlist": ["https://agentregistrar.dev"],
   "required_scopes": ["tos:accept"],
   "terms": {

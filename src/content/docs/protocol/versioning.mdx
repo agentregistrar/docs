@@ -3,17 +3,29 @@ title: Versioning
 description: Additive and breaking changes, the protocol id, the path policy and the release-notes process.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), 2026-11-21"
 ---
 
-`agent-identity-protocol` carries its major version in the discovery document's `protocol` field. This page explains how the protocol changes and how the docs site tracks it. The normative policy is [spec section 13](/protocol/specification/#13-versioning-extension--deprecation-policy).
+The Agent Identity Protocol separates its name from its wire version. Discovery
+carries the name in `protocol` and the version in `protocol_version`. This page
+explains how the protocol changes and how the docs site tracks it. The normative
+policy is [spec section 13](/protocol/specification/#13-versioning-extension--deprecation-policy).
 
 ## Current version
 
-- Protocol id: `agent-identity-protocol`.
-- Specification release: `v2.0.0`, released 2026-11-21.
-- Package: `@agentregistrar/discovery` `2.0.0`.
-- The `v2.0.0` release moves discovery terms to a provider-hosted `terms: { version, url }` object and removes `terms.text` and `terms.sha256` from the required schema; those fields carry no protocol meaning, and conformant consumers ignore them if present. It also allows keyless broker-managed attestations (`keys: []`). The `v1.3.0` release replaced the embedded `rp_attestation` discovery field with one optional `attestation` source object; later v1.3 patch releases corrected the policy, issuance and documentation text. The JWT format, assertion claims and Contracts E, F, H and I are unchanged.
+- Protocol name: **Agent Identity Protocol**.
+- Wire identifier: `agent-identity-protocol`.
+- Wire version: `2.0`, carried in the required `protocol_version` field.
+- Specification release: `v2.1.0`, released 2026-11-21.
+- Package: `@agentregistrar/discovery` `2.1.0`.
+- `v2.1.0` renamed the protocol from `agent-identity-v1` to
+  `agent-identity-protocol`, added the required `protocol_version`, and changed
+  the attestation audience to `agent-identity-protocol`. The `v2.0.0` release
+  moved discovery terms to a provider-hosted `terms: { version, url }` object
+  and removed `terms.text` and `terms.sha256` from the required schema. The
+  `v1.3.0` release replaced the embedded `rp_attestation` discovery field with
+  one optional `attestation` source object. The JWT format, assertion claims and
+  Contracts E, F, H and I are unchanged.
 - The policy values are `no_verify`, `verify` (default) and `strict`, with `blocked` as a separate action. The old `allow`/`warn`/`require`/`block` values and the `enforced` field are removed.
 - A document that omits `attestation` remains conformant. The `v2.0.0` terms requirement applies separately: a document must publish `terms: { version, url }`. A v1.2 document that embedded `rp_attestation` is no longer conformant until it publishes the new object or omits it.
 
@@ -21,7 +33,9 @@ The full release history is in the [changelog](/protocol/changelog/).
 
 ## Additive changes
 
-Additive identity fields and clarifications are allowed within v1. They do not change the `protocol` value or the discovery path.
+Additive identity fields and clarifications are allowed within wire version
+`2.0`. They do not change the `protocol` name, the `protocol_version` value, or
+the discovery path.
 
 - Consumers must ignore unknown fields.
 - Producers should namespace non-capability vendor metadata under `extensions.<reverse-dns>`.
@@ -35,7 +49,10 @@ Vendor catalogs, provisioning endpoints, resource metadata and API-usage documen
 
 A breaking change must use a new `protocol` value and a new discovery path, for example `agent-signup-v2.json`.
 
-- The v1 path must not silently change semantics. `v2.0.0` keeps the `protocol` id because it changes only the terms carrier and the RP key snapshot, not the handshake. `v1.3.0` removed only an optional carrier: no conformant document was required to carry it, and omitting the replacement stays conformant, so the `protocol` id stays `agent-identity-protocol` (spec section 13).
+- The current path must not silently change semantics. `v2.0.0` kept the
+  protocol id because it changed only the terms carrier and the provider key
+  snapshot, not the handshake. `v2.1.0` renamed the id and split the name from
+  the wire version; the handshake and assertion format are unchanged.
 - A future version should be dual-published during a migration window.
 - The public specification URL should be versioned. The optional `spec` field lets agents and humans find the exact document.
 - The registry lists implementations by the `protocol` value their discovery document advertises.
@@ -44,17 +61,23 @@ A breaking change must use a new `protocol` value and a new discovery path, for 
 
 The docs site follows the protocol path:
 
-- `/protocol/` is the canonical path for this major version.
-- A breaking change would add `/agent-identity/v2/` rather than rewriting the v1 pages.
+- `/protocol/` is the canonical path for the current version.
+- A future major would get its own path decided in the specification; the old `/agent-identity/v2/` example is retired.
 - There is no whole-site versioning. Only the protocol family is path-versioned.
 - The generated pages under `/protocol/` are pinned to one spec tag and are regenerated by `pnpm sync:spec`.
 
 ## Deprecation and release notes
 
-- v2.0.0 keeps the `protocol` id and does not deprecate earlier v1 shapes by name. It replaces the required `terms.text` and `terms.sha256` with `terms: { version, url }`; a document that still carries the removed fields remains conformant, and conformant consumers ignore them. The v1.3 `attestation` source object is unchanged.
-- The specification's changelog records every additive v1 change with its date.
+- `v2.1.0` retires the `agent-identity-v1` wire id. A `v2.0.0` or earlier
+  document must add `protocol_version: "2.0"` and the renamed `protocol` value.
+  Discovery that still carries `terms.text` or `terms.sha256` remains conformant
+  because unknown additive fields are ignored. The `v1.3` `attestation` source
+  object is unchanged.
+- The specification's changelog records every additive change with its date.
 - Release notes record the release evidence, the change process and any non-blocking follow-ups.
-- v1 has no formal sunset date. A future breaking change would be dual-published during a migration window; v1 would stay published for that window.
+- The current version has no formal sunset date. A future breaking change would
+  be dual-published during a migration window; the current version would stay
+  published for that window.
 - A deprecation notice, if one is ever needed, belongs in the release notes and at the top of the affected version's landing page. The docs site does not invent a deprecation schedule ahead of the specification.
 
 ## Updating the rendered docs
@@ -71,8 +94,10 @@ The rendered pages are generated from a pinned tag, never hand-edited. The versi
 
 ## Known limits
 
-- There is no formal deprecation timetable for v1.
-- Additive changes do not change the wire protocol id, so an agent cannot tell minor versions apart from `protocol` alone. The optional `spec` field is the version pointer.
+- There is no formal deprecation timetable for the current version.
+- The wire version is major-only, so an agent cannot tell additive spec releases
+  apart from `protocol_version` alone. The optional `spec` field is the exact
+  release pointer.
 - The docs site renders one pinned tag. A newer tag is not live until the sync and review land.
 
 ## Related

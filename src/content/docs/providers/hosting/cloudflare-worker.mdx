@@ -7,7 +7,7 @@ lastReviewed: 2026-10-21
 verifiedAgainst: "wrangler 4.151.3 (workerd local), jose 6.2.13, Node 24.21.0, 2026-10-21"
 ---
 
-**Updated for spec v2.0.0; re-run pending.** This Worker ran under `wrangler dev` (the local workerd runtime) with Wrangler 4.151.3 on 2026-10-21 against the v1.3.2 shape. The snippet now uses provider-hosted `terms: { version, url }` and a URL check, and has not been re-run. It was not deployed to a Cloudflare account for this page. The wire behavior is identical to any other host.
+**Updated for spec v2.1.0; re-run pending.** This Worker ran under `wrangler dev` (the local workerd runtime) with Wrangler 4.151.3 on 2026-10-21 against the v1.3.2 shape. The snippet now uses provider-hosted `terms: { version, url }`, requires `protocol_version`, and checks the terms URL, but has not been re-run. It was not deployed to a Cloudflare account for this page. The wire behavior is identical to any other host.
 
 ## Create the project
 
@@ -46,7 +46,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const DEFAULTS = {
   brokerOrigin: "https://agentregistrar.dev",
-  audience: "example-rp",
+  audience: "example-provider",
   providerUrl: "https://example.com",
   requiredScopes: "tos:accept",
   termsVersion: "2026.1",
@@ -116,7 +116,7 @@ async function verify(request, cfg) {
     typeof acceptedUrl !== "string" ||
     normalizeUrl(acceptedUrl) !== normalizeUrl(cfg.termsUrl)
   ) {
-    return { error: fail(409, "tos_hash_mismatch", "Accepted ToS URL is stale") };
+    return { error: fail(409, "tos_hash_mismatch", "Accepted terms URL is stale") };
   }
   return { claims };
 }
@@ -130,8 +130,9 @@ export default {
       return new Response(
         JSON.stringify({
           protocol: "agent-identity-protocol",
+          protocol_version: "2.0",
           audience: cfg.audience,
-          provider_name: "Example RP",
+          provider_name: "Example Provider",
           provider_url: cfg.providerUrl,
           contact: "security@example.com",
           issuer_allowlist: [cfg.brokerOrigin],
@@ -261,7 +262,7 @@ Before deploying:
 
 ## Notes
 
-- The Worker has no filesystem at request time, so the terms text is bundled. A content change requires a deploy, which is also when the hash changes.
+- Serve terms from `terms.url`; the Worker does not carry the terms or a digest. Changing the terms means publishing new bytes and bumping `terms.version`, not redeploying the Worker.
 - `BROKER_JWKS_URL` exists for local fixtures. In production, leave it unset and use the issuer origin.
 - The context pointer is omitted in this minimal Worker. Add it only with a real digest; see [Publish a context guide](/providers/guides/publish-context-guide/).
 - Do not cache the signup response; it contains a show-once credential.

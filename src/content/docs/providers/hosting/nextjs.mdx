@@ -4,10 +4,10 @@ description: A complete Next.js App Router recipe for discovery and brokered sig
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-21
-verifiedAgainst: "Next.js 16.4.2, React 19.3.1, jose 6.2.13, Node 24.21.0; spec v2.0.0 (cc307bf), 2026-11-21"
+verifiedAgainst: "Next.js 16.4.2, React 19.3.1, jose 6.2.13, Node 24.21.0; spec v2.1.0 (563525e), 2026-11-21"
 ---
 
-**Updated for spec v2.0.0; re-run pending.** The recorded end-to-end run below was made with Next.js 16.4.2 on Node 24.21.0 on 2026-10-21 against the v1.3.2 shape, using a local JWKS fixture. The route snippets now use provider-hosted `terms: { version, url }` and a URL check; they have not been re-run on this platform. Treat the recorded output as illustrative until a new run is recorded.
+**Updated for spec v2.1.0; re-run pending.** The recorded end-to-end run below was made with Next.js 16.4.2 on Node 24.21.0 on 2026-10-21 against the v1.3.2 shape, using a local JWKS fixture. The route snippets now use provider-hosted `terms: { version, url }`, require `protocol_version`, and check the terms URL; they have not been re-run on this platform. Treat the recorded output as illustrative until a new run is recorded.
 
 ## Create the app
 
@@ -30,7 +30,7 @@ signs so the recorded signup responses reproduce. In production it is your own
 
 ```bash
 mkdir -p app/.well-known/agent-signup.json app/api/signup/agent public/docs
-printf '# Example RP agent guide\n\nCall POST /api/provision with your API key.\n' > public/docs/SKILL.md
+printf '# Example Provider agent guide\n\nCall POST /api/provision with your API key.\n' > public/docs/SKILL.md
 ```
 
 ## Discovery route
@@ -42,8 +42,9 @@ export function GET() {
   return Response.json(
     {
       protocol: "agent-identity-protocol",
-      audience: process.env.PROVIDER_AUDIENCE ?? "example-rp",
-      provider_name: "Example RP",
+      protocol_version: "2.0",
+      audience: process.env.PROVIDER_AUDIENCE ?? "example-provider",
+      provider_name: "Example Provider",
       provider_url: process.env.PROVIDER_URL ?? "https://example.com",
       contact: process.env.PROVIDER_CONTACT ?? "security@example.com",
       issuer_allowlist: [process.env.BROKER_ORIGIN ?? "https://agentregistrar.dev"],
@@ -59,7 +60,7 @@ export function GET() {
         mode: "broker",
         uri: `https://agentregistrar.dev/api/broker/provider-verification?origin=${encodeURIComponent(
           process.env.PROVIDER_URL ?? "https://example.com",
-        )}&audience=${encodeURIComponent(process.env.PROVIDER_AUDIENCE ?? "example-rp")}`,
+        )}&audience=${encodeURIComponent(process.env.PROVIDER_AUDIENCE ?? "example-provider")}`,
       },
     },
     {
@@ -82,7 +83,7 @@ Save as `app/api/signup/agent/route.js`. It verifies with `jose`, resolves accou
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const BROKER_ORIGIN = process.env.BROKER_ORIGIN ?? "https://agentregistrar.dev";
-const AUDIENCE = process.env.PROVIDER_AUDIENCE ?? "example-rp";
+const AUDIENCE = process.env.PROVIDER_AUDIENCE ?? "example-provider";
 const JWKS_URL = process.env.BROKER_JWKS_URL ?? `${BROKER_ORIGIN}/.well-known/jwks.json`;
 const TERMS_URL = process.env.TERMS_URL ?? `${process.env.PROVIDER_URL ?? "https://example.com"}/terms`;
 const REQUIRED_SCOPES = ["tos:accept"];
@@ -125,7 +126,7 @@ async function verifyAssertion(request) {
     typeof acceptedUrl !== "string" ||
     acceptedUrl.replace(/\/+$/, "") !== TERMS_URL.replace(/\/+$/, "")
   ) {
-    return { error: error(409, "tos_hash_mismatch", "Accepted ToS URL is stale") };
+    return { error: error(409, "tos_hash_mismatch", "Accepted terms URL is stale") };
   }
   return { claims };
 }

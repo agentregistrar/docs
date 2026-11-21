@@ -71,7 +71,7 @@ The authorization code comes back to a loopback URL on the machine that runs the
 - Claude Code: a random loopback port by default; `--callback-port` fixes it.
 - Codex CLI: `http://127.0.0.1/callback` with the port inserted at login.
 - Cursor: `http://localhost:8787/callback` on desktop, `https://www.cursor.com/agents/mcp/oauth/callback` on the web.
-- Gemini CLI: `http://localhost:<port>/oauth/callback`.
+- Antigravity CLI: `antigravity.google/oauth-callback`, handled by Antigravity rather than a local port.
 - Claude Desktop: the callback is handled by Anthropic's connector infrastructure, not by your machine.
 
 A firewall that blocks loopback traffic, a port already bound by another process, or a remote SSH session without forwarding all break this step. Free the port, retry, or run the sign-in on a desktop session.

@@ -3,7 +3,7 @@ title: Troubleshooting
 description: The failures you are most likely to hit, what causes them and the fix for each.
 audience: human
 aiGenerated: true
-verifiedAgainst: "broker monorepo c7ddfa7, spec v1.2.0, 2026-10-21"
+verifiedAgainst: "broker monorepo c7ddfa7, spec v2.1.0 (563525e), 2026-11-21"
 sidebar:
   order: 7
 ---
@@ -57,7 +57,8 @@ Two habits prevent most of these. Let the Broker fetch `terms.url` rather than s
 | The document parses but `protocol` is different | Another protocol or a malformed document | Treat the service as unsupported |
 | `issuer_allowlist` does not contain your broker origin | The provider does not accept this broker | Do not proceed; tell the human |
 | `required_scopes` is not covered by the agent's scopes | The provider asks for more than was delegated | Ask the human to re-delegate; do not proceed |
-| `terms` contains `text` or `sha256`, or `terms.url` redirects | The document is not `v2.0.0`, or the terms URL is unstable | Do not proceed. Re-fetch; if it persists, report it to the provider |
+| `terms` contains `text` or `sha256` | Older additive fields; the current validator accepts and ignores them | Continue if the rest of the document is valid. |
+| `terms.url` redirects or serves changing bytes | The terms URL is unstable, so the broker cannot record a reproducible hash | Do not proceed. Re-fetch; if it persists, report it to the provider. |
 | The document advertises SKUs, provisioning or quotas | Non-conformant vendor capability in discovery | Do not rely on those fields; report it to the provider |
 
 ## Signup at the provider

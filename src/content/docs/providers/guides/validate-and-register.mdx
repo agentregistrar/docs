@@ -4,7 +4,7 @@ description: Run the conformance and attestation validator, read its verdicts an
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), 2026-11-21"
 ---
 
 **Goal:** prove the discovery document conforms, optionally prove the provider
@@ -46,7 +46,10 @@ pnpm --silent validate:discovery ./agent-signup.json --json
 Use `pnpm --silent` (or `pnpm -s`) so pnpm's banner does not pollute stdout. The
 validator itself writes only JSON.
 
-## Flags added in v1.3
+## Flags added in v1.3 (historical)
+
+The current validator is `2.1.0`. The flags below still apply; the version label
+records when they were introduced.
 
 | Flag | Effect |
 | :--- | :--- |
@@ -77,10 +80,11 @@ A malformed `attestation` object is a **conformance** error with
 origin mismatch, or audience mismatch is a verification failure. An absent object
 is `unverified`.
 
-## Recorded v1.3 runs
+## Recorded v1.3 runs (historical)
 
 The v1.3.0 release notes record the fixture matrix and validator output. The
-headline cases:
+headline cases below are a historical record; re-run the matrix at validator
+`2.1.0` for new registry evidence.
 
 | Case | Command shape | Result |
 | :--- | :--- | :--- |

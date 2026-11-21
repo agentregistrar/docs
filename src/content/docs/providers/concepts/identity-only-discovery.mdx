@@ -4,7 +4,7 @@ description: Why agent-signup.json is a parameter document, which fields it may 
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), 2026-11-21"
 ---
 
 `agent-signup.json` answers one question: can this agent, acting for this human, accept these terms and create an account here? It is a parameter document for that decision. It is not a capability catalog, a product description or an API index.
@@ -68,7 +68,7 @@ Use it for things like a status page or a support URL. Do not use it to smuggle 
 ## Non-goals
 
 - Discovery does not prove the service is trustworthy, secure or available.
-- Discovery itself is not signed in v1.3. The optional `attestation` object names
+- Discovery itself is not signed in the current protocol. The optional `attestation` object names
   a signed statement about the provider; it is not a signature over the document.
   Trust in the document comes from TLS, the issuer allowlist, and the signed
   assertion; the credential adds a separately verifiable provider identity. A
@@ -89,5 +89,5 @@ The command and output are documented in the [conformance validator](/protocol/v
 ## Next
 
 - [Brokered signup handshake](/providers/concepts/brokered-signup/): what the agent sends and what you must verify.
-- [Liability and ToS](/providers/concepts/liability-and-tos/): the acceptance record and what to retain.
+- [Liability and terms](/providers/concepts/liability-and-terms/): the acceptance record and what to retain.
 - [Publish discovery](/providers/guides/publish-discovery/): the implementation step.

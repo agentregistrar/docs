@@ -1,10 +1,10 @@
 ---
 title: Error codes
-description: Broker, MCP, OAuth, provider and inbox errors with status, retryability and the next action, including the v2.0.0 RP trust and terms codes.
+description: Broker, MCP, OAuth, provider and inbox errors with status, retryability and the next action, including the current trust and terms codes.
 audience: both
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v2.0.0 (cc307bf), shared MCP schemas, 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), shared MCP schemas, 2026-11-21"
 sidebar:
   order: 4
 ---
@@ -254,9 +254,9 @@ HTTP-level failures, not tool results.
 
 ## Verification record
 
-The v2.0.0 code names and retryability were checked against the shared
+The current code names and retryability were checked against the shared
 `McpToolErrorCodeSchema`, the RP verification mapping, the Contract F/D.2
-handlers, and the provider route errors against `agent-identity-protocol` `v2.0.0` on
+handlers, and the provider route errors against `agent-identity-protocol` `v2.1.0` on
 2026-11-21. The live policy outcomes were exercised against the post-cutover
 broker on 2026-11-14: `verify` with a valid broker-managed and provider-managed
 attestation, `strict` with both, `blocked`, and an absent source under `verify`

@@ -3,7 +3,7 @@ title: Key concepts
 description: The vocabulary of a brokered signup, as short summaries that link to the canonical glossary.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), 2026-11-21"
 sidebar:
   order: 2
 ---
@@ -23,8 +23,8 @@ The [glossary](/reference/glossary/) holds the canonical definition of every ter
 ## Artifacts
 
 - **Discovery document**: the identity-only JSON at `/.well-known/agent-signup.json` on the provider's origin. [Glossary](/reference/glossary/#protocol-artifacts)
-- **Assertion**: a short-lived Ed25519-signed JWT that proves the agent, the verified human owner and the delegated ToS acceptance. [Glossary](/reference/glossary/#protocol-artifacts)
-- **Receipt (`signup_token`)**: the provider's RP-signed proof of signup, recording the identity facts, the accepted ToS and an optional context pointer. The receipt has no `exp`. [Glossary](/reference/glossary/#protocol-artifacts)
+- **Assertion**: a short-lived Ed25519-signed JWT that proves the agent, the verified human owner and the delegated terms acceptance. [Glossary](/reference/glossary/#protocol-artifacts)
+- **Receipt (`signup_token`)**: the provider's signed proof of signup, recording the identity facts, the accepted terms and an optional context pointer. The receipt has no `exp`. [Glossary](/reference/glossary/#protocol-artifacts)
 - **Context guide**: a hash-pinned URL to the provider's post-signup guide, usually a `SKILL.md`. [Glossary](/reference/glossary/#protocol-artifacts)
 - **Ledger**: the acceptance ledger and the service signups ledger, two records with one name. [Glossary](/reference/glossary/#protocol-artifacts)
 - **Kill switch**: the per-agent revocation control in the portal. [Glossary](/reference/glossary/#operations)
@@ -51,4 +51,4 @@ The [glossary](/reference/glossary/) holds the canonical definition of every ter
 
 - [How it works](/start/how-it-works/) puts these terms in order.
 - [Trust and limits](/start/trust-and-limits/) explains what revocation and the ledger do not cover.
-- The [specification](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-protocol.md) defines the field-level contract.
+- The [specification](https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md) defines the field-level contract.

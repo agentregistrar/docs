@@ -4,7 +4,7 @@ description: Verify the Ed25519 assertion against the issuer JWKS, enforce issue
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v2.0.0 (cc307bf), jose 6.2.13, Node 24.21.0, 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), jose 6.2.13, Node 24.21.0, 2026-11-21"
 ---
 
 **Goal:** accept a compact Ed25519 JWT only when every check in [spec section 7.1](/protocol/specification/#7-assertion--agent_signup-handshake) passes, and map each failure to a fixed v1 code.
@@ -85,10 +85,10 @@ export async function verifyAssertion(jwt, config) {
 
   const acceptedUrl = payload.delegation?.accepted_rp_tos_url;
   if (typeof acceptedUrl !== "string" || normalizeUrl(acceptedUrl) !== normalizeUrl(config.termsUrl)) {
-    fail("tos_hash_mismatch", "Accepted ToS URL does not match the published terms URL");
+    fail("tos_hash_mismatch", "Accepted terms URL does not match the published terms URL");
   }
   if (config.termsSha256 !== undefined && payload.delegation?.accepted_rp_tos_hash !== config.termsSha256) {
-    fail("tos_hash_mismatch", "Accepted ToS hash does not match the served terms bytes");
+    fail("tos_hash_mismatch", "Accepted terms hash does not match the served terms bytes");
   }
 
   const accountKey = `${payload.iss}:${payload.human.id}`;
@@ -132,7 +132,7 @@ const publicJwk = await exportJWK(publicKey);
 const jwks = { keys: [{ ...publicJwk, kid: "test-key-1", alg: "EdDSA", use: "sig" }] };
 writeFileSync("jwks.json", JSON.stringify(jwks, null, 2) + "\n");
 
-const termsText = "Example RP Terms of Service v2026.1";
+const termsText = "Example Provider Terms of Service v2026.1";
 const tosHash = "sha256:" + createHash("sha256").update(termsText, "utf8").digest("hex");
 const now = Math.floor(Date.now() / 1000);
 
@@ -150,7 +150,7 @@ const jwt = await new SignJWT({
   .setProtectedHeader({ alg: "EdDSA", kid: "test-key-1", typ: "agent-id+jwt" })
   .setIssuer("https://agentregistrar.dev")
   .setSubject("agt_test")
-  .setAudience("example-rp")
+  .setAudience("example-provider")
   .setJti("jti_test_0001")
   .setIssuedAt(now)
   .setExpirationTime(now + 300)
@@ -187,14 +187,14 @@ try {
   const result = await verifyAssertion(jwt, {
     jwksUrl: "http://127.0.0.1:3015/.well-known/jwks.json",
     issuerAllowlist: ["https://agentregistrar.dev"],
-    audience: "example-rp",
+    audience: "example-provider",
     requiredScopes: ["tos:accept"],
     termsUrl: "https://example.com/terms",
     // Optional exact check: the fixture terms bytes are deterministic.
     termsSha256:
       "sha256:" +
       createHash("sha256")
-        .update("Example RP Terms of Service v2026.1", "utf8")
+        .update("Example Provider Terms of Service v2026.1", "utf8")
         .digest("hex"),
     seenJti: new Map(),
   });
@@ -244,7 +244,7 @@ The verifier was run against synthetic variants of the same fixture. Each row is
 | Same `jti`, same account | `ok`, `resolution: "resolved"` |
 | Same `jti`, different human | `assertion_replayed` |
 | Wrong `aud` | `audience_mismatch` |
-| Stale or wrong ToS URL or hash | `tos_hash_mismatch` |
+| Stale or wrong terms URL or hash | `tos_hash_mismatch` |
 | `human.verified: false` | `human_unverified` |
 | Missing required scope | `insufficient_scope` |
 | Expired past the skew | `assertion_expired` |

@@ -3,19 +3,19 @@ title: Agents and harnesses
 description: Connect a harness to the Agent Registrar broker and use a brokered agent identity.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), 2026-11-21"
 sidebar:
   order: 0
 ---
 
-An agent runs through a harness that connects to the broker's remote MCP server. The broker registers the agent sub-identity, gives it a dedicated inbox, mints assertions and records ToS acceptances. This section covers the first signup, the identity lifecycle, the inbox, credentials and the ledger.
+An agent runs through a harness that connects to the broker's remote MCP server. The broker registers the agent sub-identity, gives it a dedicated inbox, mints assertions and records terms acceptances. This section covers the first signup, the identity lifecycle, the inbox, credentials and the ledger.
 
 ## What you get
 
 - **A sub-identity.** An id (`agt_...`), a display name, a harness label and a set of delegated scopes.
 - **A dedicated inbox.** An address of the form `<agent-slug>@agents.agentregistrar.dev`, readable by the agent through MCP and by the human in the portal.
 - **Scoped delegation.** A new agent starts with `tos:accept`, `signup:free_tier`, `inbox:read` and `inbox:send`.
-- **A ledger.** One row per ToS acceptance, with the exact terms URL, hash and master agreement version, plus one proof row per provider account.
+- **A ledger.** One row per terms acceptance, with the exact terms URL, hash and master agreement version, plus one proof row per provider account.
 - **A kill switch.** A per-agent revocation control in the portal that stops new assertions and further identity and inbox calls for that agent.
 
 ## Before you start
@@ -32,7 +32,7 @@ An agent runs through a harness that connects to the broker's remote MCP server.
 3. [Identity lifecycle](/agents/identity-lifecycle/): register, resume, prove, record, revoke and re-register.
 4. [Inbox and verification](/agents/inbox-and-verification/): list, read, wait and send, plus one-time codes.
 5. [Credentials and recovery](/agents/credentials-and-recovery/): store the credential at handoff and never re-run signup to recover it.
-6. [ToS and ledger](/agents/tos-and-ledger/): what was accepted, where it is recorded and who gets the receipt.
+6. [Terms and ledger](/agents/terms-and-ledger/): what was accepted, where it is recorded and who gets the receipt.
 7. [Troubleshooting](/agents/troubleshooting/): OAuth, 401, hash mismatches, inbox timeouts and provider errors.
 
 ## The endpoint
@@ -47,7 +47,7 @@ The server publishes OAuth metadata and a JWKS, so a compliant client discovers 
 
 ## Where the reference is
 
-Tool names, inputs, side effects and error codes are listed in the [reference section](/reference/). The protocol rules behind them are in the [specification](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-protocol.md). Shared vocabulary is in [Key concepts](/start/concepts/).
+Tool names, inputs, side effects and error codes are listed in the [reference section](/reference/). The protocol rules behind them are in the [specification](https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md). Shared vocabulary is in [Key concepts](/start/concepts/).
 
 To try the same flows against deployed test providers, start with the [demo network](/demo/).
 

@@ -1,10 +1,10 @@
 ---
 title: Conformance
-description: The v2.0.0 relying-party conformance checklist, the separate attestation verdict, validator commands and exit codes, fixtures, and registry entry.
+description: The current relying-party conformance checklist, the separate attestation verdict, validator commands and exit codes, fixtures, and registry entry.
 audience: both
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v2.0.0 (cc307bf), validator 2.0.0, 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), validator 2.1.0, 2026-11-21"
 ---
 
 A relying party is `agent-identity-protocol` conformant when the discovery document it
@@ -28,6 +28,7 @@ validator](/protocol/validator/) page.
 - [ ] `GET /.well-known/agent-signup.json` returns `200` with `Content-Type: application/json`.
 - [ ] `GET` returns `404` or `410`, never `401` or `403`, when the service does not support the protocol.
 - [ ] `protocol` is exactly `agent-identity-protocol`.
+- [ ] `protocol_version` is exactly `"2.0"`.
 - [ ] `audience`, `provider_name`, a non-empty `issuer_allowlist`, and unique `required_scopes` including `tos:accept` are present.
 - [ ] `terms.url` and `terms.version` are present, and `terms` carries no `text` or `sha256`. The URL serves complete, stable bytes.
 - [ ] `endpoints.agent_signup` is the only endpoint and is an absolute URL.

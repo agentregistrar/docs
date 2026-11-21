@@ -18,10 +18,11 @@ specification repository are documentation.
 
 ## 1. Choose a harness
 
-Read the harness section at <https://docs.agentregistrar.dev/agents/>. It is a
-landing page today; the per-harness guides, each with a verification tier and a
-date, arrive with that section's pages. Do not claim a client is supported
-beyond what the page records.
+Read <https://docs.agentregistrar.dev/agents/install/> and use the page for the
+user's harness (OpenCode, Claude Code, Claude Desktop, Codex CLI, Cursor,
+Antigravity CLI, VS Code, or generic MCP). Each page records its verification tier and the
+date it was checked. Do not claim a client is supported beyond what the page
+records.
 
 ## 2. Add the remote MCP server
 
@@ -40,8 +41,8 @@ and stores the token. Never ask the user to paste a token.
   `https://agentregistrar.dev/.well-known/oauth-protected-resource` and
   `https://agentregistrar.dev/.well-known/oauth-authorization-server`.
 
-Verify the connection by listing tools. You should see exactly these eight:
-`identity_register`, `identity_whoami`, `identity_prove`,
+Verify the connection by listing tools. You should see exactly these nine:
+`identity_register`, `identity_whoami`, `identity_signup`, `identity_prove`,
 `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email`,
 `inbox_send`.
 
@@ -70,7 +71,8 @@ The public demo relying party is <https://skdl.dev>.
 
 1. Fetch `https://skdl.dev/.well-known/agent-signup.json`.
 2. Check the document before using it:
-   - `protocol` is exactly `agent-identity-protocol`.
+   - `protocol` is exactly `agent-identity-protocol` and
+     `protocol_version` is exactly `"2.0"`.
    - `issuer_allowlist` contains `https://agentregistrar.dev`.
    - `required_scopes` is a subset of the scopes in `identity_whoami`.
    - `terms.url` is the provider-hosted agreement and `terms.version` is the
@@ -80,9 +82,10 @@ The public demo relying party is <https://skdl.dev>.
 4. Call `identity_signup` with `{ "service": "<origin>", "accept_terms": true }`.
    Use `identity_prove` only when you need the raw assertion claims; with a
    discovery source it also derives the terms URL itself.
-5. Send `assertion.jwt` verbatim to `endpoints.agent_signup` only, as
-   `Authorization: Bearer <assertion.jwt>`. Do not decode, re-encode, or edit
-   the JWT; use `assertion.claims` for inspection.
+5. Send the returned `signup_request` exactly as prepared: `POST` its `url` with
+   its `headers` and the raw body `{}`. Do not change the method, URL, headers,
+   or body, and do not send the assertion anywhere else. Do not decode,
+   re-encode, or edit the JWT; use `assertion.claims` for inspection.
 6. If the response carries a `signup_token`, call `identity_record_signup` with
    it. The call is idempotent, so retry it on a dropped response.
 7. If the response carries provider credentials, store them in the user's
@@ -132,7 +135,7 @@ signup to recover a credential: use the provider's recovery path.
 - Concepts and shared onboarding: <https://docs.agentregistrar.dev/start/>
 - Agent quickstart and harness guides: <https://docs.agentregistrar.dev/agents/>
 - MCP tools and broker endpoints: <https://docs.agentregistrar.dev/reference/>
-- Normative specification (v1.1.0):
-  <https://github.com/agentregistrar/spec/blob/v1.1.0/agent-identity-protocol.md>
+- Normative specification (Agent Identity Protocol `v2.1.0`):
+  <https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md>
 
 Do not claim a client is supported beyond what the harness section records.

@@ -4,7 +4,7 @@ description: Sign a v1.2 Contract E signup_token with the RP key from the exact 
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v2.0.0 (cc307bf), jose 6.2.13, 2026-10-24"
+verifiedAgainst: "spec v2.1.0 (563525e), jose 6.2.13, 2026-10-24"
 ---
 
 **Goal:** after an account is created or resolved, optionally return an RP-signed
@@ -97,7 +97,7 @@ const claims = {
   service: {
     audience: payload.rp.audience,
     origin: payload.rp.origin,
-    provider_name: "Example RP",
+    provider_name: "Example Provider",
     provider_url: "https://example.com",
     account_id: "acct_opaque_0001",
     attestation_jti: payload.jti,

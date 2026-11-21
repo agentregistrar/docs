@@ -38,7 +38,7 @@ generated and never hand-edited.
    alone:
 
    ```bash
-   node scripts/sync-spec.mjs --write --tag v1.2.0
+   node scripts/sync-spec.mjs --write --tag <new-tag>
    ```
 
    `--tag` resolves the tag to its commit through the GitHub API and rewrites
@@ -49,7 +49,7 @@ generated and never hand-edited.
    branch that is not itself tagged), pin the commit instead:
 
    ```bash
-   node scripts/sync-spec.mjs --write --commit <sha> --ref main --tag v1.2.0
+   node scripts/sync-spec.mjs --write --commit <sha> --ref main --tag <tag>
    ```
 3. Confirm the lock moved before reviewing the diff: `tag` is the new tag and
    `ref`/`commit` name the new revision (or the commit pin). The generated

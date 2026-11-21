@@ -1,6 +1,7 @@
 # Agent Registrar Docs
 
-The public documentation site for Agent Registrar and `agent-identity-protocol`. It is
+The public documentation site for Agent Registrar and the Agent Identity
+Protocol (`agent-identity-protocol`). It is
 built with [Cloudflare Nimbus](https://nimbus-docs.com) on Astro and deploys as
 static output.
 
@@ -94,9 +95,10 @@ Current pages:
 - `/protocol/` - protocol landing, with hand-authored reference pages
   for discovery fields, assertion claims, receipt and context, security,
   conformance and versioning
-- `/protocol/specification/`, `/scope-boundaries/`,
-  `/implementation-guide/`, `/validator/`, `/changelog/` - generated from the
-  pinned spec revision; never edit these by hand
+- `/protocol/specification/`, `/protocol/scope-boundaries/`,
+  `/protocol/implementation-guide/`, `/protocol/validator/`,
+  `/protocol/changelog/` - generated from the pinned spec revision; never edit
+  these by hand
 - `/protocol/agent-signup.schema.json` - the JSON Schema served at its
   canonical `$id`
 - `/404.html` - not-found page
@@ -106,8 +108,8 @@ build time. Every destination page exists, so all eight shortcuts are active,
 each registered with and without a trailing slash: `/docs` to `/`, `/spec` and
 `/specification` to the rendered specification, `/implement` to the provider
 quickstart, `/quickstart` to the agent quickstart, `/mcp` to the MCP tool
-reference, `/registry` to the validate-and-register guide, and the optional
-`spec` field's placeholder path to the v1 landing.
+reference, and `/registry` to the validate-and-register guide. The legacy
+`/agent-identity/v1/*` paths are permanent redirects to `/protocol/*`.
 
 ## Authoring
 
@@ -135,8 +137,9 @@ Markdown for agents. The surface is:
 - `/llms.txt` and `/llms-full.txt` - the index and the whole site in one
   document.
 - `/<section>/llms.txt` - per-section index; each of the seven sections
-  (`/agent-identity/`, `/agents/`, `/contribute/`, `/portal/`, `/providers/`,
-  `/reference/`, `/start/`) emits one alongside the root `/llms.txt`.
+  (`/agents/`, `/contribute/`, `/portal/`, `/protocol/`, `/providers/`,
+  `/reference/`, `/start/`) emits one alongside the root `/llms.txt`. `/demo/`
+  has one page and no per-section index.
 - `/<slug>/index.md` - the page as clean Markdown; `/<slug>/index.mdx` - the
   authored source.
 - `/.well-known/ard.json` and `/.well-known/ai-catalog.json` - discovery
@@ -169,7 +172,7 @@ generated output hashes and `generated_at`.
 ```bash
 pnpm sync:spec          # fetch the lock's pin, verify it, write pages and lock
 pnpm sync:spec:check    # offline drift check; runs before pnpm build
-node scripts/sync-spec.mjs --tag v1.2.0          # preview a tag, writes nothing
+node scripts/sync-spec.mjs --tag <tag>           # preview a tag, writes nothing
 node scripts/sync-spec.mjs --commit <sha> --ref main  # preview a commit pin
 ```
 

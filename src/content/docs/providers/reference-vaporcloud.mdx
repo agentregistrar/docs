@@ -1,10 +1,10 @@
 ---
 title: "Reference implementation: VaporCloud"
-description: A walkthrough of the VaporCloud reference relying party on the v2.0.0 terms-URL and attestation-source flow, including its verification snapshot.
+description: A walkthrough of the VaporCloud reference provider on the Agent Identity Protocol v2.1.0 terms and attestation flow, including its verification snapshot.
 audience: human
 aiGenerated: true
 lastReviewed: 2026-11-14
-verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), 2026-11-21"
 ---
 
 VaporCloud is the reference relying party at [skdl.dev](https://skdl.dev). It
@@ -16,7 +16,7 @@ This walkthrough separates what the protocol defines from what VaporCloud does a
 a product. The demo is not a production SLA and not a hosted service.
 
 **Release status.** The VaporCloud source in the repository implements spec
-`v2.0.0`: provider-hosted `terms: { version, url }`, a broker-managed
+`v2.1.0`: provider-hosted `terms: { version, url }`, a broker-managed
 `attestation` in discovery, RP-signed receipts, Contract F/Tier 2, and
 authenticated abuse reporting. The registry entry carries a domain-level
 five-field verification snapshot checked on 2026-10-26. The snapshot is a
@@ -37,7 +37,7 @@ identity statement, not a safety, uptime, or conduct guarantee.
 
 ## The discovery document
 
-The `v2.0.0` document keeps one optional `attestation` object and moves the
+The `v2.1.0` document keeps one optional `attestation` object and moves the
 terms behind a URL. VaporCloud publishes broker-managed, so the object names the
 broker's verification URI and never the token. The rest stays identity-only.
 The shape is:
@@ -48,7 +48,7 @@ The shape is:
   "protocol_version": "2.0",
   "audience": "vaporcloud",
   "provider_name": "VaporCloud",
-  "spec": "https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-protocol.md",
+  "spec": "https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md",
   "provider_url": "https://skdl.dev",
   "contact": "security@skdl.dev",
   "issuer_allowlist": ["https://agentregistrar.dev"],
@@ -115,7 +115,7 @@ exit for an absent or non-verified credential. Its `--json` result reports
 registry evidence format is in [Validate and
 register](/providers/guides/validate-and-register/).
 
-## The signup response (v2.0.0 shape)
+## The signup response (v2.1.0 shape)
 
 A live signup requires a real agent assertion from the broker. The code path
 returns:
@@ -215,7 +215,7 @@ pattern to copy; the appliances are optional.
 ## Caveats
 
 - `skdl.dev` is a demo, not a production service. It has no SLA.
-- The v2.0.0 code and a domain-level registry verification snapshot are recorded.
+- The v2.1.0 code and a domain-level registry verification snapshot are recorded.
   The snapshot is at `checked_at` and does not promise that the same attestation
   is current later; refresh the check after renewal or a status change.
 - Verification records an identity check, not safety, uptime, solvency, or

@@ -79,7 +79,7 @@ The protocol pages are generated from a pinned revision. Do not edit them by han
 ```bash
 pnpm sync:spec          # fetch the pin, verify it, write pages and lock
 pnpm sync:spec:check    # offline drift check; runs before pnpm build
-node scripts/sync-spec.mjs --tag v2.0.0   # preview a tag, writes nothing
+node scripts/sync-spec.mjs --tag v2.1.0   # preview a tag, writes nothing
 ```
 
 `pnpm build` runs the offline check first and the link gate last. A hand edit to a generated page, a stale lock or a moved source fails the build. The release procedure is in [MAINTENANCE.md](https://github.com/agentregistrar/docs/blob/main/MAINTENANCE.md) section 2.
@@ -92,7 +92,9 @@ pnpm check        # environment, structure, authoring, types
 pnpm lint         # authoring rules; 0 errors required
 pnpm typecheck    # astro check
 pnpm check:theme  # Terminal theme QA gate
+pnpm check:seo    # title, description and heading metadata
 pnpm check:links  # internal links and anchors in dist/
+pnpm check:sitemap # sitemap index, URLs and lastmod
 pnpm sync:spec:check
 git diff --check
 ```

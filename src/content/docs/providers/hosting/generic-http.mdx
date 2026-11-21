@@ -4,10 +4,10 @@ description: A framework-neutral Node HTTP handler for discovery and brokered si
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-21
-verifiedAgainst: "Node 24.21.0, jose 6.2.13; spec v2.0.0 (cc307bf), 2026-11-21"
+verifiedAgainst: "Node 24.21.0, jose 6.2.13; spec v2.1.0 (563525e), 2026-11-21"
 ---
 
-**Updated for spec v2.0.0; re-run pending.** This server ran on Node 24.21.0 with `jose` 6.2.13 on 2026-10-21 against the v1.3.2 shape. The snippet now uses provider-hosted `terms: { version, url }` and a URL check, and has not been re-run. There is no framework and no platform runtime; any HTTP stack that can set a header and read a body can implement the same steps.
+**Updated for spec v2.1.0; re-run pending.** This server ran on Node 24.21.0 with `jose` 6.2.13 on 2026-10-21 against the v1.3.2 shape. The snippet now uses provider-hosted `terms: { version, url }`, requires `protocol_version`, and checks the terms URL, but has not been re-run. There is no framework and no platform runtime; any HTTP stack that can set a header and read a body can implement the same steps.
 
 ## The minimum
 
@@ -15,7 +15,7 @@ A conformant signup endpoint does six things:
 
 1. Read `Authorization: Bearer <jwt>`.
 2. Verify the JWT against the issuer's JWKS.
-3. Check issuer, audience, expiry, scopes, human status and ToS hash.
+3. Check issuer, audience, expiry, scopes, human status, and the accepted terms URL and optional hash.
 4. Record the `jti` against the account, treating the same context as a resolve.
 5. Create or resolve the account and return credentials only on create.
 6. Return a fixed error envelope for every failure.
@@ -44,7 +44,7 @@ import { randomUUID } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const ISSUER_ALLOWLIST = (process.env.ISSUER_ALLOWLIST ?? "https://agentregistrar.dev").split(",");
-const AUDIENCE = process.env.AUDIENCE ?? "example-rp";
+const AUDIENCE = process.env.AUDIENCE ?? "example-provider";
 const REQUIRED_SCOPES = (process.env.REQUIRED_SCOPES ?? "tos:accept").split(",");
 const TERMS_URL = process.env.TERMS_URL ?? "https://example.com/terms";
 const JWKS_URL = process.env.JWKS_URL ?? `${ISSUER_ALLOWLIST[0]}/.well-known/jwks.json`;
@@ -93,7 +93,7 @@ async function verify(jwt) {
     typeof acceptedUrl !== "string" ||
     acceptedUrl.replace(/\/+$/, "") !== TERMS_URL.replace(/\/+$/, "")
   ) {
-    throw deny("tos_hash_mismatch", 409, "Accepted ToS URL does not match the published terms URL");
+    throw deny("tos_hash_mismatch", 409, "Accepted terms URL does not match the published terms URL");
   }
   return payload;
 }
@@ -107,8 +107,9 @@ const server = createServer(async (req, res) => {
     });
     return res.end(JSON.stringify({
       protocol: "agent-identity-protocol",
+      protocol_version: "2.0",
       audience: AUDIENCE,
-      provider_name: "Example RP",
+      provider_name: "Example Provider",
       issuer_allowlist: ISSUER_ALLOWLIST,
       required_scopes: REQUIRED_SCOPES,
       terms: { version: "2026.1", url: TERMS_URL },

@@ -3,7 +3,7 @@ title: Try the demo network
 description: Try a deployed two-broker, three-provider test network for same-broker, cross-broker and unverified agent signups.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), 2026-11-21"
 sidebar:
   label: Demo network
   order: 0
@@ -21,9 +21,10 @@ production service and has no provisioning, billing, SLA, uptime or endorsement
 claim.
 Nothing on this page is an adoption, production-readiness, safety, uptime or
 endorsement claim. Use only test data; the provider terms describe a test
-service only. The v2.0.0 discovery and source documents are live (cut over
-2026-11-21), and the evidence on this page was re-checked against those
-deployments. Re-run the commands on this page before relying on a result.
+service only. The v2.1.0 discovery and source documents are live (cut over
+2026-11-21) and carry `protocol_version: "2.0"`; the evidence on this page was
+re-checked against those deployments. Re-run the commands on this page before
+relying on a result.
 
 <Aside type="note" title="What is real">
 A demo signup creates a real acceptance record under your human identity in
@@ -123,7 +124,7 @@ Changing trust or policy does not deploy B or P2.
 
 - [Ledger](/portal/ledger/) shows the acceptance, the exact accepted terms,
   provider, verification status, attestation jti and receipt.
-- [ToS and ledger](/agents/tos-and-ledger/) explains what was accepted and who
+- [Terms and ledger](/agents/terms-and-ledger/) explains what was accepted and who
   receives the receipt.
 - The provider account and credential are issued by the provider, not by A.
 
@@ -331,7 +332,7 @@ contact published in that provider's discovery document.
 
 ## Next
 
-- [Specification v2.0.0](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-protocol.md)
+- [Specification v2.1.0](https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md)
   is the normative contract.
 - [Provider quickstart](/providers/quickstart/) is the implementation path for a
   relying party.

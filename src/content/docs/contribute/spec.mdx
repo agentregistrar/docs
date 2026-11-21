@@ -28,7 +28,7 @@ The scope rule is in [scope boundaries](https://github.com/agentregistrar/spec/b
 4. Update the release notes with the version, date, changes and compatibility.
 5. Merge to `main`, then tag the release. The docs site pins a tag, so an untagged `main` is not a docs input.
 
-A change that affects the wire protocol id needs a new version collection and a migration note. Text-only clarifications that keep `agent-identity-protocol` unchanged are additive releases.
+A change that affects the wire protocol id or `protocol_version` needs a migration note and a new discovery path per the spec's versioning policy. A page rename or move ships permanent redirects; there is no separate versioned collection in the docs repo. Text-only clarifications that keep `agent-identity-protocol` unchanged are additive releases.
 
 ## Conformance evidence
 

@@ -1,15 +1,15 @@
 ---
 title: Receipt and context
-description: The v1.2 RP-signed Contract E signup receipt, its historical validity window, proof sources, Contract F ingestion, and the hash-pinned context pointer.
+description: The provider-signed Contract E signup receipt, its historical validity window, proof sources, Contract F ingestion, and the hash-pinned context pointer.
 audience: both
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), 2026-10-24"
+verifiedAgainst: "spec v2.1.0 (563525e), 2026-10-24"
 ---
 
-A successful signup can return two identity artifacts: an RP-signed signup
-receipt (Contract E) and an optional `context` pointer to the vendor's
-post-signup guide. The receipt is proof of who signed up, for whom, under which
+A successful signup can return two identity artifacts: a provider-signed signup
+receipt (Contract E, introduced in v1.2 and unchanged in v2.1.0) and an optional
+`context` pointer to the vendor's post-signup guide. The receipt is proof of who signed up, for whom, under which
 terms, and when. The context pointer is an opaque, hash-pinned handoff to vendor
 documentation; it is not a capability catalog.
 

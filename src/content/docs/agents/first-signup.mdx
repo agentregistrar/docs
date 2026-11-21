@@ -3,17 +3,20 @@ title: First signup
 description: A VaporCloud signup end to end, with the discovery document, the claims, the response and the mail explained.
 audience: human
 aiGenerated: true
-verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
+verifiedAgainst: "spec v2.1.0 (563525e), 2026-11-21"
 sidebar:
   order: 2
 ---
 
 This is the [quickstart](/agents/quickstart/) told as one story: what the provider publishes, what the broker signs, what the provider returns and what lands in the inbox. Every value below is either a live document or a synthetic identifier in the shape the tools produce.
 
-The relying party is VaporCloud, a mock infrastructure provider at `skdl.dev`. It is a real implementation of `agent-identity-protocol` with fictional appliances, which makes it useful for a first run: nothing you do there can cost money.
+The reference provider is VaporCloud, a mock infrastructure provider at
+`skdl.dev`. It is a real implementation of the Agent Identity Protocol
+(`agent-identity-protocol` on the wire) with fictional appliances, which makes it
+useful for a first run: nothing you do there can cost money.
 
 <Aside type="note" title="Synthetic data">
-Identifiers, JTIs and timestamps in this tutorial are synthetic. The discovery shape shown here matches the deployed v2.0.0 document; re-fetch it before relying on a value.
+Identifiers, JTIs and timestamps in this tutorial are synthetic. The discovery shape shown here matches the deployed v2.1.0 document; re-fetch it before relying on a value.
 </Aside>
 
 ## The discovery document, field by field
@@ -24,17 +27,18 @@ curl -sS https://skdl.dev/.well-known/agent-signup.json -o agent-signup.json
 
 | Field | Value | Why it is there |
 | :--- | :--- | :--- |
-| `protocol` | `agent-identity-protocol` | The contract version. Anything else means the service does not support this protocol. |
+| `protocol` | `agent-identity-protocol` | The protocol name. Anything else means the service does not support this protocol. |
+| `protocol_version` | `2.0` | The wire version. Required; any other value means the service is unsupported. |
 | `audience` | `vaporcloud` | The stable service identifier. It becomes the assertion `aud`. |
 | `provider_name` | `VaporCloud` | Human-readable name, for display only. |
-| `spec` | `https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-protocol.md` | Optional pointer to the exact specification the provider implements. |
+| `spec` | `https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md` | Optional pointer to the exact specification the provider implements. |
 | `provider_url` | `https://skdl.dev` | The provider origin, used to bind the context pointer to the provider's domain. |
 | `contact` | `security@skdl.dev` | Where to report a security issue or abuse. |
 | `issuer_allowlist` | `["https://agentregistrar.dev"]` | The brokers this provider accepts. Exact match, no wildcards. |
 | `required_scopes` | `["tos:accept", "signup:free_tier"]` | The scopes the assertion must carry. Your agent holds both by default. |
 | `attestation` | `{ "mode": "broker", "uri": "https://agentregistrar.dev/api/broker/provider-verification?origin=https%3A%2F%2Fskdl.dev&audience=vaporcloud" }` | Optional Contract G source object. It names the stable verification URI and never carries the token; broker-managed is the default and may be keyless. Absence means unverified. |
 | `terms.version` | `2026.1` | The terms revision, for humans and for the optional version check. |
-| `terms.url` | `https://skdl.dev/terms` | The provider-hosted agreement. The Broker fetches it at signup and records a hash of the exact bytes. |
+| `terms.url` | `https://skdl.dev/terms` | The provider-hosted agreement. The broker fetches it at signup and records a hash of the exact bytes. |
 | `endpoints.agent_signup` | `https://skdl.dev/api/signup/agent` | The only endpoint in the protocol. |
 | `extensions.dev.vaporcloud` | `{ "support_url": "..." }` | Namespaced vendor metadata. Not a capability field. |
 
@@ -131,7 +135,7 @@ A created account returns `201`:
   "signup_token_jti": "srp_01jab...",
   "context": {
     "url": "https://skdl.dev/docs/SKILL.md",
-    "sha256": "sha256:93691b1998f6d6c0fdddf1ec8b65c9a735ae7fb5c48abca3e157b8e00dfc84c1"
+    "sha256": "sha256:811963ebeb02ccb27f6b74c0924328aa0f27e812ec6ccb69839ff32d1cea25ab"
   },
   "credential_recovery": {
     "available": true,
@@ -170,7 +174,7 @@ The broker treats the repeated signup the same way: `identity_record_signup` ref
 ```json
 {
   "context_url": "https://skdl.dev/docs/SKILL.md",
-  "context_sha256": "sha256:93691b1998f6d6c0fdddf1ec8b65c9a735ae7fb5c48abca3e157b8e00dfc84c1",
+  "context_sha256": "sha256:811963ebeb02ccb27f6b74c0924328aa0f27e812ec6ccb69839ff32d1cea25ab",
   "handoff": {
     "broker_stores_credentials": false,
     "store_credentials_now": true,
@@ -189,7 +193,7 @@ sha256sum SKILL.md
 ```
 
 ```text
-93691b1998f6d6c0fdddf1ec8b65c9a735ae7fb5c48abca3e157b8e00dfc84c1  SKILL.md
+811963ebeb02ccb27f6b74c0924328aa0f27e812ec6ccb69839ff32d1cea25ab  SKILL.md
 ```
 
 If the digest differs, do not follow the guide. Re-fetch, and if it still differs, stop and ask the human: the guide is hash-pinned precisely because it is vendor-authored data.
@@ -223,7 +227,7 @@ Read the acceptance receipt to confirm what was recorded:
 { "name": "inbox_read", "arguments": { "message_id": "5c1f..." } }
 ```
 
-The body is a fixed ledger receipt: assertion JTI, timestamp, target service, accepted ToS URL and hash, master agreement version. It is the human-readable copy of the ledger row; the portal is the system of record.
+The body is a fixed ledger receipt: assertion JTI, timestamp, target service, accepted terms URL and hash, master agreement version. It is the human-readable copy of the ledger row; the portal is the system of record.
 
 ## What went wrong in the first live run
 
@@ -245,4 +249,4 @@ If you want the credential gone, delete it from your secret store and, if the ac
 
 - [Identity lifecycle](/agents/identity-lifecycle/) for the state model behind these steps.
 - [Credentials and recovery](/agents/credentials-and-recovery/) for the recovery path in detail.
-- [ToS and ledger](/agents/tos-and-ledger/) for what the human is accountable for.
+- [Terms and ledger](/agents/terms-and-ledger/) for what the human is accountable for.
