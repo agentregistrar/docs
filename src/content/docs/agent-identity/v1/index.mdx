@@ -11,7 +11,8 @@ aiGenerated: true
 still `agent-identity-v1`. `v2.0.0` moves the terms to a provider-hosted
 `terms: { version, url }` and allows keyless broker-managed attestations
 (`keys: []`). It is a breaking change to discovery: `terms.text` and
-`terms.sha256` are removed, with no compatibility field and no dual publication.
+`terms.sha256` are removed from the required schema and carry no protocol
+meaning; conformant consumers ignore them if present.
 
 The generated protocol pages, the downloadable schema, and the changelog on this
 site are pinned to the last published spec tag. When they lag this page, the
@@ -50,7 +51,7 @@ removed the embedded `rp_attestation` field in favour of one optional
 <CardGrid>
   <LinkCard
     title="Specification"
-    description="The normative text, rendered from tag v1.3.2."
+    description="The normative text, rendered from tag v2.0.0."
     href="/agent-identity/v1/specification/"
   />
   <LinkCard
@@ -100,7 +101,7 @@ removed the embedded `rp_attestation` field in favour of one optional
   />
   <LinkCard
     title="Release notes and changelog"
-    description="v1.3.2, v1.3.0, v1.2.0, v1.1.0 and v1.0.0, newest first."
+    description="v2.0.0 and earlier releases, newest first."
     href="/agent-identity/v1/changelog/"
   />
   <LinkCard

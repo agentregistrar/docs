@@ -3,7 +3,7 @@ title: Broker HTTP and OAuth
 description: The broker's metadata, JWKS, MCP transport, OAuth, provider-verification, abuse-report and signup-receipt endpoints with methods, auth and responses.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14; live v1.1 requests on 2026-10-21"
+verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
 sidebar:
   order: 3
 ---
@@ -447,12 +447,12 @@ Live requests on 2026-10-21 against `https://agentregistrar.dev`, with broker co
 - `POST /api/oauth/authorize/decision` without a session returned `401 unauthorized`.
 - `POST /api/oauth/token` with `grant_type=weird` returned `400 unsupported_grant_type`; with an unknown code it returned `400 invalid_grant`.
 - `POST /api/broker/report-abuse` with an empty body returned `400 invalid_request`; the v1.2 route now rejects a legacy body with `401 unauthenticated_report`. That route and Contract F's two-field body are code-complete but their live v1.2 responses are part of the release gate.
-- `POST /api/broker/signup-receipt` with an invalid token returned `401 invalid_signup_token`; v1.3 requires both `signup_token` and `rp_attestation`.
+- `POST /api/broker/signup-receipt` with an invalid token returned `401 invalid_signup_token`; v2.0.0 requires both `signup_token` and `rp_attestation`.
 - `POST /api/webhooks/resend` without signature headers returned `401 invalid_webhook_signature`.
 - `GET /mcp` returned `406` without an SSE `Accept` header and a Cloudflare `500` with one (see above). `DELETE /mcp` returned `200`.
 
 The `GET /api/broker/provider-verification` route is documented from
-`agent-identity-v1` `v1.3.2` and is live on the post-cutover broker. On
+`agent-identity-v1` `v2.0.0` and is live on the post-cutover broker. On
 2026-11-14 the `skdl.dev`/`vaporcloud` pair returned `200 application/json` with
 `Cache-Control: public, max-age=300` and exactly `{ "attestation": "<JWS>" }`;
 missing, extra, duplicate, and non-canonical parameters returned `400

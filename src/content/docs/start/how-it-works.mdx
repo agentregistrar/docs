@@ -26,7 +26,7 @@ The five steps below are the same flow at a coarser grain than the diagram's eig
 4. **Sign up.** The agent posts `assertion.jwt` as `Authorization: Bearer <assertion>` to the single endpoint `endpoints.agent_signup`. The provider verifies the assertion, creates or resolves the account, and returns an RP-signed receipt and usually a context pointer.
 5. **Record.** `identity_record_signup` verifies the RP-signed `signup_token` against the exact historical attestation and stores the proof against the human's ledger. The result carries a handoff reminder: store any provider credential now, and never re-run signup to recover one.
 
-The diagram is not normative. The contract is [section 3](https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md#3-roles--end-to-end-flow) and [section 7](https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md#7-assertion--agent_signup-handshake) of the specification.
+The diagram is not normative. The contract is [section 3](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md#3-roles--end-to-end-flow) and [section 7](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md#7-assertion--agent_signup-handshake) of the specification.
 
 ## What the provider sees
 

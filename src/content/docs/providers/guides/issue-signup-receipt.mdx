@@ -43,7 +43,7 @@ must be present in the exact provider attestation named by
 | `service.key_id` | The key id that signs the receipt. It must equal the JWS header `kid`. |
 | `agent.*` | `id`, `name`, `email`. |
 | `human.*` | `id`, `name`, `email`, `verified`. |
-| `tos.*` | `version`, `url`, `sha256` of the agreement you served at `terms.url`, optional `master_tos_version`. Discovery itself carries no terms digest. |
+| `tos.*` | `version`, `url`, `sha256`, and optional `master_tos_version`. `tos.sha256` MUST equal the `delegation.accepted_rp_tos_hash` claim from the verified agent assertion: the SHA-256 the Broker computed over the exact bytes served at `terms.url`, which matters when `/terms` serves HTML. Discovery carries no terms digest. |
 | `context` | Optional `{ url, sha256 }` pointer to your guide. |
 | `exp` | **Do not add one.** A v1.2 receipt has no expiry. A legacy `exp` is ignored. |
 

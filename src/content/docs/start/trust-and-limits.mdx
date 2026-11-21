@@ -3,7 +3,7 @@ title: Trust and limits
 description: The liability chain, provider verification modes, trust policy, receipts and abuse mechanics, the known gaps, and where to report a security issue.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
 sidebar:
   order: 4
 ---
@@ -116,7 +116,7 @@ else. There is no cron, no renewal job and no redeploy: the broker renews on
 demand when 12 hours or less remain, so a `200` never carries an expired token.
 The URI is stable across renewals.
 
-The v1.3 verification flow uses the broker-managed lookup as its status signal:
+The v2.0.0 verification flow uses the broker-managed lookup as its status signal:
 a `403` or `410` is the suspension or revocation answer, and the endpoint never
 serves a new token for it. There is no separate `require_status` mode. A positive
 answer is cached for at most five minutes and never past `exp`; a negative answer
@@ -349,13 +349,13 @@ it, the broker abuse endpoint.
 
 ## Read the contract
 
-- [Contract G, RP attestation](https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md#14-contract-g--rp-attestation): source, modes and verification.
-- [Trust model, assurance levels, and policy](https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md#17-trust-model-assurance-levels-and-policy): spec section 17.
-- [Verification rules](https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md#19-verification-rules): spec section 19.
+- [Contract G, RP attestation](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md#14-contract-g--rp-attestation): source, modes and verification.
+- [Trust model, assurance levels, and policy](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md#17-trust-model-assurance-levels-and-policy): spec section 17.
+- [Verification rules](https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md#19-verification-rules): spec section 19.
 - [Discovery JSON Schema](/agent-identity/v1/agent-signup.schema.json): the published schema with the `attestation` object.
 - [Registry verification](/providers/guides/validate-and-register/): the recorded snapshot and badge rules.
 - [Verify assertions](/providers/guides/verify-assertions/): the verifier and the provider credential check.
 - [Receipt and context](/agent-identity/v1/receipt-and-context/): Contract E and proof sources.
 - [Error codes](/reference/error-codes/): stable MCP and HTTP codes.
-- [Scope boundaries](https://github.com/agentregistrar/spec/blob/v1.3.2/scope-boundaries.md): what the protocol must never absorb.
+- [Scope boundaries](https://github.com/agentregistrar/spec/blob/v2.0.0/scope-boundaries.md): what the protocol must never absorb.
 - [How it works](/start/how-it-works/): the mechanics these limits apply to.
