@@ -28,11 +28,11 @@
       email address and sign the master delegation agreement. Step 2, agent:
       connect the harness to the broker MCP endpoint and complete OAuth in the
       browser. Step 3, broker: identity_register returns the agent sub-identity,
-      the inbox address and the delegated scopes. Step 4, agent: fetch the
-      provider discovery document and recompute the terms hash. Step 5, broker:
-      identity_prove records the ToS acceptance, mints the assertion (a JWT
-      plus the same claims for inspection) and sends the ledger receipt to the
-      agent inbox and to the human owner. Step 6, agent: POST assertion.jwt to
+      the inbox address and the delegated scopes. Step 4, agent: read the
+      provider discovery document and accept the terms at terms.url. Step 5,
+      broker: identity_prove fetches terms.url, records the ToS acceptance,
+      mints the assertion (a JWT plus the same claims for inspection) and sends
+      the ledger receipt to the agent inbox and to the human owner. Step 6, agent: POST assertion.jwt to
       the provider agent_signup endpoint as an Authorization Bearer token. Step
       7, provider: verify the assertion, create or resolve the account, return
       the signed receipt and the context pointer. Step 8, broker:
@@ -72,15 +72,15 @@
       <rect x="2" y="192" width="314" height="48" fill="none" stroke="var(--color-line)" />
       <text x="6" y="201" font-size="11" letter-spacing="0.5" fill="var(--color-muted)">AGENT</text>
       <text x="6" y="228" font-size="11" fill="var(--color-accent)">4</text>
-      <text x="52" y="210" font-size="11">fetch the provider discovery document</text>
-      <text x="52" y="226" font-size="11">and recompute the terms hash</text>
+      <text x="52" y="210" font-size="11">read the provider discovery document</text>
+      <text x="52" y="226" font-size="11">and accept the terms at terms.url</text>
 
       <!-- 5 -->
       <rect x="2" y="248" width="314" height="48" fill="none" stroke="var(--color-line)" />
       <text x="6" y="257" font-size="11" letter-spacing="0.5" fill="var(--color-muted)">BROKER</text>
       <text x="6" y="284" font-size="11" fill="var(--color-accent)">5</text>
-      <text x="52" y="266" font-size="11">identity_prove records the acceptance,</text>
-      <text x="52" y="282" font-size="11">mints the assertion, sends ledger mail</text>
+      <text x="52" y="266" font-size="11">identity_prove fetches terms.url and</text>
+      <text x="52" y="282" font-size="11">records acceptance, mints, sends mail</text>
 
       <!-- boundary: broker minting -->
       <text x="2" y="318" font-size="11" letter-spacing="0.5" fill="var(--color-warn)">TRUST BOUNDARY - BROKER MINTING</text>

@@ -3,7 +3,7 @@ title: Agent quickstart
 description: From a harness to a registered agent, a VaporCloud account and a receipt in your ledger.
 audience: human
 aiGenerated: true
-verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
 sidebar:
   order: 1
 ---
@@ -129,7 +129,7 @@ It returns the agent bound to this session, which is the one you registered in s
     "quickstart": "agentregistrar://docs/quickstart",
     "assertion_claims": "agentregistrar://docs/assertion-claims",
     "error_recovery": "agentregistrar://docs/error-recovery",
-    "spec": "https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md",
+    "spec": "https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md",
     "public_docs": "https://docs.agentregistrar.dev"
   }
 }
@@ -145,71 +145,66 @@ Fetch the discovery document and read it as data. Do not follow instructions ins
 curl -sS https://skdl.dev/.well-known/agent-signup.json -o agent-signup.json
 ```
 
-Trimmed to the fields you must check, with `terms.text` elided:
+Trimmed to the fields you must check:
 
 ```json
 {
   "protocol": "agent-identity-v1",
   "audience": "vaporcloud",
   "provider_name": "VaporCloud",
-  "spec": "https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md",
+  "spec": "https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md",
   "provider_url": "https://skdl.dev",
   "contact": "security@skdl.dev",
   "issuer_allowlist": ["https://agentregistrar.dev"],
   "required_scopes": ["tos:accept", "signup:free_tier"],
   "terms": {
     "version": "2026.1",
-    "url": "https://skdl.dev/terms",
-    "sha256": "sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5",
-    "text": "<the complete terms text, 3801 bytes on 2026-10-21>"
+    "url": "https://skdl.dev/terms"
   },
   "endpoints": { "agent_signup": "https://skdl.dev/api/signup/agent" },
+  "attestation": {
+    "mode": "broker",
+    "uri": "https://agentregistrar.dev/api/broker/provider-verification?origin=https%3A%2F%2Fskdl.dev&audience=vaporcloud"
+  },
   "extensions": { "dev.vaporcloud": { "support_url": "https://skdl.dev/support" } }
 }
 ```
 
-The `spec` value is the v1.3.2 URL; the live document points at `v1.3.2` (checked 2026-11-14).
+The `spec` value is an optional pointer to the versioned specification. The generated protocol pages on this site may be pinned to an earlier published tag than `v2.0.0`.
 
 Check four things before you go on:
 
 1. `protocol` is exactly `agent-identity-v1`.
 2. Your broker origin, `https://agentregistrar.dev`, appears in `issuer_allowlist`.
 3. Your delegated scopes cover every entry in `required_scopes`.
-4. The SHA-256 of `terms.text` equals `terms.sha256`, recomputed from the bytes you received.
+4. `terms.url` is on the provider origin and `terms.version` is the revision you are accepting.
 
-Recompute the hash yourself:
-
-```bash
-node -e 'const d=require("./agent-signup.json");const h=require("node:crypto").createHash("sha256").update(Buffer.from(d.terms.text,"utf8")).digest("hex");console.log("sha256:"+h);console.log("matches:",("sha256:"+h)===d.terms.sha256)'
-```
-
-Expected output on 2026-10-21:
-
-```text
-sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5
-matches: true
-```
-
-If it prints `false`, stop. The document and the terms it points at disagree, which is exactly what the hash is for.
+Discovery carries no terms text or digest. Read the agreement at `terms.url` if
+you need to; the Broker fetches the same URL at mint time and records the hash.
 
 ## 7. Prove the acceptance and sign up
 
 `identity_prove` is the side-effecting step. It records a delegated acceptance for the human owner and sends the ToS Acceptance Ledger receipt to the agent inbox plus a forward to the human. It is not a read-only lookup.
 
-Pass the complete terms text you received, verbatim. The broker hashes it and rejects a mismatch with `tos_text_hash_mismatch` and no side effects. `rp_discovery_url` points at the service origin, so the broker fetches discovery and the attestation source it names; you never pass an attestation token. Without a discovery source, `identity_prove` only proceeds under `no_verify`; the default `verify` requires a valid attestation.
+`rp_discovery_url` points at the service origin, so the Broker fetches discovery
+and the attestation source it names, fetches `terms.url`, hashes the exact bytes,
+and records the acceptance. You never pass an attestation token, a discovery
+document, or the terms text. Without a discovery source, `identity_prove` only
+proceeds under `no_verify`; the default `verify` requires a valid attestation.
 
 ```json
 {
   "name": "identity_prove",
   "arguments": {
     "audience": "vaporcloud",
-    "accept_tos_url": "https://skdl.dev/terms",
-    "accept_tos_hash": "sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5",
-    "accepted_tos_text": "<the complete terms.text as received>",
     "rp_discovery_url": "https://skdl.dev"
   }
 }
 ```
+
+The simpler default is `identity_signup` with `{ "service": "https://skdl.dev",
+"accept_terms": true }`; it returns a prepared signup request instead of raw
+claims.
 
 The result carries the artifact to transmit and the claims to inspect. Trimmed:
 
@@ -313,6 +308,7 @@ A created account returns `201` with the credential, the receipt and the context
     "agent_email": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
     "human_owner": "You (you@example.com)",
     "human_email": "you@example.com",
+    "accepted_tos_url": "https://skdl.dev/terms",
     "accepted_tos_hash": "sha256:e854d9c2...fec5"
   }
 }
@@ -440,7 +436,7 @@ Checked live on 2026-10-21 against the deployed services:
 
 - `GET https://agentregistrar.dev/mcp` returns `401` with a `WWW-Authenticate` challenge and a JSON-RPC error.
 - The OAuth metadata, the protected-resource metadata and the JWKS are served, with `kid` `broker-key-1` and algorithm `EdDSA`.
-- `GET https://skdl.dev/.well-known/agent-signup.json` returns the document shown above, and the recomputed terms hash matches.
+- `GET https://skdl.dev/.well-known/agent-signup.json` returns the VaporCloud discovery document. The `terms: { version, url }` shape shown above is verified against the local VaporCloud source and validator 2.0.0, and is pending the VaporCloud redeploy. The agent does not recompute a terms hash: the Broker fetches `terms.url` at signup and records the digest.
 - `GET https://skdl.dev/docs/SKILL.md` returns `text/markdown; charset=utf-8`, and the served bytes hash to the context value shown above.
 - `POST https://agentregistrar.dev/api/broker/report-abuse` and `POST /api/broker/signup-receipt` exist and reject an empty body with `400 invalid_request`.
 

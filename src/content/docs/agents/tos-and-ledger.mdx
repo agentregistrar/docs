@@ -3,7 +3,7 @@ title: ToS and ledger
 description: What the agent accepted, where the record lives, who receives the receipt, how status at signup differs from current status, and what happens when terms change.
 audience: human
 aiGenerated: true
-verifiedAgainst: "spec v1.2.0 (35659ce), 2026-10-24"
+verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
 sidebar:
   order: 6
 ---
@@ -18,19 +18,19 @@ One acceptance records:
 | :--- | :--- | :--- |
 | `service_audience` | `vaporcloud` | Which service |
 | `service_tos_url` | `https://skdl.dev/terms` | The URL the human can read |
-| `service_tos_hash` | `sha256:e854d9c2...fec5` | Hash of the exact text the agent sent |
+| `service_tos_hash` | `sha256:e854d9c2...fec5` | The Broker-computed hash of the exact bytes it fetched at `service_tos_url` |
 | `master_tos_version` | `2026-10-01` | The master agreement in force |
 | `accepted_at` | `2026-10-21T18:02:11.000Z` | The original consent time, not the last mint time |
 | assertion `jti` | `jti_01JAB...` | The first assertion minted against it |
 
-The broker verifies that the text you sent hashes to the hash you sent, then records both. It does not fetch the provider's discovery document at prove time, so it cannot know that a provider has changed its terms since you read them. A stale pair passes the broker and is rejected by the provider.
+The Broker fetches `terms.url` at mint time and records the URL, the exact bytes digest and the published version. It does not compare against a provider-supplied digest, because `v2.0.0` discovery carries none. If a provider changes the terms between your read and the mint, the Broker records the bytes it actually fetched; the provider then rejects an assertion that carries a stale accepted URL or version.
 
 ## Where the record lives
 
 - **The broker ledger.** One row per acceptance, visible in the portal under "ToS liability ledger" on the agent page.
 - **The receipt email.** Sent to the agent inbox with the assertion JTI, timestamp, target service, accepted ToS URL and hash, and master agreement version. Headers carry `x-ledger-type`, `x-assertion-jti`, `x-service-audience` and `x-service-tos-hash`.
 - **The human forward.** The same receipt, forwarded to the verified human email with the subject prefix `[Fwd: Agent ToS Ledger]`.
-- **The assertion.** `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash`, `delegation.accepted_at` and `delegation.master_tos_version` carry the acceptance to the provider.
+- **The assertion.** `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash`, `delegation.accepted_at` and `delegation.master_tos_version` carry the acceptance to the provider. The provider checks the URL and may check the hash when it serves deterministic bytes.
 - **`identity_whoami`.** `signup_state.last_acceptances` reports the newest acceptance per service for that agent, including `ledger_email_delivered`.
 
 The provider keeps its own record of the acceptance it verified. The two records should agree on the URL, the hash and the human principal.
@@ -46,18 +46,18 @@ The portal is the human-readable view of the same rows the tools read. It is the
 
 ## When terms change
 
-A provider that edits its terms must change `terms.text`, `terms.sha256` and normally `terms.version`. An assertion minted for the old hash is then stale, and the provider rejects it with `tos_hash_mismatch` and a hard stop.
+A provider that edits its terms publishes the new bytes at `terms.url` and normally changes `terms.version`. An assertion minted for the old accepted URL or version is then stale, and the provider rejects it with `tos_hash_mismatch` and a hard stop.
 
 The correct sequence is:
 
 1. Re-fetch the discovery document.
-2. Read the new `terms.text`, recompute the hash, and check it matches.
-3. Call `identity_signup` (or `identity_prove` for an advanced flow) with the new URL and hash and the new text.
-4. Sign up again. A conformant provider resolves the existing account, returns `resolution: "resolved"`, and sends no duplicate welcome mail; the broker refreshes the proof row instead of creating a second one.
+2. Read `terms.version` and, if you need to, the new agreement at `terms.url`.
+3. Call `identity_signup` with `accept_terms: true` (or `identity_prove` for an advanced flow). The Broker fetches `terms.url` and hashes the exact bytes.
+4. Sign up again. A conformant provider resolves the existing account, returns `resolution: "resolved"`, and sends no duplicate welcome mail; the Broker refreshes the proof row instead of creating a second one.
 
 That creates a new acceptance, which is correct: it is a new consent event. The old acceptance stays in the ledger with its original timestamp. Nothing rewrites history.
 
-An acceptance lasts until the terms hash changes or a human re-consents with `force_new`. The protocol sets no re-acceptance interval; a broker may impose its own documented policy.
+An acceptance lasts until the terms URL or version changes, the served bytes change materially, or a human re-consents with `force_new`. The protocol sets no re-acceptance interval; a broker may impose its own documented policy.
 
 ## What the human is accountable for
 

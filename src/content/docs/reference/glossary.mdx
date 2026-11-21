@@ -4,7 +4,7 @@ description: Canonical definitions of the terms this site uses, one per term, wi
 audience: both
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
 sidebar:
   order: 5
 ---
@@ -33,7 +33,7 @@ One definition per term. Other pages link here instead of defining the same word
 
 **Required scopes.** The `required_scopes` array in a discovery document: the scopes a provider demands for its signup. Brokered signup must include `tos:accept`, and the assertion's `delegation.scopes` must cover every entry or the provider returns `insufficient_scope`. See [Discovery fields](/agent-identity/v1/discovery-fields/#required-fields).
 
-**Terms.** The provider's agreement as three fields: `terms.text` (the complete text), `terms.url` (where a human reads it) and `terms.version`. `terms.sha256` is the digest of the exact UTF-8 bytes of `terms.text`; a changed text requires a new version and hash, and a fresh acceptance. See [ToS binding](/agent-identity/v1/specification/#6-tos-binding).
+**Terms.** The provider's agreement as two fields: `terms.url` (the provider-hosted document) and `terms.version`. The Broker fetches the URL at signup and records a SHA-256 digest of the exact response bytes as `delegation.accepted_rp_tos_hash`. A changed agreement requires a new version and a fresh acceptance. See [ToS binding](/agent-identity/v1/specification/#6-tos-binding).
 
 **Master Agent Delegation agreement (master ToS).** The one agreement a human owner signs with the broker, delegating ToS acceptance for their agents. Its version and hash appear in the assertion as `delegation.master_tos_version` and `delegation.master_tos_hash`. See [Trust and limits](/start/trust-and-limits/).
 

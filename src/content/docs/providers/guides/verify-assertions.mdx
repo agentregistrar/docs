@@ -4,7 +4,7 @@ description: Verify the Ed25519 assertion against the issuer JWKS, enforce issue
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.3.2 (58e4648), jose 6.2.13, Node 24.21.0, 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), jose 6.2.13, Node 24.21.0, 2026-11-21"
 ---
 
 **Goal:** accept a compact Ed25519 JWT only when every check in [spec section 7.1](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake) passes, and map each failure to a fixed v1 code.
@@ -13,12 +13,15 @@ The claim set is in [Assertion claims](/agent-identity/v1/assertion-claims/). Th
 
 A provider may also publish an optional **provider verification credential** (the
 RP attestation) as a stable source named by discovery. It is a separate, local
-check; it does not change how the assertion is verified.
+check; it does not change how the assertion is verified. Broker-managed
+attestations are the default and are keyless: the credential may carry
+`keys: []`, and a provider needs no Ed25519 key to accept signups. A key is
+needed only for RP-signed receipts (Contract F) or authenticated abuse reports.
 
 ## Before you start
 
 - The issuer origin from your `issuer_allowlist`, for example `https://agentregistrar.dev`.
-- The published `audience`, `required_scopes` and current `terms.sha256`.
+- The published `audience`, `required_scopes` and current `terms.url`.
 - A place to record seen `jti` values, such as your account table.
 - `jose` 6.2.13, or an equivalent Ed25519 implementation. Nothing here requires a specific library.
 
@@ -27,11 +30,14 @@ check; it does not change how the assertion is verified.
 Save as `verify.mjs`. It verifies the signature first, then the claims, and throws an error whose `code` is the stable v1 code.
 
 ```js
-import { createHash } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const MAX_LIFETIME_SECONDS = 300;
 const CLOCK_TOLERANCE_SECONDS = 60;
+
+function normalizeUrl(value) {
+  return value.replace(/\/+$/, "");
+}
 
 export async function verifyAssertion(jwt, config) {
   const fail = (code, description) => {
@@ -76,8 +82,13 @@ export async function verifyAssertion(jwt, config) {
   if (payload.human?.verified !== true) {
     fail("human_unverified", "The human owner is not verified");
   }
-  if (payload.delegation?.accepted_rp_tos_hash !== config.termsSha256) {
-    fail("tos_hash_mismatch", "Accepted ToS hash does not match the published terms");
+
+  const acceptedUrl = payload.delegation?.accepted_rp_tos_url;
+  if (typeof acceptedUrl !== "string" || normalizeUrl(acceptedUrl) !== normalizeUrl(config.termsUrl)) {
+    fail("tos_hash_mismatch", "Accepted ToS URL does not match the published terms URL");
+  }
+  if (config.termsSha256 !== undefined && payload.delegation?.accepted_rp_tos_hash !== config.termsSha256) {
+    fail("tos_hash_mismatch", "Accepted ToS hash does not match the served terms bytes");
   }
 
   const accountKey = `${payload.iss}:${payload.human.id}`;
@@ -89,13 +100,13 @@ export async function verifyAssertion(jwt, config) {
 
   return { claims: payload, resolution: previous === undefined ? "created" : "resolved" };
 }
-
-export function sha256Text(text) {
-  return "sha256:" + createHash("sha256").update(text, "utf8").digest("hex");
-}
 ```
 
 The `seenJti` map is a stand-in for a unique constraint in your account store. The semantics matter: the same `jti` for the same account resolves, a different account is a replay.
+
+The URL check is mandatory. The hash check is optional: enable it only when
+`terms.url` serves deterministic bytes, because the Broker hashes the exact
+response bytes it fetches.
 
 ## Try it locally
 
@@ -167,8 +178,9 @@ createServer((req, res) => {
 Save as `check.mjs`:
 
 ```js
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { sha256Text, verifyAssertion } from "./verify.mjs";
+import { verifyAssertion } from "./verify.mjs";
 
 const jwt = readFileSync("assertion.jwt", "utf8").trim();
 try {
@@ -177,7 +189,13 @@ try {
     issuerAllowlist: ["https://agentregistrar.dev"],
     audience: "example-rp",
     requiredScopes: ["tos:accept"],
-    termsSha256: sha256Text("Example RP Terms of Service v2026.1"),
+    termsUrl: "https://example.com/terms",
+    // Optional exact check: the fixture terms bytes are deterministic.
+    termsSha256:
+      "sha256:" +
+      createHash("sha256")
+        .update("Example RP Terms of Service v2026.1", "utf8")
+        .digest("hex"),
     seenJti: new Map(),
   });
   console.log(JSON.stringify({ outcome: "ok", resolution: result.resolution }));
@@ -226,7 +244,7 @@ The verifier was run against synthetic variants of the same fixture. Each row is
 | Same `jti`, same account | `ok`, `resolution: "resolved"` |
 | Same `jti`, different human | `assertion_replayed` |
 | Wrong `aud` | `audience_mismatch` |
-| Stale or wrong ToS hash | `tos_hash_mismatch` |
+| Stale or wrong ToS URL or hash | `tos_hash_mismatch` |
 | `human.verified: false` | `human_unverified` |
 | Missing required scope | `insufficient_scope` |
 | Expired past the skew | `assertion_expired` |
@@ -246,7 +264,7 @@ The verifier was run against synthetic variants of the same fixture. Each row is
 | Replay | A `jti` in a conflicting context is rejected; the same context resolves. | `assertion_replayed` (409) |
 | Scopes | `delegation.scopes` covers every `required_scopes` entry. | `insufficient_scope` (403) |
 | Human | `human.verified === true`. | `human_unverified` (403) |
-| Terms | `delegation.accepted_rp_tos_hash` equals the current `terms.sha256`. | `tos_hash_mismatch` (409) |
+| Terms | `delegation.accepted_rp_tos_url` equals the current `terms.url` (trailing slashes normalized). The hash is an optional second check when `terms.url` serves deterministic bytes. | `tos_hash_mismatch` (409) |
 
 Two checks are policy choices rather than fixed codes: the five-minute lifetime is the recommended maximum, and a JWKS transport failure is an operational error. Map the first to `invalid_assertion` and return a retryable `503`-style response for the second without inventing a core code. The normative table is [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes).
 
@@ -354,6 +372,8 @@ Never decode, re-encode or modify the compact JWT to guess fields. The broker re
 - [ ] The JWKS URL is the issuer origin, not a request parameter.
 - [ ] Clock skew is bounded, and the lifetime check exists.
 - [ ] A repeated `jti` for the same account resolves instead of failing.
+- [ ] `delegation.accepted_rp_tos_url` is checked against `terms.url`, and the
+  optional hash check is enabled only for deterministic bytes.
 - [ ] No identity field is read from the request body.
 
 ## Next

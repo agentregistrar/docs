@@ -1,9 +1,9 @@
 ---
 title: Discovery fields
-description: The v1.3 agent-signup.json document field by field, including the optional attestation source object, with types and rules.
+description: The agent-signup.json document field by field for spec v2.0.0, including provider-hosted terms and the optional keyless attestation source.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v1.3.2 (58e4648), schema sha256:d2f254ed06191f75907a6041e88a65bad4a76431a7d176d420651ed92cc3d3c7, validator 1.3.2, 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), @agentregistrar/discovery 2.0.0, validator 2.0.0, 2026-11-21"
 ---
 
 A relying party publishes one identity-only document at `GET
@@ -15,7 +15,10 @@ this page does not replace them.
 The machine-readable schema is served at
 [`/agent-identity/v1/agent-signup.schema.json`](/agent-identity/v1/agent-signup.schema.json)
 with content type `application/schema+json`. Validate a document with the
-[conformance validator](/agent-identity/v1/validator/).
+[conformance validator](/agent-identity/v1/validator/). This table follows spec
+`v2.0.0`. The downloadable schema asset and the generated protocol pages are
+pinned by the docs release; when they lag this table, the spec source is
+canonical.
 
 ## Required fields
 
@@ -26,10 +29,8 @@ with content type `application/schema+json`. Validate a document with the
 | `provider_name` | string | Human-readable service name. | [5.1](/agent-identity/v1/specification/#51-required-fields) |
 | `issuer_allowlist` | array of strings | Non-empty, unique absolute issuer origins. No path, query, fragment or wildcard. Trailing slashes are normalized away. The broker `iss` must match one entry exactly. | [5.1](/agent-identity/v1/specification/#51-required-fields), [5.4](/agent-identity/v1/specification/#54-field-rules) |
 | `required_scopes` | array of strings | Unique non-empty scopes. Brokered signup must include `tos:accept`. | [5.1](/agent-identity/v1/specification/#51-required-fields) |
-| `terms.version` | string | ToS version. Change it whenever the text changes materially. | [5.1](/agent-identity/v1/specification/#51-required-fields), [6](/agent-identity/v1/specification/#6-tos-binding) |
-| `terms.url` | string | Absolute URL where a human can read the same agreement. HTTPS is required except the documented localhost development exception. | [5.1](/agent-identity/v1/specification/#51-required-fields) |
-| `terms.sha256` | string | `sha256:` followed by 64 lowercase hex characters, over the exact UTF-8 bytes of `terms.text`. | [5.1](/agent-identity/v1/specification/#51-required-fields), [6](/agent-identity/v1/specification/#6-tos-binding) |
-| `terms.text` | string | The complete agreement the agent is accepting, not a summary. | [5.1](/agent-identity/v1/specification/#51-required-fields) |
+| `terms.version` | string | ToS version. Change it whenever the agreement changes materially. | [5.1](/agent-identity/v1/specification/#51-required-fields), [6](/agent-identity/v1/specification/#6-tos-binding) |
+| `terms.url` | string | Absolute URL of the provider-hosted agreement that a human can read. HTTPS is required except the documented localhost development exception. The Broker fetches this URL at signup and hashes the exact response bytes. | [5.1](/agent-identity/v1/specification/#51-required-fields) |
 | `endpoints.agent_signup` | string | Absolute URL that accepts `POST` with `Authorization: Bearer <assertion>`. The only endpoint in the protocol. | [5.1](/agent-identity/v1/specification/#51-required-fields) |
 
 ## Optional fields
@@ -40,13 +41,17 @@ with content type `application/schema+json`. Validate a document with the
 | `provider_url` | string | Canonical service URL. If present, it must share the signup endpoint's registrable domain. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [11](/agent-identity/v1/specification/#11-contract-e-identity-facts--the-context-pointer) |
 | `contact` | string | Security, abuse or legal contact: an email address or an HTTPS URL. The localhost development exception (`http://localhost`, `http://127.0.0.1`) is the only `http` form allowed. | [5.2](/agent-identity/v1/specification/#52-optional-fields) |
 | `updated_at` | string | ISO 8601 timestamp for humans and debugging. Not a freshness signal for the ToS. | [5.2](/agent-identity/v1/specification/#52-optional-fields) |
-| `attestation` | object | The optional Contract G **source**: `{ "mode": "broker" \| "provider", "uri": "<stable absolute HTTPS URL>" }`. It names a URI that serves `{ "attestation": "<compact JWS>" }`; it never carries the token. Absence means **unverified**. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [5.4](/agent-identity/v1/specification/#54-field-rules), [14](/agent-identity/v1/specification/#14-contract-g--rp-attestation) |
+| `attestation` | object | The optional Contract G **source**: `{ "mode": "broker" \| "provider", "uri": "<stable absolute HTTPS URL>" }`. It names a URI that serves `{ "attestation": "<compact JWS>" }`; it never carries the token. Broker-managed is the default and may be keyless (`keys: []`). Absence means **unverified**. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [5.4](/agent-identity/v1/specification/#54-field-rules), [14](/agent-identity/v1/specification/#14-contract-g--rp-attestation) |
 | `extensions` | object | Non-capability vendor metadata keyed by reverse-DNS namespace, for example `dev.example`. It must not advertise provisioning, catalogs, SKUs or resource endpoints. | [5.2](/agent-identity/v1/specification/#52-optional-fields), [5.3](/agent-identity/v1/specification/#53-forbidden-fields-vendor-capability-surface) |
 
 `rp_attestation` was removed in `v1.3.0`. A document that still contains it is
 non-conformant with reason `rp_attestation_removed`; there is no compatibility
 field, embedded fallback, or dual publication. Contract F receipt and abuse
 bodies are a different surface and keep the historical field.
+
+`terms.text` and `terms.sha256` were removed in `v2.0.0`. The provider hosts the
+agreement at `terms.url`. There is no compatibility field and no dual
+publication; publish `{ version, url }` in one deploy.
 
 Unknown additive fields must be ignored by consumers. Producers should put
 non-capability metadata under `extensions.<reverse-dns-namespace>` so typos stay
@@ -96,7 +101,8 @@ Rules:
 - The token is public and copyable; the origin and audience binding prevent
   replay on another service.
 - It must not carry a terms hash, scopes, endpoints, `provider_url`, account ids,
-  prices, or private material.
+  prices, or private material. Its `keys[]` may be empty; no RP signing key is
+  needed to accept agent signups.
 - A conformant document without `attestation` is **unverified**. An expired,
   invalid, suspended, or unavailable source is a verification result, never a
   conformance failure by itself. A malformed object or a failed host binding is a
@@ -125,21 +131,27 @@ These must not appear at any nesting depth, including under `extensions`:
 
 A document is a parameter document, not a capability catalog. Vendor capabilities belong in the post-signup context guide. See [Scope boundaries](/agent-identity/v1/scope-boundaries/) and the normative [5.3](/agent-identity/v1/specification/#53-forbidden-fields-vendor-capability-surface).
 
-## Terms text and hash
+## Terms at a URL
 
-- Hash the exact UTF-8 bytes of `terms.text`. Do not normalize line endings, trim whitespace or extract text from HTML.
-- `terms.text` must be the complete agreement. A summary makes the hash ambiguous.
-- The agent recomputes the hash before calling the broker; the broker verifies the accepted text against the hash it records.
-- The relying party rejects an assertion whose `delegation.accepted_rp_tos_hash` is not the currently advertised `terms.sha256`.
-- When the terms change, publish the new text and hash before accepting new signups. A bounded grace period for in-flight assertions is a relying-party policy documented outside discovery; it should not exceed 24 hours.
+- `terms.url` must serve the complete agreement with stable bytes. No redirect,
+  no per-request token, no variant that changes between fetches.
+- The Broker fetches `terms.url` at signup and records
+  `sha256:<64 lowercase hex>` over the exact response bytes in
+  `delegation.accepted_rp_tos_hash` and in the ToS ledger.
+- The relying party checks `delegation.accepted_rp_tos_url` against its current
+  `terms.url` (trailing slashes normalized). It may also check the hash when the
+  URL serves deterministic bytes.
+- When the terms change, publish the new bytes and a new `terms.version` before
+  accepting new signups. A bounded grace period for in-flight assertions is a
+  relying-party policy documented outside discovery; it should not exceed 24
+  hours.
 
 See [ToS binding](/agent-identity/v1/specification/#6-tos-binding) and [Re-acceptance](/agent-identity/v1/specification/#61-re-acceptance).
 
 ## Minimal conformant example
 
-This document contains only the required identity fields. Its `terms.sha256` is
-the real SHA-256 of the `terms.text` value shown. It passes the `v1.3.2`
-validator in file mode with zero errors and zero warnings. The optional
+This document contains only the required identity fields. It passes the
+`v2.0.0` validator in file mode with zero errors and zero warnings. The optional
 `attestation` object is absent, so the document is conformant and
 **unverified**.
 
@@ -152,9 +164,7 @@ validator in file mode with zero errors and zero warnings. The optional
   "required_scopes": ["tos:accept"],
   "terms": {
     "version": "2026.1",
-    "url": "https://example.com/terms",
-    "sha256": "sha256:05435fa3eaee7f3534b4a771ab2328d66d33f712f3534b29e9035717c246d953",
-    "text": "Example RP Terms of Service. The agent acts for a verified human owner, and the human owner is bound by these terms."
+    "url": "https://example.com/terms"
   },
   "endpoints": {
     "agent_signup": "https://example.com/api/signup/agent"
@@ -162,13 +172,13 @@ validator in file mode with zero errors and zero warnings. The optional
 }
 ```
 
-The example is illustrative. Replace the audience, URLs, scopes and terms with the service's own values, and recompute the hash. The allowlist entry is the live broker origin (`https://agentregistrar.dev`); a provider that accepts a different broker lists that broker's origin instead.
+The example is illustrative. Replace the audience, URLs, scopes and terms with the service's own values, and serve the agreement at `terms.url`. The allowlist entry is the live broker origin (`https://agentregistrar.dev`); a provider that accepts a different broker lists that broker's origin instead.
 
 ## Known limits
 
-- The JSON Schema enforces the `sha256:` format, not digest equality. The digest check is a cross-field rule in the shared Zod schema and the conformance validator.
+- Discovery carries no terms digest. The Broker computes it from the bytes it fetches at `terms.url`; a digest the provider could not reproduce from a served page would be meaningless.
 - Discovery conformance is cheap to publish. A valid document is not a statement about the service's security, uptime or product.
-- The document itself is not signed in v1.3. The optional `attestation` object
+- The document itself is not signed. The optional `attestation` object
   names a signed statement about the provider; it is not a signature over the
   discovery document. Trust in the document comes from TLS plus the issuer
   allowlist; the assertion and the attestation are separately signed.
@@ -177,6 +187,6 @@ The example is illustrative. Replace the audience, URLs, scopes and terms with t
 ## Verify
 
 - Fetch the published document and confirm `Content-Type: application/json`.
-- Recompute `terms.sha256` from the exact bytes of `terms.text`.
+- Confirm `terms` has exactly `version` and `url`, and that `terms.url` serves stable bytes with no redirect.
 - Run the [validator](/agent-identity/v1/validator/) against the document.
 - Confirm no forbidden field appears at any depth, including under `extensions`.

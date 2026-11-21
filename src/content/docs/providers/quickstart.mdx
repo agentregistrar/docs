@@ -1,34 +1,40 @@
 ---
 title: Provider quickstart
-description: Go from a terms text file to a validator-passing agent-signup.json document, then optionally register a provider and publish a verification credential.
+description: Go from a hosted terms page to a validator-passing agent-signup.json document, then optionally complete the four-step portal setup.
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.3.2 (58e4648), validator 1.3.2, @agentregistrar/discovery 1.3.2, Node 24.21.0, 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), validator 2.0.0, @agentregistrar/discovery 2.0.0, Node 24.21.0, 2026-11-21"
 ---
 
-This is the shortest conformant path. You write one terms file, hash its exact
-bytes, generate one JSON document, serve it over HTTP and validate it. The last
-step returns a stable error from a stub signup route. `example.com` and
-`example-rp` are synthetic values; replace them with your own origin and
-audience.
+This is the shortest conformant path. You host one terms page, generate one
+JSON document, serve it over HTTP and validate it. The last step returns a
+stable error from a stub signup route. `example.com` and `example-rp` are
+synthetic values; replace them with your own origin and audience.
 
 The base flow is free and needs **no broker account, no SDK and no network call
 to the broker** to accept an assertion. A provider account is optional and is
 required only to become a verified provider, issue authenticated receipts, or
 report abuse with standing.
 
+Spec `v2.0.0` keeps the terms with the provider. Discovery carries
+`terms: { "version", "url" }`; the Broker fetches `terms.url` at signup and
+hashes the exact response bytes. There is no `terms.text`, no `terms.sha256`,
+and no manual hash step.
+
 ## Before you start
 
 - Node 22 or newer, with `npm` or `pnpm`.
 - An HTTPS origin for production. `http://localhost` and `http://127.0.0.1` are the documented development exception.
-- A public page where a human can read the same terms you will hash.
+- A public page where a human can read the agreement you serve at `terms.url`.
 - No broker account, no SDK and no network call to the broker are required for
   the conformant path.
 
-## 1. Write the terms as one text file
+## 1. Write the terms and serve them
 
-The complete agreement the agent accepts lives in `terms.txt`. This example is synthetic. The trailing newline is part of the file and therefore part of the hash.
+The complete agreement lives in `terms.txt`. This example is synthetic. Serve
+those exact bytes at `https://example.com/terms`; a static file with
+`text/plain; charset=utf-8` is enough.
 
 ```bash
 mkdir provider-quickstart
@@ -46,18 +52,15 @@ acts for a verified human owner, and that human owner is bound by these terms.
 EOF
 ```
 
-The content rules are in [ToS binding](/agent-identity/v1/specification/#6-tos-binding). Do not trim, re-wrap or extract the text from HTML when you hash it.
+The content rules are in [ToS binding](/agent-identity/v1/specification/#6-tos-binding). Serve stable bytes: no redirect, no per-request token, no wrapper that changes between fetches. See [Serve terms at a URL](/providers/guides/compute-tos-hash/).
 
-## 2. Generate the document and its hash
+## 2. Generate the document
 
-Save this as `build-discovery.mjs`. It reads the exact bytes of `terms.txt`, computes the digest and writes the document, so the text and hash cannot drift.
+Save this as `build-discovery.mjs`. It writes the document with the terms URL
+and version; the agreement stays on your origin.
 
 ```js
-import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
-
-const text = readFileSync("terms.txt", "utf8");
-const sha256 = "sha256:" + createHash("sha256").update(text, "utf8").digest("hex");
+import { writeFileSync } from "node:fs";
 
 const document = {
   protocol: "agent-identity-v1",
@@ -70,8 +73,6 @@ const document = {
   terms: {
     version: "2026.1",
     url: "https://example.com/terms",
-    sha256,
-    text,
   },
   endpoints: {
     agent_signup: "https://example.com/api/signup/agent",
@@ -79,7 +80,7 @@ const document = {
 };
 
 writeFileSync("agent-signup.json", JSON.stringify(document, null, 2) + "\n");
-console.log(sha256);
+console.log("wrote agent-signup.json");
 ```
 
 ```bash
@@ -89,7 +90,7 @@ node build-discovery.mjs
 Expected output:
 
 ```text
-sha256:6c18126f93de8d1972589ca94633ca82e76bd9ba1f0592618b0105753f3501d6
+wrote agent-signup.json
 ```
 
 The generated document:
@@ -109,9 +110,7 @@ The generated document:
   ],
   "terms": {
     "version": "2026.1",
-    "url": "https://example.com/terms",
-    "sha256": "sha256:6c18126f93de8d1972589ca94633ca82e76bd9ba1f0592618b0105753f3501d6",
-    "text": "Example RP Terms of Service\nVersion: 2026.1\n\nThese terms govern accounts created through a brokered agent signup. The agent\nacts for a verified human owner, and that human owner is bound by these terms.\n\n1. The service is provided as-is, with no uptime guarantee.\n2. The human owner is responsible for the agent's actions.\n3. Either party may terminate the account at any time.\n"
+    "url": "https://example.com/terms"
   },
   "endpoints": {
     "agent_signup": "https://example.com/api/signup/agent"
@@ -119,17 +118,22 @@ The generated document:
 }
 ```
 
-Every field above is identity-only. The allowed and forbidden fields are in [Discovery fields](/agent-identity/v1/discovery-fields/). Do not add product catalogs, SKUs, provisioning endpoints or OTP endpoints.
+Every field above is identity-only. The allowed and forbidden fields are in
+[Discovery fields](/agent-identity/v1/discovery-fields/). Do not add product
+catalogs, SKUs, provisioning endpoints or OTP endpoints.
 
 ## 3. Serve it
 
-Save this as `serve.mjs`. The discovery route returns JSON with no authentication and no redirect; the signup route is a stub that returns one stable error.
+Save this as `serve.mjs`. The discovery route returns JSON with no
+authentication and no redirect; the signup route is a stub that returns one
+stable error.
 
 ```js
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 
 const document = readFileSync("agent-signup.json", "utf8");
+const terms = readFileSync("terms.txt", "utf8");
 
 const server = createServer((req, res) => {
   if (req.url === "/.well-known/agent-signup.json" && req.method !== "GET") {
@@ -143,6 +147,10 @@ const server = createServer((req, res) => {
       "access-control-allow-origin": "*",
     });
     return res.end(document);
+  }
+  if (req.url === "/terms") {
+    res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+    return res.end(terms);
   }
   if (req.url === "/api/signup/agent" && req.method !== "POST") {
     res.writeHead(405, { allow: "POST" });
@@ -178,6 +186,7 @@ In another terminal, check the transport:
 
 ```bash
 curl -sS -D - -o /dev/null http://127.0.0.1:3001/.well-known/agent-signup.json
+curl -sS -o /dev/null -w '%{http_code} %{content_type}\n' http://127.0.0.1:3001/terms
 ```
 
 Expected, in part:
@@ -187,6 +196,7 @@ HTTP/1.1 200 OK
 content-type: application/json
 cache-control: public, max-age=60
 access-control-allow-origin: *
+200 text/plain; charset=utf-8
 ```
 
 ## 4. Validate the document
@@ -205,7 +215,7 @@ pnpm --silent validate:discovery http://127.0.0.1:3001/.well-known/agent-signup.
 Path B, with the published package in any project. The package has no `bin` entry, so run its TypeScript source with `tsx`:
 
 ```bash
-npm install @agentregistrar/discovery@1.3.2 tsx@4.23.15
+npm install @agentregistrar/discovery@2.0.0 tsx@4.23.15
 npx tsx node_modules/@agentregistrar/discovery/src/validate-discovery.ts \
   http://127.0.0.1:3001/.well-known/agent-signup.json --json --probe-jwks
 ```
@@ -215,7 +225,7 @@ Both paths use `--probe-jwks`, so both report one probe. Expected from either pa
 ```json
 {
   "validator": "agent-identity-v1",
-  "validatorVersion": "1.3.2",
+  "validatorVersion": "2.0.0",
   "mode": "url",
   "valid": true,
   "exitCode": 0,
@@ -227,7 +237,7 @@ Both paths use `--probe-jwks`, so both report one probe. Expected from either pa
 }
 ```
 
-The `v1.3` result also carries separate `conformance` and `attestation` objects; a
+The result also carries separate `conformance` and `attestation` objects; a
 document with no `attestation` object reports `attestation.status: "unverified"`
 and still exits `0`. The exact field reference is in the [conformance
 validator](/agent-identity/v1/validator/).
@@ -236,7 +246,9 @@ Exit code `0` means valid. `1` means the document was read and rejected; `2`
 means it could not be fetched. `--probe-jwks` additionally checks that every
 issuer publishes a usable JWKS and does not touch your signup endpoint.
 
-If the validator fails on `terms.sha256`, hash the exact file bytes again; see [Compute the ToS hash](/providers/guides/compute-tos-hash/).
+`terms.text` and `terms.sha256` are legacy v1.3 fields. The v2.0.0 validator
+accepts and ignores them; discovery carries only the version and the URL, and
+the Broker hashes the bytes at `terms.url` at signup.
 
 ## 5. Return one stable error
 
@@ -265,58 +277,34 @@ Replace the stub with a verifier. Start with [Verify assertions](/providers/guid
 
 Once the document passes live HTTPS validation, submit it with the evidence. The criteria and pull-request shape are in [Validate and register](/providers/guides/validate-and-register/).
 
-## Optional: become a verified provider
+## Optional: the four-step portal setup
 
-The base flow above is complete without an account. To add the optional
-broker-issued **provider verification credential** and the authenticated paths:
+A provider account replaces the manual document with a generated one. The
+portal flow is four linear steps:
 
-1. **Create a provider account** with your RP broker and verify the organization
-   contact. A new account starts `pending` and `free`.
-2. **Prove the origin and audience.** Create an origin registration, then satisfy
-   either the HTTPS well-known challenge or the DNS TXT challenge. The first
-   verified origin promotes the account to `active`.
-3. **Register a key.** Generate an Ed25519 keypair locally, request a
-   proof-of-possession challenge, and register the public key with the required
-   `receipt`/`abuse` purposes. The broker never sees the private key.
-4. **Choose one publication mode per origin and audience.**
-   - **Broker-managed (default and recommended).** Issue the attestation, then
-     build the verification URI from the broker origin plus your origin and
-     audience. The provider portal shows a copyable snippet (live 2026-11-14).
-     Publish it as
-     `attestation: {mode: "broker", uri}` and change nothing else:
+1. **Create service.** Enter three fields: display name, origin and audience.
+   The free plan allows one service.
+2. **Verify domain.** Publish the HTTPS well-known file or the DNS TXT record
+   the portal shows. The first verified origin makes the account active.
+3. **Publish discovery.** Copy the generated `/.well-known/agent-signup.json`
+   and deploy it. Its `terms` is `{ version, url }` and its default
+   `attestation` is broker-managed, so you host no token and run no renewal job.
+4. **Test my setup.** One synchronous check validates the live document,
+   fetches `terms.url`, checks the broker-managed attestation, probes
+   `endpoints.agent_signup` and shows the exact assertion preview. The first
+   passing run marks the service live.
 
-     ```json
-     {
-       "attestation": {
-         "mode": "broker",
-         "uri": "https://agentregistrar.dev/api/broker/provider-verification?origin=https%3A%2F%2Fexample.com&audience=example-rp"
-       }
-     }
-     ```
+No RP key is required. Broker-managed attestations accept `keys: []`, because
+accepting agent signups only needs the broker JWKS. Register an Ed25519 RP key
+later only if you want RP-signed receipts (Contract F) or authenticated abuse
+reporting.
 
-     The URI carries `origin` and `audience` as query parameters. There is no
-     cron, renewal job, or redeploy: the broker renews on demand when 12 hours or
-     less remain, and a suspension stops lookups within five minutes at most.
-   - **Provider-managed (advanced opt-in).** Register a stable HTTPS source URL on
-     your discovery origin or a subdomain. Renew through
-     `POST /api/provider/v1/attestation` on the 12-hour target against the
-     24-hour expiry, and write `{ "attestation": "<JWS>" }` at that URL. Expiry is
-     the revocation bound, so a suspension may not be visible until the token
-     expires.
-5. **Sign receipts and verify their history.** Sign Contract E receipts with the
-   RP key named in the attestation, keep the exact historical attestation that
-   contained that key, and send `{signup_token, rp_attestation}` to Contract F.
-6. **Report abuse with standing.** Sign the `{rp_attestation, report}` JWS and
-   post it to the broker's advertised `abuse_endpoint`. A receipt-linked report
-   can apply a protective suspension pending review; an unlinked report opens a
-   case without suspending.
+The portal has five tabs: `Services`, `Signups`, `Credentials`, `Team` and
+`Settings`. Attestation issuance is not plan-gated, and this release ships no
+checkout, pricing page, invoice or DPA.
 
-Attestation issuance is not plan-gated: an active provider with a verified origin
-and an active key can issue and renew on the free plan. This release ships no
-checkout, pricing page, invoice, DPA, or provider terms text here.
-
-See [Trust and limits](/start/trust-and-limits/) for why verification is identity,
-not safety, and [Validate and register](/providers/guides/validate-and-register/)
+See [Trust and limits](/start/trust-and-limits/) for why verification is
+identity, not safety, and [Validate and register](/providers/guides/validate-and-register/)
 for the registry's five-field verification snapshot. Upgrading a v1.2 document?
 Follow [Migrate a v1.2 discovery
 document](/providers/guides/publish-discovery/#migrate-a-v12-discovery-document).
@@ -331,7 +319,8 @@ guide](/providers/guides/publish-context-guide/).
 
 ## Verify your work
 
-- [ ] `terms.sha256` equals the SHA-256 of the exact `terms.text` bytes.
+- [ ] `terms` is exactly `{ "version", "url" }` with no `text` or `sha256`.
+- [ ] `terms.url` serves stable bytes with no redirect.
 - [ ] The discovery route returns `200`, `application/json`, no redirect and no authentication.
 - [ ] The validator exits `0` with zero errors.
 - [ ] One failing signup request returns a fixed v1 error code.

@@ -1,10 +1,10 @@
 ---
 title: Conformance
-description: The v1.3 relying-party conformance checklist, the separate attestation verdict, validator commands and exit codes, fixtures, and registry entry.
+description: The v2.0.0 relying-party conformance checklist, the separate attestation verdict, validator commands and exit codes, fixtures, and registry entry.
 audience: both
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.3.2 (58e4648), validator 1.3.2, 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), validator 2.0.0, 2026-11-21"
 ---
 
 A relying party is `agent-identity-v1` conformant when the discovery document it
@@ -29,7 +29,7 @@ validator](/agent-identity/v1/validator/) page.
 - [ ] `GET` returns `404` or `410`, never `401` or `403`, when the service does not support the protocol.
 - [ ] `protocol` is exactly `agent-identity-v1`.
 - [ ] `audience`, `provider_name`, a non-empty `issuer_allowlist`, and unique `required_scopes` including `tos:accept` are present.
-- [ ] `terms.text` is the complete ToS text; `terms.sha256` is `sha256:` plus 64 lowercase hex characters over its exact UTF-8 bytes; `terms.url` and `terms.version` are present and consistent.
+- [ ] `terms.url` and `terms.version` are present, and `terms` carries no `text` or `sha256`. The URL serves complete, stable bytes.
 - [ ] `endpoints.agent_signup` is the only endpoint and is an absolute URL.
 - [ ] `attestation` is omitted, or is an object with `mode` exactly `broker` or `provider` and a stable absolute HTTPS `uri` with no credentials and no fragment. Omission means **unverified**, not invalid. A `broker` URI is on an `issuer_allowlist` origin; a `provider` URI is on the discovery origin or a subdomain.
 - [ ] `rp_attestation` does not appear anywhere in discovery. Its presence is `rp_attestation_removed`.
@@ -47,7 +47,7 @@ validator](/agent-identity/v1/validator/) page.
 
 | Result | What it covers | What it does not do |
 | :--- | :--- | :--- |
-| **Document conformance** | Schema, ToS hash, scope boundary, field rules, the `attestation` object, and the removed `rp_attestation` carrier. | It never requires Broker B to be up or fetches the source. |
+| **Document conformance** | Schema, terms URL and version, scope boundary, field rules, the `attestation` object, and the removed `rp_attestation` carrier. | It never requires Broker B to be up or fetches the source. |
 | **Attestation verification** | Optional source fetch, JWS parse, trusted issuer before fetch, signature, `typ`/`alg`/`kid`, time, origin/audience binding. | It does not make the provider safe or change the conformance verdict. |
 
 A malformed `attestation` object (not an object, a `mode` other than

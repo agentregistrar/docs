@@ -1,23 +1,34 @@
 ---
 title: Publish discovery
-description: Serve the identity-only agent-signup.json document with the right route, content type, caching and terms lifecycle.
+description: Serve the identity-only agent-signup.json document with provider-hosted terms, the right transport, and keyless broker-managed attestation.
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-21
-verifiedAgainst: "spec v1.3.2 (58e4648), validator 1.3.2, 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), validator 2.0.0, 2026-11-21"
 ---
 
-**Goal:** a live `GET /.well-known/agent-signup.json` that returns your identity fields and the current terms, and passes the validator.
+**Goal:** a live `GET /.well-known/agent-signup.json` that returns your identity
+fields, your provider-hosted terms URL, and one attestation source, and passes
+the validator.
 
 ## Before you start
 
-- Your canonical HTTPS origin. `http://localhost` and `http://127.0.0.1` are allowed for development only.
-- The complete terms text as one immutable string, and a human-readable page at `terms.url`.
-- Your broker origin. In live examples this site uses `https://agentregistrar.dev`; substitute your broker if it differs.
+- Your canonical HTTPS origin. `http://localhost` and `http://127.0.0.1` are
+  allowed for development only.
+- A terms page at an HTTPS URL on your origin. You host the agreement; the
+  Broker fetches that URL at signup time and hashes the exact response bytes.
+  You do not put the terms text in the JSON and you do not compute a hash.
+- Your broker origin. In live examples this site uses
+  `https://agentregistrar.dev`; substitute your broker if it differs.
+
+The four-step portal flow generates this document for you. Use the manual
+example below when you publish it yourself. Both produce the same shape.
 
 ## The document
 
-This example is identity-only and passes the `v1.3.2` validator in file mode with zero errors and zero warnings. Its hash is the real SHA-256 of the one-line terms text shown. `example.com` and `example-rp` are synthetic values.
+This example is identity-only and passes the `v2.0.0` validator in file mode
+with zero errors and zero warnings. `example.com` and `example-rp` are
+synthetic values.
 
 ```json
 {
@@ -26,17 +37,19 @@ This example is identity-only and passes the `v1.3.2` validator in file mode wit
   "provider_name": "Example RP",
   "provider_url": "https://example.com",
   "contact": "security@example.com",
-  "updated_at": "2026-10-21T00:00:00Z",
+  "updated_at": "2026-11-21T00:00:00Z",
   "issuer_allowlist": ["https://agentregistrar.dev"],
   "required_scopes": ["tos:accept"],
   "terms": {
     "version": "2026.1",
-    "url": "https://example.com/terms",
-    "sha256": "sha256:554dcf89156b51f458de3d390f8fbabff9c5bcc5af792a192e6f916012ebe926",
-    "text": "Example RP Terms of Service v2026.1. Accounts are provided as-is."
+    "url": "https://example.com/terms"
   },
   "endpoints": {
     "agent_signup": "https://example.com/api/signup/agent"
+  },
+  "attestation": {
+    "mode": "broker",
+    "uri": "https://agentregistrar.dev/api/broker/provider-verification?origin=https%3A%2F%2Fexample.com&audience=example-rp"
   },
   "extensions": {
     "dev.example": {
@@ -46,37 +59,76 @@ This example is identity-only and passes the `v1.3.2` validator in file mode wit
 }
 ```
 
-The optional `extensions` value is non-capability metadata under a reverse-DNS key. Do not put catalogs, SKUs, provisioning endpoints or credentials anywhere in this document, including under `extensions`. Every field and its rule is in [Discovery fields](/agent-identity/v1/discovery-fields/).
+`terms` is `{ version, url }`. Spec `v2.0.0` removed `terms.text` and
+`terms.sha256`: the provider hosts the agreement, and the Broker records a hash
+of the exact bytes it fetches at signup.
+
+The optional `extensions` value is non-capability metadata under a reverse-DNS
+key. Do not put catalogs, SKUs, provisioning endpoints or credentials anywhere
+in this document, including under `extensions`. Every field and its rule is in
+[Discovery fields](/agent-identity/v1/discovery-fields/).
+
+## Attestation is optional and keyless by default
+
+Broker-managed is the default publication mode. The provider does not need an
+Ed25519 signing key to accept agent signups: a newly verified service with zero
+RP keys still receives a valid broker-managed attestation with `keys: []`. A
+key is needed only for RP-signed receipts (Contract F) or authenticated abuse
+reports.
+
+- **Broker-managed (default):** publish `attestation: {mode: "broker", uri}`.
+  Build the URI from the broker origin plus your origin and audience, or copy
+  the snippet the portal generates. The broker hosts and renews the token, so
+  there is no provider job and no redeploy.
+- **Provider-managed (opt-in):** publish `attestation: {mode: "provider", uri}`
+  with a stable HTTPS URL on your discovery origin or a subdomain, serving
+  `{ "attestation": "<JWS>" }`. You renew it yourself.
+- **Omit `attestation` entirely.** That stays conformant and means unverified.
+
+`verified` means an attestation was checked under the client's policy. It is an
+identity check, not a safety, uptime, or conduct claim.
 
 ## Migrate a v1.2 discovery document
 
-`v1.3.0` is a breaking change to the discovery carrier. There is no compatibility field, embedded fallback, or dual publication.
+`v1.3.0` was a breaking change to the discovery carrier. There is no
+compatibility field, embedded fallback, or dual publication.
 
-1. Remove `rp_attestation` from discovery. A document that still contains it is non-conformant with reason `rp_attestation_removed`.
-2. Choose one publication mode per origin and audience:
-   - **Broker-managed (default):** publish `attestation: {mode: "broker", uri}`. Build the URI from the broker origin plus your origin and audience, or copy the portal snippet (live 2026-11-14).
-   - **Provider-managed (opt-in):** publish `attestation: {mode: "provider", uri}` with a stable HTTPS URL on your discovery origin or a subdomain, serving `{ "attestation": "<JWS>" }`.
-   - **Omit `attestation` entirely.** That stays conformant and means unverified.
-3. Republish the document in one deploy. The new client does not read the old field, so there is no mixed-version state to preserve.
-4. Revalidate with `--verify-attestation` and, when you require a credential, `--require-attestation --trusted-rp-broker <broker>`. A typed broker answer (`403`, `404`, `410`, `429`, `5xx`) is a verification result, not a conformance failure.
-5. Keep Contract F receipt and D.2 abuse bodies unchanged: they still send `{signup_token, rp_attestation}` and `{rp_attestation, report}`. Only discovery changed.
+1. Remove `rp_attestation` from discovery. A document that still contains it is
+   non-conformant with reason `rp_attestation_removed`.
+2. Choose one publication mode per origin and audience, as above.
+3. Republish the document in one deploy. The new client does not read the old
+   field, so there is no mixed-version state to preserve.
+4. Revalidate with `--verify-attestation` and, when you require a credential,
+   `--require-attestation --trusted-rp-broker <broker>`. A typed broker answer
+   (`403`, `404`, `410`, `429`, `5xx`) is a verification result, not a
+   conformance failure.
+5. Keep Contract F receipt and D.2 abuse bodies unchanged: they still send
+   `{signup_token, rp_attestation}` and `{rp_attestation, report}`. Only
+   discovery changed.
 
-The fixture matrix and the stable reasons are in [the validator](/agent-identity/v1/validator/) and [Error codes](/reference/error-codes/). The trust and policy consequences are in [Trust and limits](/start/trust-and-limits/).
+## Migrate terms to v2.0.0
+
+1. Host the complete agreement at an HTTPS URL on your origin. Serve stable
+   bytes at that URL: no redirect, no HTML wrapper around a different text, no
+   content negotiation.
+2. Replace the `terms` object with `{ "version": "<your version>", "url":
+   "<that URL>" }`. Remove `terms.text` and `terms.sha256` in the same deploy.
+3. Keep `terms.version` changing whenever the agreement changes materially. The
+   Broker fetches `terms.url` at signup and records the exact bytes it received,
+   so a changed page is a stale-terms hard stop for an assertion minted for the
+   old version.
+4. Revalidate with validator `2.0.0`. The fixtures and stable reasons are in
+   [the validator](/agent-identity/v1/validator/) and
+   [Error codes](/reference/error-codes/).
 
 ## Serve the route
 
 ### Next.js App Router
 
-Place the file at `app/.well-known/agent-signup.json/route.js`. The route segment keeps the dot in the URL.
+Place the file at `app/.well-known/agent-signup.json/route.js`. The route
+segment keeps the dot in the URL.
 
 ```js
-import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
-const termsText = readFileSync(join(process.cwd(), "terms.txt"), "utf8");
-const sha256 = "sha256:" + createHash("sha256").update(termsText, "utf8").digest("hex");
-
 export function GET() {
   return Response.json(
     {
@@ -90,8 +142,6 @@ export function GET() {
       terms: {
         version: process.env.TERMS_VERSION ?? "2026.1",
         url: process.env.TERMS_URL ?? "https://example.com/terms",
-        sha256,
-        text: termsText,
       },
       endpoints: {
         agent_signup: `${process.env.PROVIDER_URL ?? "https://example.com"}/api/signup/agent`,
@@ -107,7 +157,8 @@ export function GET() {
 }
 ```
 
-`Response.json` sets `application/json`. The full route and signup handler are in [Hosting: Next.js](/providers/hosting/nextjs/).
+`Response.json` sets `application/json`. The full route and signup handler are in
+[Hosting: Next.js](/providers/hosting/nextjs/).
 
 ### Cloudflare Worker
 
@@ -123,11 +174,14 @@ if (url.pathname === "/.well-known/agent-signup.json" && request.method === "GET
 }
 ```
 
-The complete Worker is in [Hosting: Cloudflare Worker](/providers/hosting/cloudflare-worker/).
+The complete Worker is in
+[Hosting: Cloudflare Worker](/providers/hosting/cloudflare-worker/).
 
 ### Static file or generic HTTP
 
-A static host can serve `public/.well-known/agent-signup.json` if it sets `application/json` and does not redirect. If you generate the document at build time, hash the same bytes you write. The framework-neutral handler is in [Hosting: generic HTTP](/providers/hosting/generic-http/).
+A static host can serve `public/.well-known/agent-signup.json` if it sets
+`application/json` and does not redirect. The framework-neutral handler is in
+[Hosting: generic HTTP](/providers/hosting/generic-http/).
 
 ## Transport rules
 
@@ -143,15 +197,20 @@ A static host can serve `public/.well-known/agent-signup.json` if it sets `appli
 | CORS | `Access-Control-Allow-Origin: *` where appropriate |
 | Body size | at most 1 MiB |
 
-Do not return HTML for this path, and do not gate it behind a CDN rule that adds a challenge. An agent that cannot fetch the document treats the service as unsupported.
+Do not return HTML for this path, and do not gate it behind a CDN rule that adds
+a challenge. An agent that cannot fetch the document treats the service as
+unsupported.
 
 ## Change the terms
 
-1. Write the new complete text and pick a new `terms.version`.
-2. Compute the new `terms.sha256` from the exact bytes. See [Compute the ToS hash](/providers/guides/compute-tos-hash/).
-3. Publish `text`, `version`, `hash` and `url` together. Never edit the text under the old version.
-4. Agents that accepted the old hash now get `409 tos_hash_mismatch` and must re-discover and re-accept.
-5. If you allow a grace period for in-flight assertions, document it outside discovery and keep it bounded.
+1. Write the new complete agreement and pick a new `terms.version`.
+2. Publish the new bytes at `terms.url` and bump `terms.version` together. Never
+   edit the text under the old version.
+3. The Broker fetches `terms.url` at the next signup and records a new
+   `accepted_rp_tos_hash`. An assertion minted for an old terms URL or version
+   is a stale-terms hard stop.
+4. If you allow a grace period for in-flight assertions, document it outside
+   discovery and keep it bounded.
 
 ## Validate
 
@@ -162,22 +221,30 @@ pnpm --silent validate:discovery https://example.com/.well-known/agent-signup.js
 Expected for the document above, file mode:
 
 ```text
-valid: true, exitCode: 0, passed: 17, failed: 0, warnings: 0
+"valid": true, "exitCode": 0, "errors": [], "warnings": []
 ```
 
-URL mode adds transport checks and, with `--probe-jwks`, checks that each issuer publishes a usable JWKS. The command reference is in the [conformance validator](/agent-identity/v1/validator/).
+URL mode adds transport checks and, with `--probe-jwks`, checks that each
+issuer publishes a usable JWKS. The command reference is in the
+[conformance validator](/agent-identity/v1/validator/).
 
 ## Verify your work
 
-- [ ] The document is identity-only and has no forbidden field at any depth.
-- [ ] `terms.sha256` matches the exact `terms.text` bytes.
-- [ ] `issuer_allowlist` contains the exact broker origin, with no path or wildcard.
+- [ ] `terms` is exactly `{ "version", "url" }` with no `text` or `sha256`.
+- [ ] `terms.url` returns the complete agreement with stable bytes and no
+  redirect.
+- [ ] `issuer_allowlist` contains the exact broker origin, with no path or
+  wildcard.
+- [ ] Broker-managed attestation is the default, and no RP key was needed to
+  publish it.
 - [ ] The route returns `200`, `application/json`, no redirect and no auth.
 - [ ] The validator exits `0`.
-- [ ] A terms change produces a new version and hash.
+- [ ] A terms change produces a new version.
 
 ## Next
 
-- [Compute the ToS hash](/providers/guides/compute-tos-hash/): exact bytes and test vectors.
+- [Serve terms at a URL](/providers/guides/compute-tos-hash/): what the Broker
+  fetches and why the digest is no longer in discovery.
 - [Verify assertions](/providers/guides/verify-assertions/): the signup side.
-- [Validate and register](/providers/guides/validate-and-register/): registry evidence.
+- [Validate and register](/providers/guides/validate-and-register/): registry
+  evidence.

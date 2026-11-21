@@ -4,11 +4,15 @@ description: Sign a v1.2 Contract E signup_token with the RP key from the exact 
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), jose 6.2.13, 2026-10-24"
+verifiedAgainst: "spec v2.0.0 (cc307bf), jose 6.2.13, 2026-10-24"
 ---
 
 **Goal:** after an account is created or resolved, optionally return an RP-signed
 `signup_token` that proves who signed up, for whom, under which terms and when.
+
+A receipt is optional. Broker-managed attestations are keyless by default
+(`keys: []`), so accepting agent signups needs no RP key. Register an Ed25519 key
+only if you want to sign receipts or authenticated abuse reports.
 
 The receipt is optional. If you issue one, the broker records it as attribution
 evidence. The claim set is defined in [spec section
@@ -39,7 +43,7 @@ must be present in the exact provider attestation named by
 | `service.key_id` | The key id that signs the receipt. It must equal the JWS header `kid`. |
 | `agent.*` | `id`, `name`, `email`. |
 | `human.*` | `id`, `name`, `email`, `verified`. |
-| `tos.*` | `version`, `url`, `sha256`, optional `master_tos_version`. |
+| `tos.*` | `version`, `url`, `sha256` of the agreement you served at `terms.url`, optional `master_tos_version`. Discovery itself carries no terms digest. |
 | `context` | Optional `{ url, sha256 }` pointer to your guide. |
 | `exp` | **Do not add one.** A v1.2 receipt has no expiry. A legacy `exp` is ignored. |
 

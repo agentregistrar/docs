@@ -133,7 +133,8 @@ identity half of signup in one call.
 | Field | Type | Required | Rule |
 | :--- | :--- | :-: | :--- |
 | `service` | string | yes | RP origin or the exact `/.well-known/agent-signup.json` URL. The broker fetches it. Do not pass a discovery object, discovery URL as a separate field, or an attestation. |
-| `accepted_tos_text` | string | yes | The complete `terms.text` the human accepted, verbatim. Its hash must equal the fetched `terms.sha256`; no trim or summary. |
+| `accept_terms` | literal `true` | yes | Confirms that you read the terms at `terms.url` and accept them for your human owner. |
+| `terms_version` | string | no | The `terms.version` you read. When supplied it must equal the fetched document; a mismatch is `tos_version_mismatch`. |
 | `requested_scopes` | string[] | no | Defaults to discovery `required_scopes` in document order. Supplied: deduped, must include every required scope and hold every listed scope. `[]` is invalid. |
 | `force_new` | boolean | no | Create a new consent event even if an acceptance exists. Default false; it does not bypass gates or policy. |
 
@@ -143,8 +144,9 @@ There is no manual discovery, JWT decode, or attestation handling.
 
 **Result**
 
-- `service`: origin, audience, provider name/URL, terms URL/hash/version,
-  `endpoints.agent_signup`, required scopes, and the attestation summary
+- `service`: origin, audience, provider name/URL, terms URL/version (the hash is
+  computed by the Broker from the fetched bytes), `endpoints.agent_signup`,
+  required scopes, and the attestation summary
   (`status`, `issuer`, `jti`, `level`, `expires_at`, `checked_at`).
 - `rp_verification`: the required verification summary (status, policy,
   `allowed`, source, issuer, jti, level, expiry, `checked_at`, reason,
@@ -194,7 +196,8 @@ recorded. Read `side_effects` before retrying anything else.
 ```json
 {
   "service": "https://example.com",
-  "accepted_tos_text": "<the complete terms.text>"
+  "accept_terms": true,
+  "terms_version": "2026.1"
 }
 ```
 
@@ -241,9 +244,9 @@ agent-supplied discovery object.
 | Field | Type | Required | Rule |
 | :--- | :--- | :-: | :--- |
 | `audience` | string | yes | Exact discovery `audience`; becomes the assertion `aud`. |
-| `accept_tos_url` | URL | yes | `terms.url`. |
-| `accept_tos_hash` | string | yes | `sha256:` over `terms.text`. Recompute it yourself. |
-| `accepted_tos_text` | string | yes | Complete `terms.text`, verbatim. |
+| `accept_tos_url` | URL | no | `terms.url`. Required only on the no-discovery manual path; with a discovery source the Broker derives it from the document. |
+| `accept_tos_hash` | string | no | `sha256:` over the terms page bytes. Optional; when omitted the Broker fetches `accept_tos_url` and hashes the exact bytes. |
+| `accepted_tos_text` | string | no | Complete terms text, only for the no-discovery manual path. When supplied with `accept_tos_hash`, the Broker verifies the text hashes to that value. |
 | `rp_discovery_url` | string | no | Origin or exact discovery URL; the broker fetches it (`broker_fetch`). |
 | `rp_discovery` | object | no | Complete discovery document as received (`agent_supplied_discovery`); requires `rp_origin`. |
 | `rp_origin` | string | no | Required with `rp_discovery`; forbidden with `rp_discovery_url`. Never inferred from `terms.url` or `provider_url`. |

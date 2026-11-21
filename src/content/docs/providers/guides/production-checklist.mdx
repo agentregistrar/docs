@@ -1,10 +1,10 @@
 ---
 title: Production checklist
-description: A v1.3 readiness checklist for HTTPS, terms lifecycle, keys, receipts, authenticated abuse, logging, verification and incident response.
+description: A v2.0.0 readiness checklist for HTTPS, terms hosting, keyless attestation, optional keys, receipts, logging and incident response.
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.3.2 (58e4648), validator 1.3.2, 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), validator 2.0.0, 2026-11-21"
 ---
 
 Use this before you take live traffic and again after any change to keys, terms or account handling. It is a checklist, not a second specification; each item links to the rule or the guide.
@@ -22,13 +22,13 @@ Use this before you take live traffic and again after any change to keys, terms 
 
 ## Terms lifecycle
 
-- [ ] `terms.text` is the complete agreement the agent accepts, not a summary.
-- [ ] `terms.sha256` is over the exact UTF-8 bytes and was recomputed after the last edit.
-- [ ] `terms.version` changes whenever the text changes materially.
-- [ ] `terms.url` serves the same text to a human and is on a stable host.
-- [ ] Text, hash, version and URL ship atomically.
+- [ ] `terms` is exactly `{ "version", "url" }` with no `text` or `sha256`.
+- [ ] `terms.url` serves the complete agreement with stable bytes, no redirect and no per-request token.
+- [ ] `terms.version` changes whenever the agreement changes materially.
+- [ ] The terms URL and the new version ship atomically.
 - [ ] Any grace period for in-flight assertions is bounded and documented outside discovery.
-- [ ] A stale hash returns `409 tos_hash_mismatch`; it is never accepted silently.
+- [ ] A stale terms URL or version returns `409 tos_hash_mismatch`; it is never accepted silently.
+- [ ] When `terms.url` serves deterministic bytes, the optional `accepted_rp_tos_hash` check is enabled.
 
 ## Assertion verification
 
@@ -40,17 +40,20 @@ Use this before you take live traffic and again after any change to keys, terms 
 - [ ] Assertion lifetime is capped at five minutes.
 - [ ] `delegation.scopes` covers every `required_scopes` entry.
 - [ ] `human.verified` is `true`.
-- [ ] `delegation.accepted_rp_tos_hash` equals the current terms hash.
+- [ ] `delegation.accepted_rp_tos_url` equals the current `terms.url` (trailing slashes normalized).
 - [ ] A repeated `jti` in the same context resolves; a conflicting one is `assertion_replayed`.
 
 ## Keys, attestation and rotation
 
-- [ ] You know that the receipt is signed by **your** RP key, named by
+- [ ] You know that a receipt you issue is signed by **your** RP key, named by
       `service.key_id` and present in the exact attestation. The broker does not
       sign provider receipts.
-- [ ] The RP private key is in a secret store, never in the repository, logs or
-      a build artifact. It has an owner, a rotation date and a compromise
-      procedure.
+- [ ] Receipts and authenticated abuse reports are the only reasons to register
+      an RP key. Accepting signups works with no RP key: broker-managed
+      attestations accept `keys: []`.
+- [ ] If you registered a key, the private key is in a secret store, never in the
+      repository, logs or a build artifact. It has an owner, a rotation date and a
+      compromise procedure.
 - [ ] Discovery publishes one `attestation` object with `mode` and a stable
       `uri`. Broker-managed (the default) needs no renewal job: the broker renews
       on demand and never serves an expired token on a `200`.
@@ -101,7 +104,7 @@ Use this before you take live traffic and again after any change to keys, terms 
 
 ## Logging and retention
 
-- [ ] Logs record the assertion `jti`, `agent.id`, `human.id`, account id, terms version and hash, and `signed_up_at`.
+- [ ] Logs record the assertion `jti`, `agent.id`, `human.id`, account id, terms version and URL, and `signed_up_at`.
 - [ ] Logs do not record provider credentials, raw assertions beyond the audit window, or unnecessary personal data.
 - [ ] Error monitoring groups by stable code, not by prose.
 - [ ] Retention is documented and follows your legal obligations.
@@ -138,7 +141,7 @@ Use this before you take live traffic and again after any change to keys, terms 
 - [ ] A create and a resolve are both exercised, including the no-credential rule.
 - [ ] The validator runs against staging before release, once without and once with `--require-attestation`.
 - [ ] Contract F is exercised with the exact historical attestation and with a renewed current attestation (must not substitute).
-- [ ] A terms change is rehearsed end to end, including `tos_hash_mismatch`.
+- [ ] A terms change is rehearsed end to end, including a stale `accepted_rp_tos_url` and `tos_hash_mismatch`.
 - [ ] A guide change is rehearsed, including the hash update.
 
 ## Next

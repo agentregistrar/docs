@@ -4,7 +4,7 @@ description: Implement agent-identity-v1 and accept brokered agent signups with 
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-21
-verifiedAgainst: "spec v1.2.0 (d3fddc9), validator 1.0.0, skdl.dev, 2026-10-21"
+verifiedAgainst: "spec v2.0.0 (cc307bf), validator 2.0.0, 2026-11-21"
 ---
 
 A self-serve signup flow usually assumes a human at a browser: a form, an email inbox and a click. Brokered signup gives a provider a verified human owner and a hash-pinned record of which terms the agent accepted. If the provider issues a receipt, it also gets a signed attribution proof. The provider keeps its own account model, credentials and product API.
@@ -13,18 +13,23 @@ A self-serve signup flow usually assumes a human at a browser: a form, an email 
 
 ## The three-step path
 
-1. **Publish discovery.** Serve `GET /.well-known/agent-signup.json` with the identity fields, your complete terms text and its SHA-256. Start with [Publish discovery](/providers/guides/publish-discovery/).
+1. **Publish discovery.** Serve `GET /.well-known/agent-signup.json` with the identity fields and `terms: { version, url }` pointing at your hosted agreement. Start with [Publish discovery](/providers/guides/publish-discovery/).
 2. **Verify assertions.** Accept `POST` at `endpoints.agent_signup`, verify the Ed25519 JWT against the issuer's JWKS, and enforce the checks. Start with [Verify assertions](/providers/guides/verify-assertions/).
 3. **Validate and register.** Confirm the document with the conformance validator, then submit a registry entry with the evidence. Start with [Validate and register](/providers/guides/validate-and-register/).
 
 The [provider quickstart](/providers/quickstart/) walks the whole path in one pass.
 
+If you use a provider account, the portal reduces setup to four steps: create the
+service (display name, origin, audience), verify the domain, copy the generated
+discovery document, and run one synchronous setup test that marks the service
+live. Broker-managed attestation is the default and needs no RP key.
+
 ## What you publish, check and return
 
 | Artifact | Where | What it proves |
 | :--- | :--- | :--- |
-| Discovery document | `GET /.well-known/agent-signup.json` | Which issuers you accept, what scopes you need, the exact terms text and hash, and the one signup endpoint. |
-| Assertion | `Authorization: Bearer <jwt>` at signup | The agent, its verified human owner, the delegated scopes and the accepted terms hash. |
+| Discovery document | `GET /.well-known/agent-signup.json` | Which issuers you accept, what scopes you need, the provider-hosted terms URL and version, and the one signup endpoint. |
+| Assertion | `Authorization: Bearer <jwt>` at signup | The agent, its verified human owner, the delegated scopes and the accepted terms URL and hash. |
 | Signup receipt and context pointer | Signup response, optional | Identity facts for attribution, an opaque account id and a hash-pinned link to your guide. |
 
 The field-level rules are in [Discovery fields](/agent-identity/v1/discovery-fields/), [Assertion claims](/agent-identity/v1/assertion-claims/) and [Receipt and context](/agent-identity/v1/receipt-and-context/). The normative contract is the [specification](/agent-identity/v1/specification/).
@@ -33,11 +38,12 @@ The field-level rules are in [Discovery fields](/agent-identity/v1/discovery-fie
 
 - **No SDK.** The protocol is one JSON document and one HTTP endpoint. Examples use `jose` or Web Crypto; any stack works.
 - **No broker account to publish or verify.** The broker mints assertions and does not call your signup endpoint. The JWKS is public. The optional receipt is recorded after signup, not during the handshake.
+- **No RP signing key to accept signups.** Broker-managed attestations accept `keys: []`. A key is optional and is used only for RP-signed receipts or authenticated abuse reports.
 - **No catalog in discovery.** Product capabilities stay in your own post-signup guide.
 
 ## What you own
 
-- The terms text, its version and its hash, and re-acceptance when the text changes.
+- The terms document at a stable `terms.url`, its version, and re-acceptance when the agreement changes.
 - The account model, idempotent resolution and show-once credentials.
 - The stable error envelope and your rate limits.
 - The optional receipt and the context guide, including hash updates.

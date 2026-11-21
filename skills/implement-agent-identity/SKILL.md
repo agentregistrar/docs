@@ -39,20 +39,20 @@ Serve `GET /.well-known/agent-signup.json` on your canonical HTTPS origin:
 Required fields: `protocol` (exactly `agent-identity-v1`), `audience` (stable,
 case-sensitive, becomes the assertion `aud`), `provider_name`, a non-empty
 `issuer_allowlist` of issuer origins, unique `required_scopes` containing
-`tos:accept`, `terms` (`version`, `url`, `sha256`, complete `text`), and
-`endpoints.agent_signup` as the only endpoint.
+`tos:accept`, `terms` (`version`, `url` only), and `endpoints.agent_signup` as
+the only endpoint.
 
 Optional fields: `spec`, `provider_url`, `contact`, `updated_at`, and
 non-capability `extensions` keyed by reverse-DNS namespace.
 
-## 2. Bind and hash the terms
+## 2. Host the terms at a URL
 
-- `terms.sha256` is `sha256:<64 lowercase hex>` over the exact UTF-8 bytes of
-  `terms.text`: no trimming, no newline normalization, no HTML extraction.
-- `terms.text` is the complete agreement the agent accepts, not a summary.
-- `terms.url` is the absolute HTTPS page where a human can read the same text.
-- When the text changes materially, bump `terms.version` and update `text`,
-  `sha256`, and `url` atomically. Advertise only the current version.
+- `terms.url` is the absolute HTTPS page that serves the complete agreement.
+  Serve stable bytes: no redirect and no per-request token or variant.
+- `terms.version` changes whenever the agreement changes materially. Update the
+  served bytes and the version together; advertise only the current version.
+- Discovery carries no `terms.text` and no `terms.sha256`. The Broker fetches
+  `terms.url` at signup and records a hash of the exact response bytes.
 
 ## 3. Verify the assertion at signup
 
@@ -69,7 +69,9 @@ assertion is an Ed25519 JWT. Verify, in this order:
 5. `jti` has not already been used to create an account.
 6. `delegation.scopes` contains every entry in `required_scopes`.
 7. `human.verified` is `true`.
-8. `delegation.accepted_rp_tos_hash` equals your current `terms.sha256`.
+8. `delegation.accepted_rp_tos_url` equals your current `terms.url`, after
+   normalizing trailing slashes. When `terms.url` serves deterministic bytes you
+   may also compare `delegation.accepted_rp_tos_hash` with their digest.
 
 Record the assertion `jti`, the accepted terms version and hash, and the
 attribution facts for audit. Revocation is enforced by the issuer when it mints

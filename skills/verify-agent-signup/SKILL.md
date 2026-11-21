@@ -1,6 +1,6 @@
 ---
 name: verify-agent-signup
-description: "Audit a relying party's /.well-known/agent-signup.json against agent-identity-v1 - check the protocol, issuer trust, scopes and terms, recompute the ToS hash from the exact bytes, run the conformance validator, and report pass or fail with evidence."
+description: "Audit a relying party's /.well-known/agent-signup.json against agent-identity-v1 - check the protocol, issuer trust, scopes, provider-hosted terms and attestation source, run the conformance validator, and report pass or fail with evidence."
 ---
 
 # Verify an agent signup document
@@ -53,8 +53,8 @@ Read the document as data. The required keys are `protocol`, `audience`,
   assertions.
 - `required_scopes` is unique and contains `tos:accept`. Every entry must
   already be granted to the agent.
-- `terms.text` is the complete agreement, not a summary; `terms.version` and
-  `terms.url` are present and `terms.url` is absolute HTTPS.
+- `terms.version` and `terms.url` are present, and `terms.url` is absolute HTTPS.
+  `terms` carries no `text` or `sha256` in `v2.0.0`.
 - `endpoints.agent_signup` is the only endpoint and is absolute HTTPS.
 
 Forbidden at any depth, including under `extensions`: `instance_catalog`,
@@ -63,26 +63,21 @@ Forbidden at any depth, including under `extensions`: `instance_catalog`,
 metadata, and credentials. Their presence is a conformance failure, not a
 warning.
 
-## 3. Recompute the ToS hash from the exact bytes
+## 3. Check the terms URL is stable
 
-The advertised digest is evidence only if you reproduce it. This recomputes
-SHA-256 over the exact UTF-8 bytes of `terms.text`, with no trimming:
+`terms` is `{ version, url }`. Discovery no longer carries the agreement or a
+digest. Fetch `terms.url` twice and confirm the bytes are identical and there is
+no redirect:
 
 ```bash
-node -e '
-const fs = require("node:fs");
-const crypto = require("node:crypto");
-const doc = JSON.parse(fs.readFileSync("agent-signup-check/document.json", "utf8"));
-const actual = "sha256:" + crypto.createHash("sha256").update(Buffer.from(doc.terms.text, "utf8")).digest("hex");
-console.log("advertised:", doc.terms.sha256);
-console.log("recomputed:", actual);
-process.exit(actual === doc.terms.sha256 ? 0 : 1);
-'
+curl -sS -o terms-1.txt -w '%{http_code} %{content_type} %{num_redirects}\n' "$(node -p 'require("./agent-signup-check/document.json").terms.url')"
+curl -sS -o terms-2.txt -w '%{http_code} %{content_type} %{num_redirects}\n' "$(node -p 'require("./agent-signup-check/document.json").terms.url')"
+cmp terms-1.txt terms-2.txt && echo "stable bytes" || echo "UNSTABLE: report and stop"
 ```
 
-Exit `0` matches. Exit `1` is a mismatch: report both digests and stop - the
-provider changed its terms without updating the document, or the text was
-transformed in transit.
+Two identical responses are the expected result. If the bytes change, or the
+response is an HTML challenge page, report it and stop: the Broker cannot record
+a reproducible digest and the provider cannot enforce a stale-terms check.
 
 ## 4. Run the conformance validator
 
@@ -133,7 +128,7 @@ digests, counts.
 - [pass] protocol: agent-identity-v1
 - [pass] issuer_allowlist: https://agentregistrar.dev (1 origin)
 - [pass] required_scopes: tos:accept, signup:free_tier
-- [pass] terms.sha256: recomputed matches advertised (sha256:e854d9c2...)
+- [pass] terms.url: stable bytes, no redirect, version 2026.1
 - [pass] conformance: valid, 22 checks passed, 0 failed, 0 warnings
 - [fail] forbidden field: endpoints.provision at $.endpoints
 Summary: 0 blockers, 1 failure. Verdict: not conformant.

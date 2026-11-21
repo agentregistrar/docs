@@ -73,12 +73,13 @@ The public demo relying party is <https://skdl.dev>.
    - `protocol` is exactly `agent-identity-v1`.
    - `issuer_allowlist` contains `https://agentregistrar.dev`.
    - `required_scopes` is a subset of the scopes in `identity_whoami`.
-   - `terms.text` is the complete agreement, not a summary.
-3. Recompute the ToS hash from the exact UTF-8 bytes of `terms.text` and compare
-   it with `terms.sha256`. Do not trust the advertised value on its own.
-4. Call `identity_prove` with the document's `audience`, `terms.url` as
-   `accept_tos_url`, the recomputed digest as `accept_tos_hash`, and
-   `accepted_tos_text` set to the verbatim text you hashed.
+   - `terms.url` is the provider-hosted agreement and `terms.version` is the
+     revision you are accepting. Discovery carries no terms text or digest.
+3. Read the agreement at `terms.url` if you need to. The Broker fetches the same
+   URL at mint time and hashes the exact response bytes.
+4. Call `identity_signup` with `{ "service": "<origin>", "accept_terms": true }`.
+   Use `identity_prove` only when you need the raw assertion claims; with a
+   discovery source it also derives the terms URL itself.
 5. Send `assertion.jwt` verbatim to `endpoints.agent_signup` only, as
    `Authorization: Bearer <assertion.jwt>`. Do not decode, re-encode, or edit
    the JWT; use `assertion.claims` for inspection.
@@ -110,7 +111,7 @@ the row and `next_step`.
 | `agent_revoked` or `human_suspended` | Stop. A human must re-enable the agent or account in the portal. |
 | `human_email_unverified` or `master_tos_unsigned` | Stop. The human completes the portal step; the agent cannot. |
 | `scope_not_granted` | Request only scopes shown by `identity_whoami`. |
-| `tos_text_hash_mismatch` | Re-fetch discovery and pass the exact `terms.text` you hashed. |
+| `tos_hash_mismatch` | Re-fetch discovery, confirm `terms.url` and `terms.version`, then re-accept. |
 | `signup_token_invalid` | The token failed signature or format validation. Re-run signup for a fresh token, then record that one. A conformant provider resolves the existing account, so this is not a second signup. |
 | `signup_token_not_linked`, `signup_token_ownership_mismatch` | Do not re-run signup. Stop and report the token and provider; a human resolves the linkage. |
 | `ledger_email_failed` | The acceptance was already recorded. Retry `identity_prove` with the same inputs to re-send only the ledger email; this is not a new signup. |
@@ -120,7 +121,7 @@ the row and `next_step`.
 | `internal_error` | Retry once; if it persists, report it and stop. |
 | Provider returns `assertion_expired` | Mint a fresh assertion with `identity_prove`; assertions are short lived. |
 | Provider returns `assertion_replayed` | The assertion was already used in a conflicting context (another agent, account or service). Mint a fresh one; a same-context repeat resolves instead. |
-| Provider returns `tos_hash_mismatch` | The provider changed its terms. Re-fetch discovery, re-hash, re-prove. |
+| Provider returns `tos_hash_mismatch` | The provider changed the terms at `terms.url`. Re-fetch discovery, confirm `terms.url` and `terms.version`, then re-prove so the Broker fetches and records the new bytes. |
 
 Re-running signup means repeating the `POST` to `endpoints.agent_signup` with a
 fresh assertion. Do not decode or edit the assertion to do it, and never re-run

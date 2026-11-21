@@ -4,10 +4,10 @@ description: A complete Next.js App Router recipe for discovery and brokered sig
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-21
-verifiedAgainst: "Next.js 16.4.2, React 19.3.1, jose 6.2.13, Node 24.21.0, 2026-10-21"
+verifiedAgainst: "Next.js 16.4.2, React 19.3.1, jose 6.2.13, Node 24.21.0; spec v2.0.0 (cc307bf), 2026-11-21"
 ---
 
-**Tested:** this recipe ran end to end with Next.js 16.4.2 on Node 24.21.0 on 2026-10-21, using a local JWKS fixture. It is the one hosting recipe with a recorded platform run. The wire behavior is the same as any other host.
+**Updated for spec v2.0.0; re-run pending.** The recorded end-to-end run below was made with Next.js 16.4.2 on Node 24.21.0 on 2026-10-21 against the v1.3.2 shape, using a local JWKS fixture. The route snippets now use provider-hosted `terms: { version, url }` and a URL check; they have not been re-run on this platform. Treat the recorded output as illustrative until a new run is recorded.
 
 ## Create the app
 
@@ -22,10 +22,13 @@ npm install next@16.4.2 react@19.3.1 react-dom@19.3.1 jose@6.2.13
 
 The two `npm pkg` lines are required. `npm init -y` writes `"type": "commonjs"` and `"main": "index.js"`, so the bundler loads a `.js` route as CommonJS; the ESM `export` in the route then fails and the discovery URL returns `500` with `Specified module format (CommonJs) is not matching the module format of the source code (EcmaScript Modules)`. Deleting `main` and setting `"type": "module"` makes `route.js` load as an ES module.
 
-Set the terms file and a guide. The terms bytes below are the same bytes the [verify-assertions fixture](/providers/guides/verify-assertions/) signs, so the recorded signup responses reproduce. The guide is optional; omit `CONTEXT_SHA256` if you do not publish one.
+Create the routes and an optional guide. The guide is optional; omit
+`CONTEXT_SHA256` if you do not publish one. This recipe sets `TERMS_URL` to the
+same URL the [verify-assertions fixture](/providers/guides/verify-assertions/)
+signs so the recorded signup responses reproduce. In production it is your own
+`https://<origin>/terms` page.
 
 ```bash
-printf 'Example RP Terms of Service v2026.1' > terms.txt
 mkdir -p app/.well-known/agent-signup.json app/api/signup/agent public/docs
 printf '# Example RP agent guide\n\nCall POST /api/provision with your API key.\n' > public/docs/SKILL.md
 ```
@@ -35,15 +38,6 @@ printf '# Example RP agent guide\n\nCall POST /api/provision with your API key.\
 Save as `app/.well-known/agent-signup.json/route.js`:
 
 ```js
-import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
-// In a real deployment the terms text comes from your content store; this
-// example reads a file that ships with the app.
-const termsText = readFileSync(join(process.cwd(), "terms.txt"), "utf8");
-const sha256 = "sha256:" + createHash("sha256").update(termsText, "utf8").digest("hex");
-
 export function GET() {
   return Response.json(
     {
@@ -57,11 +51,15 @@ export function GET() {
       terms: {
         version: process.env.TERMS_VERSION ?? "2026.1",
         url: process.env.TERMS_URL ?? "https://example.com/terms",
-        sha256,
-        text: termsText,
       },
       endpoints: {
         agent_signup: `${process.env.PROVIDER_URL ?? "https://example.com"}/api/signup/agent`,
+      },
+      attestation: {
+        mode: "broker",
+        uri: `https://agentregistrar.dev/api/broker/provider-verification?origin=${encodeURIComponent(
+          process.env.PROVIDER_URL ?? "https://example.com",
+        )}&audience=${encodeURIComponent(process.env.PROVIDER_AUDIENCE ?? "example-rp")}`,
       },
     },
     {
@@ -81,16 +79,12 @@ export function GET() {
 Save as `app/api/signup/agent/route.js`. It verifies with `jose`, resolves accounts idempotently and returns credentials only on creation.
 
 ```js
-import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const BROKER_ORIGIN = process.env.BROKER_ORIGIN ?? "https://agentregistrar.dev";
 const AUDIENCE = process.env.PROVIDER_AUDIENCE ?? "example-rp";
 const JWKS_URL = process.env.BROKER_JWKS_URL ?? `${BROKER_ORIGIN}/.well-known/jwks.json`;
-const termsText = readFileSync(join(process.cwd(), "terms.txt"), "utf8");
-const TERMS_SHA256 = "sha256:" + createHash("sha256").update(termsText, "utf8").digest("hex");
+const TERMS_URL = process.env.TERMS_URL ?? `${process.env.PROVIDER_URL ?? "https://example.com"}/terms`;
 const REQUIRED_SCOPES = ["tos:accept"];
 
 const jwks = createRemoteJWKSet(new URL(JWKS_URL), { timeoutDuration: 5000 });
@@ -126,8 +120,12 @@ async function verifyAssertion(request) {
     return { error: error(403, "insufficient_scope", "Scopes do not cover required_scopes") };
   }
   if (claims.human?.verified !== true) return { error: error(403, "human_unverified", "Human not verified") };
-  if (claims.delegation?.accepted_rp_tos_hash !== TERMS_SHA256) {
-    return { error: error(409, "tos_hash_mismatch", "Accepted ToS hash is stale") };
+  const acceptedUrl = claims.delegation?.accepted_rp_tos_url;
+  if (
+    typeof acceptedUrl !== "string" ||
+    acceptedUrl.replace(/\/+$/, "") !== TERMS_URL.replace(/\/+$/, "")
+  ) {
+    return { error: error(409, "tos_hash_mismatch", "Accepted ToS URL is stale") };
   }
   return { claims };
 }
@@ -182,6 +180,7 @@ The in-memory maps are a demo. Use your database with a unique constraint on the
 
 ```bash
 export PROVIDER_URL=http://127.0.0.1:3003
+export TERMS_URL=https://example.com/terms
 export CONTEXT_SHA256=$(node -e 'const {readFileSync}=require("fs");const {createHash}=require("crypto");console.log("sha256:"+createHash("sha256").update(readFileSync("public/docs/SKILL.md")).digest("hex"))')
 npx next dev -p 3003
 ```
@@ -253,7 +252,7 @@ The second call is a success and returns no credential. That is the resolve rule
 ## Notes for production
 
 - Replace the in-memory maps with durable storage and a unique constraint.
-- Read the terms from versioned content, not a file that can change under a running deploy.
+- Serve the terms at `terms.url` from versioned content with stable bytes, not a page that changes on every request.
 - Keep `BROKER_JWKS_URL` for local testing only; production uses `<issuer>/.well-known/jwks.json`.
 - Set the signing key for receipts in a secret manager; the sample does not include a receipt.
 - Do not cache the signup response. It contains a show-once credential.

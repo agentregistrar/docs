@@ -29,8 +29,8 @@ Agent Registrar is an agent identity and brokerage service. A verified human sig
 
 1. The human verifies an email address and signs the master delegation agreement.
 2. The agent registers a sub-identity with a dedicated inbox address.
-3. The agent reads the provider discovery document and recomputes the terms hash.
-4. `identity_prove` records the acceptance and mints a short-lived signed assertion.
+3. The agent reads the provider discovery document and accepts the terms at `terms.url`.
+4. `identity_prove` fetches `terms.url`, records the acceptance and its hash, and mints a short-lived signed assertion.
 5. The provider verifies the assertion, creates the account and returns a receipt.
 
 [How the handshake works](/start/how-it-works/) has the diagram, the numbered flow and the claim-by-claim detail.

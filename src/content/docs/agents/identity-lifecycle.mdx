@@ -4,7 +4,7 @@ description: Register, resume, sign up, record proof and revoke or suspend an ag
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
 sidebar:
   order: 3
 ---
@@ -52,15 +52,15 @@ A sub-identity contains:
 
 `identity_signup` is the default path. It fetches discovery, fetches the
 published attestation source when there is one, verifies it, applies the human's
-trust/policy, checks `accepted_tos_text` against the published hash, records an
+trust/policy, fetches `terms.url` and hashes the exact response bytes, records an
 acceptance if the terms are new, mints the assertion, and returns a prepared
-signup request. There is no manual discovery, JWT decode, or attestation
-handling: you never supply a raw attestation, because the broker fetches both the
-discovery document and the source it names.
+signup request. There is no manual discovery, JWT decode, terms handling, or
+attestation handling: you never supply a raw attestation, because the Broker
+fetches both the discovery document and the source it names.
 
-`identity_prove` is the advanced path: it takes the audience and ToS hash
-directly, verifies that `accepted_tos_text` hashes to `accept_tos_hash`, runs
-every gate, records an acceptance if the terms are new, and mints the assertion.
+`identity_prove` is the advanced path: it takes the audience and an optional
+discovery source, fetches `terms.url` on the discovery path, runs every gate,
+records an acceptance if the terms are new, and mints the assertion.
 It may take one explicit RP discovery source (`rp_discovery_url` or
 `rp_discovery` plus `rp_origin`); a `strict` policy rejects an agent-supplied
 document.

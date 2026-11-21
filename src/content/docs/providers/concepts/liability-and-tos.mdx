@@ -4,7 +4,7 @@ description: What delegated acceptance proves, which checks the provider must en
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-21
-verifiedAgainst: "spec v1.2.0 (d3fddc9), 2026-10-21"
+verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
 ---
 
 A verified human signs one master delegation agreement with the broker. Each agent acts under that delegation, and a brokered signup carries a specific acceptance of the provider's terms. The provider gets an attributable event, not an anonymous click.
@@ -16,7 +16,7 @@ This page explains the model and the operational consequences. It is not legal a
 | Agreement | Who accepts it | What the provider sees |
 | :--- | :--- | :--- |
 | Master Agent Delegation Agreement | The human owner, once, with the broker | `delegation.master_tos_version` and optionally `delegation.master_tos_hash`. |
-| Provider terms | The agent, on the human's behalf, for an exact hash | `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash`, `delegation.accepted_at`. |
+| Provider terms | The agent, on the human's behalf, at a provider-hosted URL | `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash`, `delegation.accepted_at`. |
 
 The provider does not receive the master agreement text and does not need it. It receives evidence that the human is verified and that the agent was delegated the scope to accept the provider terms.
 
@@ -25,19 +25,30 @@ The provider does not receive the master agreement text and does not need it. It
 - The assertion was signed by a broker in your `issuer_allowlist`.
 - The agent is bound to a human owner whose email address is verified.
 - The delegated scopes cover your `required_scopes`, including `tos:accept`.
-- The agent accepted the exact bytes whose SHA-256 equals `delegation.accepted_rp_tos_hash`.
+- The agent accepted the terms at `delegation.accepted_rp_tos_url`; the Broker fetched those bytes and recorded `delegation.accepted_rp_tos_hash`.
 - At the time the assertion was minted, the human had accepted the master agreement version in the claim.
 
 It does not prove that the human read your terms, that the service is lawful, or that the agent will behave. It is an attribution and consent record, not a guarantee.
 
-## Enforce the hash
+## Enforce the terms URL
 
-Your signup endpoint must compare the verified `delegation.accepted_rp_tos_hash` with the `terms.sha256` you currently advertise:
+Your signup endpoint must compare the verified `delegation.accepted_rp_tos_url`
+with the `terms.url` you currently advertise:
 
-- Equal: proceed.
-- Different: return `409` with `error: "tos_hash_mismatch"`. The agent must re-discover, re-read and re-accept. Do not accept the old hash silently.
+- Equal, after normalizing trailing slashes: proceed.
+- Different, or missing: return `409` with `error: "tos_hash_mismatch"`. The
+  agent must re-discover and re-accept. Do not accept an old URL silently.
 
-When you change the terms, publish the new text, version and hash atomically. A bounded grace period for assertions already in flight is a policy you document outside discovery; the document advertises only the current version. The recommended bound is 24 hours, but the protocol does not require a grace period.
+You may additionally compare `delegation.accepted_rp_tos_hash` with a digest of
+the exact bytes you serve at `terms.url`. Do that only when the URL serves
+deterministic bytes. The Broker computes the hash from the bytes it fetched, so
+a page with a per-request token will not reproduce.
+
+When you change the terms, publish the new bytes at `terms.url` and the new
+version together. A bounded grace period for assertions already in flight is a
+policy you document outside discovery; the document advertises only the current
+version. The recommended bound is 24 hours, but the protocol does not require a
+grace period.
 
 A fresh assertion that references an existing acceptance is not new consent. Do not send a second welcome or legal email because an agent called signup twice; resolve the account instead.
 
@@ -47,7 +58,7 @@ Keep enough to answer "who signed up, for whom, under which terms, when":
 
 - `jti` of the assertion, plus the account it was applied to;
 - `iss`, `agent.id`, `human.id` and the opaque `service.account_id`;
-- `tos.version`, `tos.sha256`, `delegation.accepted_at` and `signed_up_at`;
+- `tos.version`, `tos.sha256` (if you issue a receipt), `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash`, `delegation.accepted_at` and `signed_up_at`;
 - the receipt `jti` if you issue one;
 - the outcome: `created` or `resolved`.
 
@@ -62,7 +73,7 @@ Retention periods are your policy and may be constrained by law. The protocol do
 
 ## Re-acceptance and revocation
 
-- **Terms change:** new version, new text, new hash, fresh acceptance. Never edit the text in place under the same version.
+- **Terms change:** new bytes at `terms.url`, a new version, and a fresh acceptance. Never edit the bytes in place under the same version.
 - **Human revokes the agent:** the broker stops minting assertions for it. Your existing account remains until you act on it; revocation does not delete accounts a provider already created. Report abuse if the account is being misused.
 - **Human unverified:** `human.verified` is false, and you return `403 human_unverified`. Do not create the account.
 

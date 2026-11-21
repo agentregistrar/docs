@@ -3,7 +3,7 @@ title: First signup
 description: A VaporCloud signup end to end, with the discovery document, the claims, the response and the mail explained.
 audience: human
 aiGenerated: true
-verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
 sidebar:
   order: 2
 ---
@@ -13,7 +13,7 @@ This is the [quickstart](/agents/quickstart/) told as one story: what the provid
 The relying party is VaporCloud, a mock infrastructure provider at `skdl.dev`. It is a real implementation of `agent-identity-v1` with fictional appliances, which makes it useful for a first run: nothing you do there can cost money.
 
 <Aside type="note" title="Synthetic data">
-Identifiers, JTIs and timestamps in this tutorial are synthetic. The discovery shape, the terms hash, the context hash and the error shapes were checked on 2026-10-21 and re-checked against the live v1.3.2 document on 2026-11-14.
+Identifiers, JTIs and timestamps in this tutorial are synthetic. The error shapes and context hash were checked on 2026-10-21 against the then-live v1.3.2 document. The v2.0.0 discovery shape shown here has not been checked against a deployed document.
 </Aside>
 
 ## The discovery document, field by field
@@ -27,51 +27,45 @@ curl -sS https://skdl.dev/.well-known/agent-signup.json -o agent-signup.json
 | `protocol` | `agent-identity-v1` | The contract version. Anything else means the service does not support this protocol. |
 | `audience` | `vaporcloud` | The stable service identifier. It becomes the assertion `aud`. |
 | `provider_name` | `VaporCloud` | Human-readable name, for display only. |
-| `spec` | `https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md` (live 2026-11-14) | Optional pointer to the exact specification the provider implements. |
+| `spec` | `https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md` | Optional pointer to the exact specification the provider implements. |
 | `provider_url` | `https://skdl.dev` | The provider origin, used to bind the context pointer to the provider's domain. |
 | `contact` | `security@skdl.dev` | Where to report a security issue or abuse. |
 | `issuer_allowlist` | `["https://agentregistrar.dev"]` | The brokers this provider accepts. Exact match, no wildcards. |
 | `required_scopes` | `["tos:accept", "signup:free_tier"]` | The scopes the assertion must carry. Your agent holds both by default. |
-| `attestation` | `{ "mode": "broker", "uri": "https://agentregistrar.dev/api/broker/provider-verification?origin=https%3A%2F%2Fskdl.dev&audience=vaporcloud" }` (live 2026-11-14) | Optional Contract G source object. It names the stable verification URI and never carries the token; absence means unverified. |
-| `terms.version` | `2026.1` | The terms revision, for humans. |
-| `terms.url` | `https://skdl.dev/terms` | The URL the human can read. It becomes `accept_tos_url`. |
-| `terms.sha256` | `sha256:e854d9c2...fec5` | The hash of the exact terms bytes. Recompute it; do not trust it. |
-| `terms.text` | the complete terms | The text the agent passes back to prove it read what it accepted. |
+| `attestation` | `{ "mode": "broker", "uri": "https://agentregistrar.dev/api/broker/provider-verification?origin=https%3A%2F%2Fskdl.dev&audience=vaporcloud" }` | Optional Contract G source object. It names the stable verification URI and never carries the token; broker-managed is the default and may be keyless. Absence means unverified. |
+| `terms.version` | `2026.1` | The terms revision, for humans and for the optional version check. |
+| `terms.url` | `https://skdl.dev/terms` | The provider-hosted agreement. The Broker fetches it at signup and records a hash of the exact bytes. |
 | `endpoints.agent_signup` | `https://skdl.dev/api/signup/agent` | The only endpoint in the protocol. |
 | `extensions.dev.vaporcloud` | `{ "support_url": "..." }` | Namespaced vendor metadata. Not a capability field. |
 
 What is absent matters as much: no SKU list, no provisioning endpoint, no pricing, no quota, no API documentation. Those belong in the post-signup guide, because a discovery document is fetched before any account exists and must not advertise capability.
 
-Recompute the terms hash from the bytes you received:
-
-```bash
-node -e 'const d=require("./agent-signup.json");const h=require("node:crypto").createHash("sha256").update(Buffer.from(d.terms.text,"utf8")).digest("hex");console.log("sha256:"+h);console.log("matches:",("sha256:"+h)===d.terms.sha256)'
-```
-
-```text
-sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5
-matches: true
-```
+Discovery carries no terms text or digest. Read `terms.version`, and fetch
+`terms.url` if you want to read the agreement. The Broker fetches the same URL
+and records the digest of the bytes it received.
 
 ## What the broker signs
 
-The default call is `identity_signup`, which fetches discovery and the attestation
-source it names, applies the provider verification and human policy, and takes
-the service plus the complete terms text. The advanced `identity_prove` below
-takes the discovery values directly and is useful when you need the raw claims.
-In both, the request includes the complete terms text:
+The default call is `identity_signup`, which fetches discovery and the
+attestation source it names, fetches `terms.url`, hashes the exact bytes,
+applies the provider verification and human policy, and takes the service plus
+an explicit acceptance:
 
 ```json
 {
-  "audience": "vaporcloud",
-  "accept_tos_url": "https://skdl.dev/terms",
-  "accept_tos_hash": "sha256:e854d9c2e7446cc132861235fa8e1c14c062c32c176b4f34d6845065cef5fec5",
-  "accepted_tos_text": "<the complete terms.text as received>",
+  "service": "https://skdl.dev",
+  "accept_terms": true,
+  "terms_version": "2026.1",
   "requested_scopes": ["tos:accept", "signup:free_tier"]
 }
 ```
 
-`requested_scopes` is optional and defaults to `["tos:accept", "signup:free_tier"]`; every entry must already be delegated to the agent. `force_new` is optional and creates a second consent event for the same terms, which is rarely what you want.
+`terms_version` is optional; when supplied it must equal the published
+`terms.version`. `requested_scopes` is optional and defaults to
+`["tos:accept", "signup:free_tier"]`; every entry must already be delegated to
+the agent. `force_new` is optional and creates a second consent event for the
+same terms, which is rarely what you want. Use `identity_prove` only for an
+advanced flow that needs the raw assertion claims.
 
 The returned claims are the exact payload that was signed:
 
@@ -124,7 +118,7 @@ curl -sS -X POST https://skdl.dev/api/signup/agent \
   -d '{}'
 ```
 
-VaporCloud verifies the signature against `https://agentregistrar.dev/.well-known/jwks.json`, checks `iss` against its allowlist, `aud`, `exp`, the scopes, `human.verified` and the accepted terms hash. Then it creates or resolves the account.
+VaporCloud verifies the signature against `https://agentregistrar.dev/.well-known/jwks.json`, checks `iss` against its allowlist, `aud`, `exp`, the scopes, `human.verified`, the accepted terms URL and the shape of the accepted hash. Then it creates or resolves the account.
 
 A created account returns `201`:
 
@@ -150,6 +144,7 @@ A created account returns `201`:
     "agent_email": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
     "human_owner": "You (you@example.com)",
     "human_email": "you@example.com",
+    "accepted_tos_url": "https://skdl.dev/terms",
     "accepted_tos_hash": "sha256:e854d9c2...fec5"
   }
 }

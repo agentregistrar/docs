@@ -1,10 +1,10 @@
 ---
 title: "Reference implementation: VaporCloud"
-description: A walkthrough of the VaporCloud reference relying party on the v1.3 attestation-source flow, including its live domain-level verification snapshot.
+description: A walkthrough of the VaporCloud reference relying party on the v2.0.0 terms-URL and attestation-source flow, including its verification snapshot.
 audience: human
 aiGenerated: true
 lastReviewed: 2026-11-14
-verifiedAgainst: "spec v1.3.2 (58e4648); live VaporCloud check 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
 ---
 
 VaporCloud is the reference relying party at [skdl.dev](https://skdl.dev). It
@@ -15,13 +15,14 @@ see.
 This walkthrough separates what the protocol defines from what VaporCloud does as
 a product. The demo is not a production SLA and not a hosted service.
 
-**Release status.** VaporCloud is live on the v1.3 attestation-source flow
-(cut over 2026-11-14): broker-managed `attestation` in discovery, RP-signed
-receipts, Contract F/Tier 2, and authenticated abuse reporting. The live
-discovery document and its source were checked on 2026-11-14. The registry entry
-carries a domain-level five-field verification snapshot checked on 2026-10-26.
-The snapshot is a point-in-time record, not a live status feed; attestation
-renewal or a status change is reflected by a later check. "Verified" is an
+**Release status.** The VaporCloud source in the repository implements spec
+`v2.0.0`: provider-hosted `terms: { version, url }`, a broker-managed
+`attestation` in discovery, RP-signed receipts, Contract F/Tier 2, and
+authenticated abuse reporting. The registry entry carries a domain-level
+five-field verification snapshot checked on 2026-10-26. The snapshot is a
+point-in-time record, not a live status feed; attestation renewal, a terms
+change, or a status change is reflected by a later check. Run the checks below
+against the deployed origin before relying on their output. "Verified" is an
 identity statement, not a safety, uptime, or conduct guarantee.
 
 ## URLs
@@ -36,25 +37,24 @@ identity statement, not a safety, uptime, or conduct guarantee.
 
 ## The discovery document
 
-The v1.3 document adds one optional field, `attestation`. VaporCloud publishes
-broker-managed, so the object names the broker's verification URI and never the
-token. The rest stays identity-only. The live shape (checked 2026-11-14) is:
+The `v2.0.0` document keeps one optional `attestation` object and moves the
+terms behind a URL. VaporCloud publishes broker-managed, so the object names the
+broker's verification URI and never the token. The rest stays identity-only.
+The shape is:
 
 ```json
 {
   "protocol": "agent-identity-v1",
   "audience": "vaporcloud",
   "provider_name": "VaporCloud",
-  "spec": "https://github.com/agentregistrar/spec/blob/v1.3.2/agent-identity-v1.md",
+  "spec": "https://github.com/agentregistrar/spec/blob/v2.0.0/agent-identity-v1.md",
   "provider_url": "https://skdl.dev",
   "contact": "security@skdl.dev",
   "issuer_allowlist": ["https://agentregistrar.dev"],
   "required_scopes": ["tos:accept", "signup:free_tier"],
   "terms": {
     "version": "2026.1",
-    "url": "https://skdl.dev/terms",
-    "sha256": "sha256:<digest of the exact terms text>",
-    "text": "<complete terms text>"
+    "url": "https://skdl.dev/terms"
   },
   "endpoints": {
     "agent_signup": "https://skdl.dev/api/signup/agent"
@@ -82,11 +82,13 @@ What to notice:
   verified-provider claim; a live check and registry entry do.
 - Broker-managed mode needs no renewal job: the URI is stable, and the broker
   renews the token on demand. A suspension stops lookups within five minutes at
-  most.
+  most. The attestation may carry `keys: []`, because the broker supports
+  keyless attestations. This VaporCloud reference still registers an RP key
+  because it issues signed Contract E receipts.
 - Provider-managed is the opt-in alternative and VaporCloud does not use it: the
   provider hosts the same `{ "attestation": "<JWS>" }` document at a stable URI on
   its own origin, renews it before expiry, and expiry is the revocation bound.
-- `terms.sha256` is a real digest of the text. Recompute it and it matches.
+- `terms` is only `version` and `url`. The broker fetches `/terms` at signup and records a hash of the exact bytes it received.
 - `extensions` carries a support URL under a reverse-DNS key. There is no
   catalog, no SKU, no provisioning endpoint and no OTP endpoint anywhere in the
   document. The embedded `rp_attestation` discovery field is removed.
@@ -112,9 +114,9 @@ exit for an absent or non-verified credential. Its `--json` result reports
 registry evidence format is in [Validate and
 register](/providers/guides/validate-and-register/).
 
-## The signup response (v1.3 shape)
+## The signup response (v2.0.0 shape)
 
-A live signup requires a real agent assertion from the broker. The v1.3 code path
+A live signup requires a real agent assertion from the broker. The code path
 returns:
 
 ```json
@@ -139,6 +141,7 @@ returns:
     "agent_email": "<agent-slug>@agents.example",
     "human_owner": "<name> (<email>)",
     "human_email": "<email>",
+    "accepted_tos_url": "https://skdl.dev/terms",
     "accepted_tos_hash": "sha256:<64 hex>"
   }
 }
@@ -211,7 +214,7 @@ pattern to copy; the appliances are optional.
 ## Caveats
 
 - `skdl.dev` is a demo, not a production service. It has no SLA.
-- The v1.3 code and a domain-level registry verification snapshot are recorded.
+- The v2.0.0 code and a domain-level registry verification snapshot are recorded.
   The snapshot is at `checked_at` and does not promise that the same attestation
   is current later; refresh the check after renewal or a status change.
 - Verification records an identity check, not safety, uptime, solvency, or

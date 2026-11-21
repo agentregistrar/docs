@@ -4,10 +4,10 @@ description: The discovery, optional provider verification, assertion, account a
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.3.2 (58e4648), 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), 2026-11-21"
 ---
 
-The handshake has one job: turn an agent's request into an account that is attributable to a verified human who accepted a specific terms hash. The provider performs one verification and one account operation; the broker is not in the request path.
+The handshake has one job: turn an agent's request into an account that is attributable to a verified human who accepted the terms hosted at a specific URL. The provider performs one verification and one account operation; the broker is not in the request path.
 
 The normative sequence is [spec section 7](/agent-identity/v1/specification/#7-assertion--agent_signup-handshake).
 
@@ -17,11 +17,12 @@ The normative sequence is [spec section 7](/agent-identity/v1/specification/#7-a
 agent                         broker                     provider
   |                             |                            |
   |-- GET agent-signup.json -------------------------------->|
-  |<-- discovery (terms, sha256, audience, scopes,          |
+  |<-- discovery (terms version + url, audience, scopes,    |
   |    optional attestation source) ------------------------|
   |                             |                            |
-  |-- recompute sha256 locally  |                            |
-  |-- identity_signup(service, accepted text) ------------->|
+  |-- identity_signup(service, accept_terms: true) -------->|
+  |                             |  broker fetches terms.url
+  |                             |  and hashes exact bytes
   |<-- assertion + prepared signup request + rp_verification |
   |    (or identity_prove for an advanced flow)              |
   |                             |                            |
@@ -29,7 +30,7 @@ agent                         broker                     provider
   |                             |                            |
   |-- POST agent_signup, Authorization: Bearer <jwt> ------>|
   |                             |            verify JWKS, aud, exp, jti,
-  |                             |            scopes, human, ToS hash
+  |                             |            scopes, human, terms URL
   |                             |            create or resolve account
   |<-- credentials, resolution, RP-signed receipt/context ---|
   |                             |                            |
@@ -46,14 +47,14 @@ The request body is empty or irrelevant. The proof is the `Authorization: Bearer
 - `iss`, `sub`, `aud`, `jti`, `iat`, `exp`
 - `agent.id`, `agent.name`, `agent.email`, `agent.harness`
 - `human.id`, `human.name`, `human.email`, `human.verified`
-- `delegation.master_tos_version`, `delegation.accepted_rp_tos_hash`, `delegation.accepted_at`, `delegation.scopes`
+- `delegation.master_tos_version`, `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash`, `delegation.accepted_at`, `delegation.scopes`
 
 The full claim set is in [Assertion claims](/agent-identity/v1/assertion-claims/). Do not read identity from query parameters, a JSON body, a header such as `X-Agent-Id`, or anything else the caller controls.
 
 ## What you must not trust
 
 - **An unverified JWT.** Parsing is not verification. Verify the signature against the issuer's `/.well-known/jwks.json` and never follow a `jku` or `x5u` header to another host.
-- **The caller's claim about the terms hash.** Compare the verified `delegation.accepted_rp_tos_hash` with your current `terms.sha256`.
+- **The caller's claim about the terms.** Compare the verified `delegation.accepted_rp_tos_url` with your current `terms.url`. The hash is an optional second check when the URL serves deterministic bytes.
 - **A stale assertion as consent.** The acceptance is the durable legal event. A fresh assertion that references an existing acceptance is not a new consent.
 - **A catalog in discovery.** You will not find one, and it would not be authoritative if you did.
 
@@ -91,7 +92,7 @@ Every rejected signup returns one of the fixed v1 codes with a JSON envelope. An
 ## Known limits
 
 - `human.verified` means the human owner's email address is verified. It is not a KYC or identity-document check.
-- The provider verification credential is optional. A conformant provider without an `attestation` source is unverified, not invalid; `no_verify` proceeds and `verify`/`strict` refuse.
+- The provider verification credential is optional and broker-managed by default. It may be keyless (`keys: []`): no RP signing key is needed to accept signups. A conformant provider without an `attestation` source is unverified, not invalid; `no_verify` proceeds and `verify`/`strict` refuse.
 - Verification is identity, not safety. A malicious provider can control an origin and obtain a `domain` credential; `entity` adds reviewed legal-entity evidence, not honesty.
 - Revocation and suspension are enforced by the broker when an assertion is minted. You do not receive a live revocation feed; the registry and ledger status are recorded snapshots.
 - A resolved account does not return the old credential. The agent must use your documented recovery path.

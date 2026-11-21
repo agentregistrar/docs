@@ -7,7 +7,7 @@ lastReviewed: 2026-10-21
 verifiedAgainst: "wrangler 4.151.3 (workerd local), jose 6.2.13, Node 24.21.0, 2026-10-21"
 ---
 
-**Tested locally:** this Worker ran under `wrangler dev` (the local workerd runtime) with Wrangler 4.151.3 on 2026-10-21. It was not deployed to a Cloudflare account for this page. The wire behavior is identical to any other host.
+**Updated for spec v2.0.0; re-run pending.** This Worker ran under `wrangler dev` (the local workerd runtime) with Wrangler 4.151.3 on 2026-10-21 against the v1.3.2 shape. The snippet now uses provider-hosted `terms: { version, url }` and a URL check, and has not been re-run. It was not deployed to a Cloudflare account for this page. The wire behavior is identical to any other host.
 
 ## Create the project
 
@@ -17,10 +17,7 @@ cd provider-worker
 npm init -y
 npm install jose@6.2.13
 npm install --save-dev wrangler@4.151.3
-printf 'Example RP Terms of Service v2026.1' > terms.txt
 ```
-
-The terms bytes are the same bytes the [verify-assertions fixture](/providers/guides/verify-assertions/) signs, so the recorded signup responses reproduce.
 
 `wrangler.jsonc`:
 
@@ -28,12 +25,15 @@ The terms bytes are the same bytes the [verify-assertions fixture](/providers/gu
 {
   "name": "provider-worker-example",
   "main": "worker.js",
-  "compatibility_date": "2026-10-21",
-  "rules": [{ "type": "Text", "globs": ["**/*.txt"], "fallthrough": true }]
+  "compatibility_date": "2026-10-21"
 }
 ```
 
-The Text rule lets the Worker import `terms.txt` as a string at build time. The hash is computed over that same string with Web Crypto, so the served text and the digest cannot drift.
+The Worker advertises a `terms.url` and does not carry the terms text. The local
+override below points that URL at the same URL the
+[verify-assertions fixture](/providers/guides/verify-assertions/) signs, so the
+recorded signup responses reproduce. In production it is your own
+`https://<origin>/terms` page.
 
 ## The Worker
 
@@ -43,7 +43,6 @@ Save as `worker.js`:
 // Cloudflare Worker example for agent-identity-v1. The wire behavior is the
 // same as any other host: two routes, stable errors, one assertion check.
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import termsText from "./terms.txt";
 
 const DEFAULTS = {
   brokerOrigin: "https://agentregistrar.dev",
@@ -53,9 +52,9 @@ const DEFAULTS = {
   termsVersion: "2026.1",
 };
 
-const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(termsText));
-const TERMS_SHA256 =
-  "sha256:" + [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+function normalizeUrl(value) {
+  return value.replace(/\/+$/, "");
+}
 
 // Demo-only in-memory state. A real Worker uses Durable Objects, KV or D1.
 const accounts = new Map();
@@ -70,6 +69,7 @@ function config(env) {
     providerUrl: env.PROVIDER_URL ?? DEFAULTS.providerUrl,
     requiredScopes: (env.REQUIRED_SCOPES ?? DEFAULTS.requiredScopes).split(","),
     termsVersion: env.TERMS_VERSION ?? DEFAULTS.termsVersion,
+    termsUrl: env.TERMS_URL ?? `${env.PROVIDER_URL ?? DEFAULTS.providerUrl}/terms`,
   };
 }
 
@@ -111,8 +111,12 @@ async function verify(request, cfg) {
     return { error: fail(403, "insufficient_scope", "Scopes do not cover required_scopes") };
   }
   if (claims.human?.verified !== true) return { error: fail(403, "human_unverified", "Human not verified") };
-  if (claims.delegation?.accepted_rp_tos_hash !== TERMS_SHA256) {
-    return { error: fail(409, "tos_hash_mismatch", "Accepted ToS hash is stale") };
+  const acceptedUrl = claims.delegation?.accepted_rp_tos_url;
+  if (
+    typeof acceptedUrl !== "string" ||
+    normalizeUrl(acceptedUrl) !== normalizeUrl(cfg.termsUrl)
+  ) {
+    return { error: fail(409, "tos_hash_mismatch", "Accepted ToS URL is stale") };
   }
   return { claims };
 }
@@ -134,11 +138,13 @@ export default {
           required_scopes: cfg.requiredScopes,
           terms: {
             version: cfg.termsVersion,
-            url: `${cfg.providerUrl}/terms`,
-            sha256: TERMS_SHA256,
-            text: termsText,
+            url: cfg.termsUrl,
           },
           endpoints: { agent_signup: `${cfg.providerUrl}/api/signup/agent` },
+          attestation: {
+            mode: "broker",
+            uri: `${cfg.brokerOrigin}/api/broker/provider-verification?origin=${encodeURIComponent(cfg.providerUrl)}&audience=${encodeURIComponent(cfg.audience)}`,
+          },
         }),
         {
           headers: {
@@ -198,6 +204,7 @@ For a local assertion fixture, override the JWKS URL and provider URL without ed
 ```bash
 npx wrangler dev --port 3004 --local \
   --var PROVIDER_URL:http://127.0.0.1:3004 \
+  --var TERMS_URL:https://example.com/terms \
   --var BROKER_JWKS_URL:http://127.0.0.1:3015/.well-known/jwks.json
 ```
 

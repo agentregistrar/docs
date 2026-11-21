@@ -1,10 +1,10 @@
 ---
 title: Error codes
-description: Broker, MCP, OAuth, provider and inbox errors with status, retryability and the next action, including the v1.3 RP trust codes.
+description: Broker, MCP, OAuth, provider and inbox errors with status, retryability and the next action, including the v2.0.0 RP trust and terms codes.
 audience: both
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.3.2 (58e4648), shared MCP schemas, 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), shared MCP schemas, 2026-11-21"
 sidebar:
   order: 4
 ---
@@ -97,8 +97,8 @@ lookup.
 | `master_tos_unsigned` | identity tools | no | The Master Agent Delegation agreement is unsigned. | The human completes onboarding and signs it. |
 | `agent_revoked` | all tools | no | The agent is revoked or operator-suspended. `identity_record_signup` still records historical proofs for a revoked agent. | The human reviews a revocation in the portal. An operator suspension is operator-only to restore. Do not retry or create a replacement silently. |
 | `scope_not_granted` | identity and inbox tools | no | The agent lacks `tos:accept`, `inbox:read`, `inbox:send`, or one entry of `requested_scopes`. | Check `identity_whoami`; request only delegated scopes. |
-| `tos_text_hash_mismatch` | `identity_signup`, `identity_prove` | no | `accepted_tos_text` does not hash to the published/accepted hash. No side effect occurred. | Re-fetch `terms.text`, recompute, send the exact text. |
-| `tos_hash_mismatch` | `identity_signup`, `identity_prove` | no | The accepted terms hash does not match the discovery document. | Hard stop: re-discover, re-read, re-accept. |
+| `tos_text_hash_mismatch` | `identity_prove` | no | Only on the no-discovery manual path: `accepted_tos_text` does not hash to `accept_tos_hash`. No side effect occurred. | Re-fetch `terms.url` and send the exact bytes, or omit the manual text/hash pair and use discovery. |
+| `tos_hash_mismatch` | `identity_signup`, `identity_prove` | no | The accepted terms URL or hash is stale for the current document. | Hard stop: re-discover, re-accept the current terms. |
 | `discovery_unreachable` | `identity_signup`, `identity_prove` | yes | The discovery document could not be fetched. Nothing was minted. | Retry the same call; the broker refetches. |
 | `discovery_invalid` | `identity_signup`, `identity_prove` | no | The discovery document failed validation or its signup endpoint is not fetchable. | Ask the provider to fix discovery. |
 | `protocol_unsupported` | `identity_signup`, `identity_prove` | no | `protocol` is not `agent-identity-v1`. | Stop; the service is not supported. |
@@ -235,7 +235,7 @@ HTTP-level failures, not tool results.
 
 | Situation | Do not | Do |
 | :--- | :--- | :--- |
-| `tos_hash_mismatch` or `tos_text_hash_mismatch` | Retry the same assertion or text | Re-discover, re-read `terms.text`, re-accept, re-prove |
+| `tos_hash_mismatch` or `tos_text_hash_mismatch` | Retry the same assertion or text | Re-discover, re-accept `terms.url`, re-prove |
 | `rp_unverified` under `verify` or `strict` | Treat the provider as invalid | Ask the human to change policy or use a verified provider |
 | `rp_attestation_expired` | Reuse the expired attestation | Renew/publish a current attestation, or use a non-gated policy |
 | `rp_attestation_mode_not_allowed` | Force `strict` on a provider-managed source | Switch the RP to broker-managed mode, or let the human choose `verify` |

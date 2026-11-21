@@ -40,14 +40,14 @@ The MCP endpoint returns `401` for an unauthenticated request with a JSON-RPC er
 | `human_suspended` | no | The human account is suspended | Contact the security address |
 | `agent_revoked` | no | The kill switch is on | Reactivate, or use a new identity |
 | `scope_not_granted` | no | `requested_scopes` includes something the agent does not hold | Request only delegated scopes |
-| `tos_text_hash_mismatch` | no | The text you sent does not hash to the hash you sent | Re-read `terms.text`, recompute the hash, send the exact bytes |
+| `tos_text_hash_mismatch` | no | Only on the manual no-discovery `identity_prove` path: the text you sent does not hash to `accept_tos_hash` | Re-fetch `terms.url` and send the exact bytes, or omit the manual text/hash pair and use discovery |
 | `ledger_email_failed` | yes | The acceptance was recorded but the receipt did not send | Retry the same call; only the mail is retried |
 | `signup_token_invalid` | no | The receipt failed verification | Get a valid token from the provider |
 | `signup_token_not_linked` | no | The receipt references an acceptance this broker has not recorded | Run `identity_prove` for that audience, then retry |
 | `signup_token_ownership_mismatch` | no | The receipt belongs to another human | Stop; use the token for your account |
 | `internal_error` | yes | Broker failure | Retry with the same inputs; check `side_effects.assertion_minted` |
 
-Two habits prevent most of these. Send the terms text exactly as received, with no trimming or re-wrapping. And retry the same call rather than a new one: an identical `identity_prove` cannot create a second acceptance.
+Two habits prevent most of these. Let the Broker fetch `terms.url` rather than supplying text on the manual path. And retry the same call rather than a new one: an identical mint cannot create a second acceptance.
 
 ## Discovery
 
@@ -57,7 +57,7 @@ Two habits prevent most of these. Send the terms text exactly as received, with 
 | The document parses but `protocol` is different | Another protocol or a malformed document | Treat the service as unsupported |
 | `issuer_allowlist` does not contain your broker origin | The provider does not accept this broker | Do not proceed; tell the human |
 | `required_scopes` is not covered by the agent's scopes | The provider asks for more than was delegated | Ask the human to re-delegate; do not proceed |
-| The recomputed hash differs from `terms.sha256` | The document and the terms disagree | Stop. Re-fetch; if it still differs, report it to the provider |
+| `terms` contains `text` or `sha256`, or `terms.url` redirects | The document is not `v2.0.0`, or the terms URL is unstable | Do not proceed. Re-fetch; if it persists, report it to the provider |
 | The document advertises SKUs, provisioning or quotas | Non-conformant vendor capability in discovery | Do not rely on those fields; report it to the provider |
 
 ## Signup at the provider
@@ -72,7 +72,7 @@ The specification fixes one error set for relying parties. `error_description` i
 | `audience_mismatch` | 403 | `aud` does not equal `audience` | Re-discover and mint for the right audience |
 | `assertion_expired` | 401 | `exp` passed | Mint a new assertion |
 | `assertion_replayed` | 409 | The `jti` was used in a conflicting context | Mint a new assertion; do not reuse |
-| `tos_hash_mismatch` | 409 | The accepted hash is stale | Re-discover, re-read, re-prove, then retry |
+| `tos_hash_mismatch` | 409 | The accepted terms URL or version is stale | Re-discover, re-accept, then retry |
 | `insufficient_scope` | 403 | A required scope is missing | Ask the human to re-delegate |
 | `human_unverified` | 403 | `human.verified` is not true | Verify the human email |
 | `rate_limited` | 429 | Throttled | Back off for the advertised delay |
@@ -87,7 +87,7 @@ A `resolution: "resolved"` response is a success, not an error. A provider that 
 | A message exists but the wait missed it | The filter is a substring of the raw address or subject | Match on `subject_contains` or a domain fragment that appears in the raw value |
 | `message_not_found` | The id belongs to another agent, or no longer exists | List the inbox and use an id from the result |
 | `detected_otp` is `null` | No standalone six-digit number in the subject or body | Read the body; the code may be split or formatted differently |
-| Two forwarded receipts for one signup | Two acceptances exist, for example a changed terms hash or `force_new` | Check the ledger; the fix is to stop calling `force_new` |
+| Two forwarded receipts for one signup | Two acceptances exist, for example changed terms or `force_new` | Check the ledger; the fix is to stop calling `force_new` |
 | `send_failed` | The outbound provider rejected the message | Nothing was sent; retry once, then investigate |
 
 ## A lost credential

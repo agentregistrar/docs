@@ -4,7 +4,7 @@ description: The Contract A claim set, a worked example, the relying-party check
 audience: both
 aiGenerated: true
 lastReviewed: 2026-10-24
-verifiedAgainst: "spec v1.2.0 (35659ce), broker 5e57ecf, 2026-10-24"
+verifiedAgainst: "spec v2.0.0 (cc307bf), broker main, jose 6.2.13, 2026-11-21"
 ---
 
 An agent obtains a signed Agent Identity assertion from its broker with
@@ -39,8 +39,8 @@ discovery specification.
 | `human.verified` | boolean | Whether the human owner's email address is verified. The broker only mints an assertion when it is `true`. |
 | `delegation.master_tos_version` | string | The Master Terms of Service version the human accepted. |
 | `delegation.master_tos_hash` | string (`sha256:...`), optional | Content hash of the Master Terms of Service. |
-| `delegation.accepted_rp_tos_url` | string (URL), optional | URL of the relying party ToS accepted through the agent. |
-| `delegation.accepted_rp_tos_hash` | string (`sha256:...`) | Content hash of the accepted relying party ToS text. |
+| `delegation.accepted_rp_tos_url` | string (URL) | URL of the relying party terms accepted through the agent. It must equal the provider's current `terms.url`. |
+| `delegation.accepted_rp_tos_hash` | string (`sha256:...`) | The Broker-computed hash of the exact bytes it fetched at `accepted_rp_tos_url`. |
 | `delegation.accepted_at` | integer | Acceptance time, Unix seconds. |
 | `delegation.scopes` | array of strings | Scopes delegated for this signup. |
 
@@ -91,7 +91,7 @@ Ids are truncated and the audience is a placeholder. The issuer is the broker or
 }
 ```
 
-The hashes in the example are illustrative except `accepted_rp_tos_hash`, which matches the example terms text on [Discovery fields](/agent-identity/v1/discovery-fields/#minimal-conformant-example).
+The hashes in the example are illustrative. Discovery no longer carries a terms text or digest; the Broker computes `accepted_rp_tos_hash` from the bytes it fetches at `terms.url`.
 
 ## Verify the assertion
 
@@ -106,8 +106,8 @@ A relying party verifies at least these checks before creating or resolving an a
 7. **Check the assertion id.** A `jti` reused in a conflicting context is `assertion_replayed`. A repeated request for the same agent, account and service is not a replay; resolve it idempotently.
 8. **Check the scopes.** `delegation.scopes` must include every `required_scopes` entry.
 9. **Check the human.** `human.verified` must be `true`.
-10. **Check the ToS hash.** `delegation.accepted_rp_tos_hash` must equal the currently advertised `terms.sha256`. A mismatch is `tos_hash_mismatch` and a hard stop for the agent.
-11. **Record the proof.** Keep the assertion `jti`, the accepted ToS version and hash, and the attribution for audit.
+10. **Check the terms URL.** `delegation.accepted_rp_tos_url` must equal the currently advertised `terms.url` after normalizing trailing slashes. Optionally, when `terms.url` serves deterministic bytes, compare `delegation.accepted_rp_tos_hash` with the digest of those bytes. A mismatch is `tos_hash_mismatch` and a hard stop for the agent.
+11. **Record the proof.** Keep the assertion `jti`, the accepted ToS URL, version and hash, and the attribution for audit.
 
 The stable error codes and their HTTP statuses are in [spec section 7.2](/agent-identity/v1/specification/#72-error-envelope-and-stable-codes).
 

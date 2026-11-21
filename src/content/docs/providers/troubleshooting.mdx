@@ -1,10 +1,10 @@
 ---
 title: Provider troubleshooting
-description: Symptom, cause and fix for discovery validation, attestation sources, assertion verification, hashes, JWKS, context guides and transport.
+description: Symptom, cause and fix for discovery validation, attestation sources, assertion verification, terms hosting, JWKS, context guides and transport.
 audience: human
 aiGenerated: true
 lastReviewed: 2026-10-21
-verifiedAgainst: "spec v1.3.2 (58e4648), validator 1.3.2, 2026-11-14"
+verifiedAgainst: "spec v2.0.0 (cc307bf), validator 2.0.0, 2026-11-21"
 ---
 
 Find the symptom, fix the cause, then re-run the check. Each row links to the page that owns the step.
@@ -13,7 +13,8 @@ Find the symptom, fix the cause, then re-run the check. Each row links to the pa
 
 | Symptom | Cause | Fix |
 | :--- | :--- | :--- |
-| Validator fails `terms.sha256` | Hashed rendered HTML, a summary, or newline-normalized text | Hash the exact `terms.text` UTF-8 bytes. See [Compute the ToS hash](/providers/guides/compute-tos-hash/). |
+| Discovery still carries `terms.text` or `terms.sha256` | Legacy v1.3 shape; the v2.0.0 validator accepts and ignores both | Publish `terms: { version, url }` and serve the agreement at that URL. See [Publish discovery](/providers/guides/publish-discovery/). |
+| `terms.url` serves changing bytes | A per-request challenge token, timestamp or variant wraps the agreement | Serve stable bytes with no redirect. See [Serve terms at a URL](/providers/guides/compute-tos-hash/). |
 | Validator fails a forbidden field | Catalog, SKU, provisioning or OTP field under `endpoints` or `extensions` | Remove the capability surface; move it to the vendor guide. See [Identity-only discovery](/providers/concepts/identity-only-discovery/). |
 | Validator exits `2` | No usable document: DNS, TLS, timeout, redirect, wrong content type or oversize body; or the attestation source or JWKS could not be obtained under `--require-attestation` | Fetch the URL with `curl -D -`; fix transport before changing the JSON. |
 | Validator warns on cache or CORS | Missing `Cache-Control` or `Access-Control-Allow-Origin` | Add `public, max-age=60` and `*` where appropriate. Warnings do not fail conformance. |
@@ -107,7 +108,7 @@ provider's conduct.
 ## Diagnostic sequence
 
 1. `curl -sS -D - https://<origin>/.well-known/agent-signup.json` and confirm status, content type, no redirect.
-2. Recompute the terms hash from the received `terms.text`.
+2. Fetch `terms.url` twice and confirm the bytes are identical and the response is not a redirect.
 3. Run the validator with `--json` and read the failing check id.
 4. Fetch the issuer JWKS and compare `kid`, `alg` and `typ`.
 5. Reproduce the signup with a synthetic assertion and check the returned code.
