@@ -86,15 +86,11 @@ return a challenge page, report it and stop.
 
 ## 4. Run the conformance and attestation validator
 
-Use `@agentregistrar/discovery@2.1.0` from `agentregistrar/spec` at tag
-`v2.1.0` (source-first CLI invoked via `pnpm validate:discovery`):
+Run the published `@agentregistrar/discovery@2.1.1` CLI with `npx` (no clone
+required):
 
 ```bash
-git clone https://github.com/agentregistrar/spec
-cd spec
-git checkout v2.1.0
-pnpm install
-pnpm --silent validate:discovery https://skdl.dev/.well-known/agent-signup.json --json
+npx @agentregistrar/discovery@2.1.1 validate https://skdl.dev/.well-known/agent-signup.json --json
 ```
 
 Verify the optional `attestation` source against a trusted broker (checks
@@ -102,7 +98,7 @@ source fetch, `{ "attestation": "<JWS>" }` envelope, signature, `rp.origin`,
 `rp.audience`, and `iat`/`exp` window):
 
 ```bash
-pnpm --silent validate:discovery https://skdl.dev/.well-known/agent-signup.json \
+npx @agentregistrar/discovery@2.1.1 validate https://skdl.dev/.well-known/agent-signup.json \
   --verify-attestation \
   --trusted-rp-broker https://agentregistrar.dev \
   --json
@@ -114,11 +110,13 @@ attestation into a non-zero exit code.
 Optional non-destructive probes (never POST and never trigger signup):
 
 ```bash
-pnpm --silent validate:discovery https://skdl.dev/.well-known/agent-signup.json --json --probe-jwks
-pnpm --silent validate:discovery https://skdl.dev/.well-known/agent-signup.json --json --probe-endpoints
+npx @agentregistrar/discovery@2.1.1 validate https://skdl.dev/.well-known/agent-signup.json --json --probe-jwks
+npx @agentregistrar/discovery@2.1.1 validate https://skdl.dev/.well-known/agent-signup.json --json --probe-endpoints
 ```
 
-`--silent` keeps stdout pure JSON. Exit codes:
+`--json` prints the machine-readable result. Fallback: from a clone of
+`agentregistrar/spec`, run `pnpm --silent validate:discovery` with the same
+arguments. Exit codes:
 
 - `0`: conformant (warnings allowed; without `--require-attestation`,
   `attestation.status` may still be `unverified`, `expired`, or `invalid`).
@@ -131,7 +129,7 @@ pnpm --silent validate:discovery https://skdl.dev/.well-known/agent-signup.json 
 ## 5. Inspect the schema when a field is unclear
 
 The pinned schema is at
-`https://github.com/agentregistrar/spec/blob/v2.1.0/agent-signup.schema.json`
+`https://github.com/agentregistrar/spec/blob/v2.1.1/agent-signup.schema.json`
 and served at `https://docs.agentregistrar.dev/protocol/agent-signup.schema.json`.
 Zod and the written specification win if the schema and prose diverge; report
 any divergence.
@@ -139,7 +137,7 @@ any divergence.
 ## 6. Report the verdict
 
 Report one line per check, then a summary with exact evidence (status, counts,
-attestation verdict, validator version `@agentregistrar/discovery@2.1.0`, and
+attestation verdict, validator version `@agentregistrar/discovery@2.1.1`, and
 date):
 
 ```text
@@ -149,7 +147,7 @@ date):
 - [pass] required_scopes: tos:accept, signup:free_tier
 - [pass] terms.url: stable bytes, 0 redirects, version 2026.1
 - [pass] attestation: verified (mode broker, level domain, issuer https://agentregistrar.dev)
-- [pass] conformance: valid, 0 errors, 0 warnings (@agentregistrar/discovery@2.1.0)
+- [pass] conformance: valid, 0 errors, 0 warnings (@agentregistrar/discovery@2.1.1)
 Summary: 0 failures, 0 warnings. Verdict: conformant and verified.
 ```
 
@@ -160,12 +158,12 @@ Verdict rules:
 - Distinguish conformance from verification: a conformant document without
   `attestation` is **conformant and unverified** (valid result, not an error).
 - Warnings do not change the verdict, but must be listed.
-- Never claim support without the document URL, `@agentregistrar/discovery@2.1.0`,
+- Never claim support without the document URL, `@agentregistrar/discovery@2.1.1`,
   and the date run.
 
 ## 7. References
 
 - Protocol overview and validator guide: <https://docs.agentregistrar.dev/protocol/> and <https://docs.agentregistrar.dev/protocol/validator/>
 - Validate and register guide: <https://docs.agentregistrar.dev/providers/guides/validate-and-register/>
-- Normative specification (`v2.1.0`): <https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md>
+- Normative specification (`v2.1.1`): <https://github.com/agentregistrar/spec/blob/v2.1.1/agent-identity-protocol.md>
 - Implementation registry: <https://github.com/agentregistrar/spec/blob/main/registry/README.md>

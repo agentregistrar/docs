@@ -172,24 +172,24 @@ where `rp_attestation` is the exact historical attestation named by
 
 ## 7. Validate and register
 
-Run the `@agentregistrar/discovery@2.1.0` conformance validator from
-`agentregistrar/spec` tag `v2.1.0` before publishing:
+Run the `@agentregistrar/discovery@2.1.1` conformance validator with `npx`
+before publishing:
 
 ```bash
-git clone https://github.com/agentregistrar/spec
-cd spec
-git checkout v2.1.0
-pnpm install
-pnpm --silent validate:discovery https://your-service.example/.well-known/agent-signup.json --verify-attestation --trusted-rp-broker https://agentregistrar.dev --json
+npx @agentregistrar/discovery@2.1.1 validate https://your-service.example/.well-known/agent-signup.json --verify-attestation --trusted-rp-broker https://agentregistrar.dev --json
 ```
 
 Exit `0` means conformant, `1` means not conformant (or failed attestation
 under `--require-attestation`), `2` means transport/availability failure.
-Report the validator version (`2.1.0`) with the result.
+Report the validator version (`2.1.1`) with the result.
+
+Fallback: from a clone of `agentregistrar/spec`, run
+`pnpm validate:discovery` with the same arguments.
 
 ## 8. References
 
 - Provider quickstart and portal guide: <https://docs.agentregistrar.dev/providers/quickstart/> and <https://docs.agentregistrar.dev/providers/portal/>
+- Framework examples and runnable reference code: <https://docs.agentregistrar.dev/providers/hosting/> and <https://github.com/agentregistrar/docs/tree/main/examples>
 - Receipt guide and abuse reporting: <https://docs.agentregistrar.dev/providers/guides/issue-signup-receipt/> and <https://docs.agentregistrar.dev/providers/guides/abuse-reporting/>
 - Protocol overview and schema: <https://docs.agentregistrar.dev/protocol/> and <https://docs.agentregistrar.dev/protocol/agent-signup.schema.json>
-- Normative specification (`v2.1.0`): <https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md>
+- Normative specification (`v2.1.1`): <https://github.com/agentregistrar/spec/blob/v2.1.1/agent-identity-protocol.md>
