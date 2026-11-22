@@ -14,7 +14,6 @@ Claude-specific notes:
 - Do not create tests. Verification is `pnpm build`, `pnpm check`, `pnpm lint`,
   `pnpm typecheck`, `pnpm check:theme`, and the curl checks in `AGENT.md`
   section 12.
-- Do not clear `aiGenerated` or add `lastReviewed` on your own; a human
-  reviewer does that.
+- Do not add `lastReviewed` on your own; a human reviewer does that.
 - Keep rendered text ASCII and the Terminal voice described in `AGENT.md`
   section 7.

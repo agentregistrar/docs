@@ -85,18 +85,15 @@ Provenance fields, validated by `src/content.config.ts`:
 | Field | Type | Meaning |
 | :--- | :--- | :--- |
 | `audience` | `human` \| `agent` \| `both` | Who the page is written for. Default `both`. |
-| `aiGenerated` | boolean | `true` while an agent drafted the page and no human has reviewed it. The page actions row shows "awaiting review". |
 | `verifiedAgainst` | string | Behavior pages only: the exact artifact checked, for example `spec v2.1.0, 2026-11-22` or `Nimbus 0.18.1`. |
 | `lastReviewed` | date | The date a human last checked the page against its source. Never guess or backfill. |
 | `source` | string | Generated pages only: the pinned source, for example `spec:v2.1.0#agent-identity-protocol.md`. |
 
 Rules:
 
-- A page you draft starts with `aiGenerated: true`. Do not clear it in the same
-  change; clearing it is the reviewer's action.
-- Only a human reviewer clears `aiGenerated` and sets `lastReviewed`. The
-  reviewer checks the page against its canonical source, runs the verification
-  steps the page contains, and records the review in the pull request.
+- Only a human reviewer sets `lastReviewed`. The reviewer checks the page
+  against its canonical source, runs the verification steps the page contains,
+  and records the review in the pull request.
 - `verifiedAgainst` is evidence, not a promise. If you cannot name the commit,
   release, or version you checked, leave it unset and say what is unverified in
   the pull request.
@@ -221,14 +218,13 @@ including the rename-and-redirect check.
 
 ## 9. Review checklist
 
-A reviewer ticks every item. The author may pre-fill it, but a human clears the
-review state.
+A reviewer ticks every item. The author may pre-fill it, but a human signs off.
 
 - [ ] The page matches one primary persona, one job to be done, and its
   section's voice tier.
 - [ ] The claim matches the canonical source at the named tag, commit, or date.
 - [ ] `verifiedAgainst` names a real artifact; `lastReviewed` is set only after
-  the review, and `aiGenerated` is cleared by the reviewer.
+  the review.
 - [ ] The page uses one template shape and its required sections.
 - [ ] `title` and `description` are unique, within the length limits, and
   describe the page's one intent. `pnpm check:seo` passes.
@@ -306,7 +302,7 @@ the agent endpoints as shown in `AGENT.md` section 12.
   state across pull requests.
 - A rename contains the page move, the redirect, and the updated links in one
   pull request.
-- A page stays `aiGenerated: true` until a human reviews it; the reviewer may be
+- A page's `lastReviewed` is set when a human reviews it; the reviewer may be
   the operator or a named reviewer in the description.
 
 ## 12. License

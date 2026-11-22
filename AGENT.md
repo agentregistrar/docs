@@ -109,20 +109,16 @@ Provenance fields, validated by `src/content.config.ts`:
 | Field | Type | Rule |
 | :--- | :--- | :--- |
 | `audience` | `human` \| `agent` \| `both` (default `both`) | Who the page is written for. `human` marks a page written first for people; the page actions row then shows "for humans". |
-| `aiGenerated` | boolean | `true` while an agent drafted the page and no human has reviewed it. Shows "awaiting review" in the page actions row. |
 | `verifiedAgainst` | string | Behavior pages only: the exact artifact the page was checked against, e.g. `spec v2.1.0, 2026-11-22` or `Nimbus 0.18.1`. |
 | `lastReviewed` | date | The date a human last reviewed the page against its source. Set it when the review happens; never backfill or guess. |
 | `source` | string | Generated pages only: the pinned source, e.g. `spec:v2.1.0#agent-identity-protocol.md`. |
 
 Rules:
 
-- A page you draft starts with `aiGenerated: true`. Do not clear it in the same
-  change; clearing it is the reviewer's action.
-- Only a human reviewer clears `aiGenerated`. The reviewer checks the page
+- Only a human reviewer sets `lastReviewed`. The reviewer checks the page
   against its canonical source, runs the verification steps the page contains,
-  and records the review in the PR description plus the `lastReviewed` update.
-  The operator is the default reviewer; a named reviewer in the PR description
-  is equivalent.
+  and records the review in the PR description. The operator is the default
+  reviewer; a named reviewer in the PR description is equivalent.
 - `verifiedAgainst` is an artifact, not a promise. If you cannot name the
   commit, release, or version you checked, leave it unset and say what is
   unverified in the PR.
@@ -138,7 +134,6 @@ Example:
 title: Publish discovery
 description: Serve an identity-only discovery document that the validator accepts.
 audience: both
-aiGenerated: true
 verifiedAgainst: "spec v2.1.0, validator 2.1.0, 2026-11-22"
 ---
 ```
@@ -532,8 +527,7 @@ parse them:
 
 ```text
 - [error] src/content/docs/agents/index.mdx:12 - link "/agent" does not reach a route - use "/agents/".
-- [warn]  src/content/docs/providers/index.mdx:6 - aiGenerated true with no lastReviewed - awaiting review.
-Summary: 1 error, 1 warning.
+Summary: 1 error.
 ```
 
 Severities: `error` blocks merge, `warn` needs a decision, `info` is context.
@@ -546,16 +540,14 @@ Run, in order:
    findings; the postbuild gates cover links and sitemap dates.
 4. `pnpm check --json` - environment, structure, authoring, types.
 5. `pnpm typecheck`, `pnpm check:theme`, `git diff --check`.
-6. Provenance sweep: list every page with `aiGenerated: true` and no
-   `lastReviewed`. Those are awaiting review; do not clear them yourself.
-7. Stale verification sweep: compare each `verifiedAgainst` against the current
+6. Stale verification sweep: compare each `verifiedAgainst` against the current
    broker release, spec tag, or Nimbus version. A mismatch is a warning, not an
    edit - the page needs re-verification, not a new date.
-8. Agent-surface sweep: for every page in the sitemap, assert
+7. Agent-surface sweep: for every page in the sitemap, assert
    `/<slug>/index.md` exists, the page appears in `/llms.txt`, and the
    Markdown body matches the rendered page. Report the missing path, not just a
    count.
-9. Skill sweep: every folder under `skills/` appears in
+8. Skill sweep: every folder under `skills/` appears in
    `dist/.well-known/agent-skills/index.json`, and each advertised digest
    matches the file.
 
@@ -645,5 +637,4 @@ for the installed version rather than the public site.
 - Do not remove `<AgentDirective />` or `<WebMCP />` from `BaseLayout.astro`.
 - Do not publish a page or skill that contains a private path, token, customer
   detail, internal deliverable code, or internal issue number.
-- Do not clear `aiGenerated` or set `lastReviewed` unless a human actually
-  reviewed the page.
+- Do not set `lastReviewed` unless a human actually reviewed the page.

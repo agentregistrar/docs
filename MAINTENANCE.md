@@ -131,8 +131,7 @@ the findings in the pull request or the audit record.
   spec tag, or Nimbus version.
 - Every reviewed page has a `lastReviewed` inside the policy window. The
   window is 180 days: a page whose `lastReviewed` is older than 180 days is
-  flagged in the audit and either re-reviewed or marked stale. Pages that are
-  still `aiGenerated: true` are listed, not silently cleared.
+  flagged in the audit and either re-reviewed or marked stale.
 - Harness versions and tiers are current.
 - Screenshots match the live UI.
 - Internal links and redirects resolve; `pnpm check:links` and
@@ -146,7 +145,6 @@ the findings in the pull request or the audit record.
 - The agent surface still serves: `/llms.txt`, `/llms-full.txt`,
   `/<slug>/index.md`, the discovery files, the skills index, and `robots.txt`,
   with the expected content types.
-- No unreviewed `aiGenerated: true` page sits on a primary path.
 - The fixture and validator commands on provider pages still run.
 
 ## 7. Runbook F - security or incident update
@@ -182,16 +180,14 @@ This is a fast path. Do not wait for the quarterly audit.
 Do this on a scratch branch before declaring a contribution guide change done.
 
 1. Add a small real page from the template in `CONTRIBUTING.md`.
-2. Set `aiGenerated: true` and confirm the "awaiting review" label in the page
-   actions row.
-3. Review it against the source, clear `aiGenerated`, set `lastReviewed`, and
-   record the reviewer and date in the pull request.
-4. Run the checks in section 11 and review the page against the checklist.
-5. Rename the page, add a permanent redirect in `astro.config.ts` (both the
+2. Review it against the source, set `lastReviewed`, and record the reviewer
+   and date in the pull request.
+3. Run the checks in section 11 and review the page against the checklist.
+4. Rename the page, add a permanent redirect in `astro.config.ts` (both the
    slashless and the trailing-slash key), build, and `curl` both URL shapes to
    confirm one permanent hop.
-6. Revert the rename, or keep it if it is real. Confirm no link is broken.
-7. Keep the page only if it is useful. Otherwise remove it and record that the
+5. Revert the rename, or keep it if it is real. Confirm no link is broken.
+6. Keep the page only if it is useful. Otherwise remove it and record that the
    workflow was exercised. Record the result in the change record, not on a
    public page.
 

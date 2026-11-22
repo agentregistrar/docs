@@ -120,9 +120,8 @@ and retired paths.
 - A page is a `.md` or `.mdx` file under `src/content/docs/`. Frontmatter
   requires `title` and `description`. The provenance fields follow the policy in
   [`AGENT.md`](./AGENT.md) section 5: `audience` defaults to `both`;
-  `aiGenerated: true` marks an agent draft and stays visible as "awaiting
-  review" until a human clears it; `verifiedAgainst`, `lastReviewed`, and
-  `source` are set only when that evidence exists for the page.
+  `verifiedAgainst`, `lastReviewed`, and `source` are set only when that
+  evidence exists for the page.
 - Use the Nimbus components registered in `src/components.ts` (`Aside`, `Card`,
   `CardGrid`, `Steps`, `Tabs`, and the rest) rather than new one-off widgets.
 - Rendered text is ASCII, sentence case, and free of icons. The site is

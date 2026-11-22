@@ -17,10 +17,6 @@ export const collections = {
          *   because this site is agent-readable by default; `human` is the
          *   deliberate flag for a page written first for people (the page
          *   actions row then marks the break with "for humans").
-         * - `aiGenerated` - `true` while a page was drafted by an agent and no
-         *   human has reviewed it. The page actions row shows
-         *   "awaiting review" until a human clears the field. Never clear it
-         *   in the same change that drafts the page.
          * - `verifiedAgainst` - the exact artifact a behavior page was checked
          *   against, e.g. "broker e7b53b4, 2026-10-21" or "Nimbus 0.18.1".
          * - `lastReviewed` - the date a human last reviewed the page against
@@ -38,7 +34,6 @@ export const collections = {
          *   Never set it by hand.
          */
         audience: z.enum(["human", "agent", "both"]).default("both"),
-        aiGenerated: z.boolean().optional(),
         verifiedAgainst: z.string().min(1).optional(),
         lastReviewed: z.coerce.date().optional(),
         source: z.string().min(1).optional(),

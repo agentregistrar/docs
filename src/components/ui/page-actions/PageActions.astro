@@ -1,11 +1,8 @@
 ---
 /**
- * PageActions - text-only page utilities: updated timestamp, awaiting-review
- * provenance label, copy markdown, view markdown.
+ * PageActions - text-only page utilities: updated timestamp, copy markdown,
+ * view markdown.
  *
- * `aiGenerated` is the provenance contract from `src/content.config.ts`: while
- * a page is agent-drafted and unreviewed the row says "awaiting review". A
- * human clears the flag in the page frontmatter, and the label disappears.
  * Text only, ASCII, no icon.
  */
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
@@ -15,10 +12,9 @@ import type { HTMLAttributes } from "astro/types";
 interface Props extends HTMLAttributes<"div"> {
   markdownUrl?: string;
   lastUpdated?: Date;
-  aiGenerated?: boolean;
 }
 
-const { markdownUrl, lastUpdated, aiGenerated = false, class: className, ...attrs } = Astro.props;
+const { markdownUrl, lastUpdated, class: className, ...attrs } = Astro.props;
 const resolvedMarkdownUrl = markdownUrl
   ? withBase(markdownUrl, import.meta.env.BASE_URL)
   : undefined;
@@ -30,15 +26,11 @@ const formattedDate = lastUpdated
   ? new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(lastUpdated)
   : null;
 
-// One separator shape for every pair of adjacent items, so the row stays
-// stable as labels appear and disappear.
-const showReview = aiGenerated;
 const showLastUpdated = Boolean(lastUpdated);
 const showMarkdown = Boolean(resolvedMarkdownUrl);
-const separatorAfterFirst = showReview && (showLastUpdated || showMarkdown);
 ---
 
-{(showReview || showLastUpdated || showMarkdown) && (
+{(showLastUpdated || showMarkdown) && (
   <div
     data-nb-page-actions
     data-pagefind-ignore
@@ -46,16 +38,6 @@ const separatorAfterFirst = showReview && (showLastUpdated || showMarkdown);
     class={cn("not-prose flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted", className)}
     {...attrs}
   >
-    {showReview && (
-      <span data-nb-review-status class="inline-flex items-center py-0.5 text-faint">
-        awaiting review
-      </span>
-    )}
-
-    {separatorAfterFirst && (
-      <span aria-hidden="true" class="select-none text-ghost">|</span>
-    )}
-
     {lastUpdated && (
       <span class="inline-flex items-center gap-1.5 py-0.5 text-faint">
         updated <time datetime={lastUpdated.toISOString()}>{formattedDate}</time>

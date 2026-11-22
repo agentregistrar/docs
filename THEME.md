@@ -190,7 +190,7 @@ Recipes are implemented in `src/components/**`; Nimbus behavior is kept.
 | Code groups | `ui/code-group/**`: text tabs + accent underline, per-panel text `copy`; copy behavior preserved |
 | Tables | `prose.css`: 1px container, uppercase 11px faint headers, 13px cells, row `border-b line`, `bg-hover` hover, `.nb-table-scroll` horizontal scroll, no zebra |
 | Badges | `ui/badge/Badge.astro`: outline only, uppercase 11px, signal border/text |
-| Page actions | `ui/page-actions/PageActions.astro`: `updated`, `copy markdown`, `view markdown ->` at 12px muted; the `awaiting review` label renders in the same row (`data-nb-review-status`) while `aiGenerated: true` |
+| Page actions | `ui/page-actions/PageActions.astro`: `updated`, `copy markdown`, `view markdown ->` at 12px muted |
 | Edit/report | `DocsLayout`: `edit page -> github`, `report issue` |
 | 404 | `src/pages/404.astro`: shell, `not found.`, one line, home/quickstarts/reference links |
 | Diagram frame | `prose.css` figure: 1px line, `bg-surface`, faint caption; SVGs are hand-authored, no shadows/gradients |
@@ -223,30 +223,26 @@ Each is intentional. None changes a D8 value.
    default). Reason: every docs page needs a title card. Nimbus's OG page type
    does not expose the sidebar section, so cards use the page title plus
    `docs.agentregistrar.dev`; recorded as a known limitation, not a new design.
-6. **`awaiting review` provenance label.** The surface is the `PageActions`
-   row (`data-nb-review-status`), text only, using the page-action tokens. It is
-   visible while `aiGenerated: true` and clears only when a human reviewer sets
-   `aiGenerated: false` and records `lastReviewed`.
-7. **Docs `h1` is 26/32** rather than the public landing's 34/40 bold hero.
+6. **Docs `h1` is 26/32** rather than the public landing's 34/40 bold hero.
    Reason: D8 reserves `text-3xl` for landing only; docs pages are working
    surfaces, not marketing pages.
-8. **Docs footer resources** (`spec`, `registry`, `validator`, `security`,
+7. **Docs footer resources** (`spec`, `registry`, `validator`, `security`,
    `license`, `agentregistrar.dev`) rather than the public footer's
    `tos`/`dpa`/`blog`/`docs`/`login`. Reason: D12 section 4.4 locks the docs
    footer to the documentation resources; legal pages stay on the public site.
-9. **Docs header adds section nav and `github`**; the public header has
+8. **Docs header adds section nav and `github`**; the public header has
    `docs`/`login`. Reason: docs navigation is task navigation; login stays on
    the product site.
-10. **Nav and chrome labels are lowercase** (`start`, `providers`, `search`,
-    `sections`, `copy markdown`, `edit page`). Reason: D8 system/UI voice.
-    Content headings remain owned by the content issues.
-11. **Docs OG has no illustration.** Reason: D8/D12 forbid new brand
+9. **Nav and chrome labels are lowercase** (`start`, `providers`, `search`,
+   `sections`, `copy markdown`, `edit page`). Reason: D8 system/UI voice.
+   Content headings remain owned by the content issues.
+10. **Docs OG has no illustration.** Reason: D8/D12 forbid new brand
     illustration; the public OG's handshake diagram is D11-owned and stays on
     the public site. The docs card is wordmark + `docs` + tagline + host.
-12. **Sidebar group markers and TOC are ASCII/CSS, not Nimbus chevrons or the
+11. **Sidebar group markers and TOC are ASCII/CSS, not Nimbus chevrons or the
     animated SVG rail.** Reason: no icons and no motion beyond color. The
     scroll-spy client contract is unchanged.
-13. **Section-landing eyebrows and card lists are deferred to Issues 06-11.**
+12. **Section-landing eyebrows and card lists are deferred to Issues 06-11.**
     The docs home ships the section 4.5 path cards and the static terminal MCP
     snippet; each section landing renders H1 + description + ASCII child list +
     one next step through the same shell. Reason: landing copy and child-page

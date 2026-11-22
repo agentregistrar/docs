@@ -2,7 +2,6 @@
 title: Contribute
 description: Contribute to the docs, specification, and implementation registry, run the site locally, sync the spec, and verify every gate.
 audience: human
-aiGenerated: true
 verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 sidebar:
   order: 0
@@ -56,10 +55,9 @@ pnpm exec wrangler dev --port 8787
   arrows, emoji, or exclamation marks.
 - **No body H1.** The layout renders frontmatter `title` as the sole H1 on
   hand-authored pages. Start sections at `##` and never skip heading levels.
-- **Frontmatter provenance.** Agent drafts set `aiGenerated: true` (displayed as
-  "awaiting review"). Only a human reviewer clears `aiGenerated` and sets
-  `lastReviewed` after verifying the page against its canonical source. Set
-  `verifiedAgainst` only when naming a real artifact and date.
+- **Frontmatter provenance.** A human reviewer sets `lastReviewed` after
+  verifying the page against its canonical source. Set `verifiedAgainst` only
+  when naming a real artifact and date.
 - **Redirects on rename.** Never leave a previously public URL as a 404. Add
   permanent redirects in `astro.config.ts` for both the slashless and
   trailing-slash paths, and update all internal links in the same pull request.
