@@ -3,7 +3,7 @@ title: Discovery fields
 description: The agent-signup.json discovery document field by field for Agent Identity Protocol 2.0 (spec v2.1.0), with hosted terms and optional attestation.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v2.1.0 (563525e), @agentregistrar/discovery 2.1.0, validator 2.1.0, 2026-11-21"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 ---
 
 A relying party publishes one identity-only document at `GET
@@ -26,12 +26,12 @@ canonical.
 | :--- | :--- | :--- | :--- |
 | `protocol` | string | Exactly `"agent-identity-protocol"`. Any other value means the service is unsupported; do not fall back. | [5.1](/protocol/specification/#51-required-fields) |
 | `protocol_version` | string | Exactly `"2.0"`. Identifies the wire protocol version; any other value means the version is unsupported. | [5.1](/protocol/specification/#51-required-fields) |
-| `audience` | string | Stable, case-sensitive service identifier with no whitespace. The agent places this exact value in the assertion `aud`; the relying party rejects a mismatch. | [5.1](/protocol/specification/#51-required-fields) |
+| `audience` | string | Stable, case-sensitive service identifier with no whitespace. The broker places this exact value in the assertion `aud`; the relying party rejects a mismatch. | [5.1](/protocol/specification/#51-required-fields) |
 | `provider_name` | string | Human-readable service name. | [5.1](/protocol/specification/#51-required-fields) |
 | `issuer_allowlist` | array of strings | Non-empty, unique absolute issuer origins. No path, query, fragment or wildcard. Trailing slashes are normalized away. The broker `iss` must match one entry exactly. | [5.1](/protocol/specification/#51-required-fields), [5.4](/protocol/specification/#54-field-rules) |
 | `required_scopes` | array of strings | Unique non-empty scopes. Brokered signup must include `tos:accept`. | [5.1](/protocol/specification/#51-required-fields) |
 | `terms.version` | string | Terms version. Change it whenever the agreement changes materially. | [5.1](/protocol/specification/#51-required-fields), [6](/protocol/specification/#6-tos-binding) |
-| `terms.url` | string | Absolute URL of the provider-hosted agreement that a human can read. HTTPS is required except the documented localhost development exception. The Broker fetches this URL at signup and hashes the exact response bytes. | [5.1](/protocol/specification/#51-required-fields) |
+| `terms.url` | string | Absolute URL of the provider-hosted agreement that a human can read. HTTPS is required except the documented localhost development exception. The broker fetches this URL at signup and hashes the exact response bytes. | [5.1](/protocol/specification/#51-required-fields) |
 | `endpoints.agent_signup` | string | Absolute URL that accepts `POST` with `Authorization: Bearer <assertion>`. The only endpoint in the protocol. | [5.1](/protocol/specification/#51-required-fields) |
 
 ## Optional fields
@@ -41,7 +41,7 @@ canonical.
 | `spec` | string | Absolute URL of the versioned specification. Optional; implementers may omit it. | [5.2](/protocol/specification/#52-optional-fields) |
 | `provider_url` | string | Canonical service URL. If present, it must share the signup endpoint's registrable domain. | [5.2](/protocol/specification/#52-optional-fields), [11](/protocol/specification/#11-contract-e-identity-facts--the-context-pointer) |
 | `contact` | string | Security, abuse or legal contact: an email address or an HTTPS URL. The localhost development exception (`http://localhost`, `http://127.0.0.1`) is the only `http` form allowed. | [5.2](/protocol/specification/#52-optional-fields) |
-| `updated_at` | string | ISO 8601 timestamp for humans and debugging. Not a freshness signal for the ToS. | [5.2](/protocol/specification/#52-optional-fields) |
+| `updated_at` | string | ISO 8601 timestamp for humans and debugging. Not a freshness signal for the terms. | [5.2](/protocol/specification/#52-optional-fields) |
 | `attestation` | object | The optional Contract G **source**: `{ "mode": "broker" \| "provider", "uri": "<stable absolute HTTPS URL>" }`. It names a URI that serves `{ "attestation": "<compact JWS>" }`; it never carries the token. Broker-managed is the default and may be keyless (`keys: []`). Absence means **unverified**. | [5.2](/protocol/specification/#52-optional-fields), [5.4](/protocol/specification/#54-field-rules), [14](/protocol/specification/#14-contract-g--rp-attestation) |
 | `extensions` | object | Non-capability vendor metadata keyed by reverse-DNS namespace, for example `dev.example`. It must not advertise provisioning, catalogs, SKUs or resource endpoints. | [5.2](/protocol/specification/#52-optional-fields), [5.3](/protocol/specification/#53-forbidden-fields-vendor-capability-surface) |
 
@@ -89,7 +89,7 @@ The URI serves the same source document in both modes, as `application/json`:
 { "attestation": "<compact JWS>" }
 ```
 
-The JWS is the contract G token (`typ: agent-rp-attestation+jwt`, `alg: EdDSA`)
+The JWS is the Contract G token (`typ: agent-rp-attestation+jwt`, `alg: EdDSA`)
 that binds `rp.origin`, `rp.audience`, the provider identity, the assurance
 level, and the public `keys[]`. Additional envelope fields are ignored. A raw
 JWT body is rejected.
@@ -106,8 +106,8 @@ Rules:
   needed to accept agent signups.
 - A conformant document without `attestation` is **unverified**. An expired,
   invalid, suspended, or unavailable source is a verification result, never a
-  conformance failure by itself. A malformed object or a failed host binding is a
-  conformance error.
+  conformance failure by itself. A malformed object or a failed host binding is
+  a conformance error.
 - Do not add any other provider-identity or provider-capability field to
   discovery.
 
@@ -136,7 +136,7 @@ A document is a parameter document, not a capability catalog. Vendor capabilitie
 
 - `terms.url` must serve the complete agreement with stable bytes. No redirect,
   no per-request token, no variant that changes between fetches.
-- The Broker fetches `terms.url` at signup and records
+- The broker fetches `terms.url` at signup and records
   `sha256:<64 lowercase hex>` over the exact response bytes in
   `delegation.accepted_rp_tos_hash` and in the terms ledger.
 - The relying party checks `delegation.accepted_rp_tos_url` against its current
@@ -178,7 +178,7 @@ The example is illustrative. Replace the audience, URLs, scopes and terms with t
 
 ## Known limits
 
-- Discovery carries no terms digest. The Broker computes it from the bytes it fetches at `terms.url`; a digest the provider could not reproduce from a served page would be meaningless.
+- Discovery carries no terms digest. The broker computes it from the bytes it fetches at `terms.url`; a digest the provider could not reproduce from a served page would be meaningless.
 - Discovery conformance is cheap to publish. A valid document is not a statement about the service's security, uptime or product.
 - The document itself is not signed. The optional `attestation` object
   names a signed statement about the provider; it is not a signature over the

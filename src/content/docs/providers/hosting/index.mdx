@@ -1,0 +1,486 @@
+---
+title: Framework examples
+description: Copy-pasteable Next.js App Router, Cloudflare Workers, and generic Node HTTP handlers sharing one jose JWT verifier.
+audience: human
+aiGenerated: true
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+sidebar:
+  order: 4
+  label: Framework examples
+---
+
+Every provider host implements the same two HTTP routes:
+
+1. `GET /.well-known/agent-signup.json` serving your identity-only discovery document (`200`, `application/json`, no auth, no redirects).
+2. `POST /api/signup/agent` verifying the incoming `Authorization: Bearer <jwt>` assertion against the broker's public JWKS, enforcing issuer, audience, lifetime, scopes, `human.verified`, `delegation.accepted_rp_tos_url`, and `jti` replay protection, then resolving or creating your local account idempotently.
+
+## Shared verification helper
+
+All three framework examples below call the same `verifyAssertion` helper using `jose` (`npm install jose`). Save it as `lib/verify-assertion.ts` (or `.mjs` in plain Node):
+
+```ts
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
+export interface VerifierConfig {
+  issuerAllowlist: string[];
+  audience: string;
+  requiredScopes: string[];
+  termsUrl: string;
+  termsSha256?: string;
+  jwksUrlOverride?: string;
+}
+
+const keySets = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+function getJwks(url: string) {
+  let set = keySets.get(url);
+  if (!set) {
+    set = createRemoteJWKSet(new URL(url), { timeoutDuration: 5000, cooldownDuration: 30000 });
+    keySets.set(url, set);
+  }
+  return set;
+}
+
+function normalizeUrl(value: string) {
+  return value.replace(/\/+$/, "");
+}
+
+function deny(status: number, code: string, description: string) {
+  return Object.assign(new Error(description), { status, code });
+}
+
+export async function verifyAssertion(authHeader: string, cfg: VerifierConfig) {
+  if (!authHeader.startsWith("Bearer ")) {
+    throw deny(400, "invalid_request", "Missing bearer assertion");
+  }
+  const jwksUrl = cfg.jwksUrlOverride ?? `${cfg.issuerAllowlist[0]}/.well-known/jwks.json`;
+
+  let payload: Record<string, unknown>;
+  try {
+    const result = await jwtVerify(authHeader.slice(7), getJwks(jwksUrl), {
+      algorithms: ["EdDSA"],
+      clockTolerance: 60,
+      typ: "agent-id+jwt",
+    });
+    payload = result.payload as Record<string, unknown>;
+  } catch (err: unknown) {
+    const code = (err as { code?: string })?.code === "ERR_JWT_EXPIRED"
+      ? "assertion_expired"
+      : "invalid_assertion";
+    throw deny(401, code, "Assertion rejected");
+  }
+
+  const iss = payload.iss as string | undefined;
+  const aud = payload.aud as string | undefined;
+  const iat = payload.iat as number | undefined;
+  const exp = payload.exp as number | undefined;
+  const human = payload.human as { id?: string; email?: string; verified?: boolean } | undefined;
+  const delegation = payload.delegation as {
+    scopes?: string[];
+    accepted_rp_tos_url?: string;
+    accepted_rp_tos_hash?: string;
+  } | undefined;
+
+  if (!iss || !cfg.issuerAllowlist.includes(iss)) {
+    throw deny(403, "issuer_not_allowed", "Issuer is not in issuer_allowlist");
+  }
+  if (aud !== cfg.audience) {
+    throw deny(403, "audience_mismatch", "Assertion audience does not match");
+  }
+  if (typeof iat !== "number" || typeof exp !== "number" || exp - iat > 300) {
+    throw deny(401, "invalid_assertion", "Assertion lifetime exceeds 300 seconds");
+  }
+  if (!cfg.requiredScopes.every((scope) => delegation?.scopes?.includes(scope))) {
+    throw deny(403, "insufficient_scope", "Delegated scopes do not cover required_scopes");
+  }
+  if (human?.verified !== true || !human.id) {
+    throw deny(403, "human_unverified", "The human owner is not verified");
+  }
+  if (
+    typeof delegation?.accepted_rp_tos_url !== "string" ||
+    normalizeUrl(delegation.accepted_rp_tos_url) !== normalizeUrl(cfg.termsUrl)
+  ) {
+    throw deny(409, "tos_hash_mismatch", "Accepted terms URL does not match published terms.url");
+  }
+  if (cfg.termsSha256 && delegation.accepted_rp_tos_hash !== cfg.termsSha256) {
+    throw deny(409, "tos_hash_mismatch", "Accepted terms hash does not match served bytes");
+  }
+
+  return payload as {
+    iss: string;
+    aud: string;
+    jti: string;
+    human: { id: string; email: string; verified: true };
+    agent: { id: string; name: string; email: string };
+    delegation: { scopes: string[]; accepted_rp_tos_url: string; accepted_rp_tos_hash: string };
+  };
+}
+```
+
+## Framework handlers
+
+Select your runtime below. Each tab uses in-memory `Map` stores only for local illustration; replace them with database unique constraints before taking live traffic.
+
+<Tabs syncKey="framework">
+  <TabItem label="Next.js App Router">
+
+Create `app/.well-known/agent-signup.json/route.ts` (keep the dot in the directory name):
+
+```ts
+export function GET() {
+  const origin = process.env.PROVIDER_URL ?? "https://example.com";
+  const audience = process.env.PROVIDER_AUDIENCE ?? "example-provider";
+  const broker = process.env.BROKER_ORIGIN ?? "https://agentregistrar.dev";
+
+  return Response.json(
+    {
+      protocol: "agent-identity-protocol",
+      protocol_version: "2.0",
+      audience,
+      provider_name: "Example Provider",
+      provider_url: origin,
+      contact: process.env.PROVIDER_CONTACT ?? "security@example.com",
+      issuer_allowlist: [broker],
+      required_scopes: ["tos:accept"],
+      terms: {
+        version: process.env.TERMS_VERSION ?? "2026.1",
+        url: process.env.TERMS_URL ?? `${origin}/terms`,
+      },
+      endpoints: { agent_signup: `${origin}/api/signup/agent` },
+      attestation: {
+        mode: "broker",
+        uri: `${broker}/api/broker/provider-verification?origin=${encodeURIComponent(origin)}&audience=${encodeURIComponent(audience)}`,
+      },
+    },
+    {
+      headers: {
+        "cache-control": "public, max-age=60",
+        "access-control-allow-origin": "*",
+      },
+    },
+  );
+}
+```
+
+Create `app/api/signup/agent/route.ts`:
+
+```ts
+import { verifyAssertion } from "@/lib/verify-assertion";
+
+const accounts = new Map<string, { accountId: string; apiKey: string }>();
+const seenJti = new Map<string, string>();
+
+const noStore = { "cache-control": "no-store" };
+
+function fail(status: number, code: string, description: string) {
+  return Response.json(
+    { error: code, error_description: description, retryable: false },
+    { status, headers: noStore },
+  );
+}
+
+export async function POST(request: Request) {
+  const broker = process.env.BROKER_ORIGIN ?? "https://agentregistrar.dev";
+  const origin = process.env.PROVIDER_URL ?? "https://example.com";
+
+  let claims;
+  try {
+    claims = await verifyAssertion(request.headers.get("authorization") ?? "", {
+      issuerAllowlist: [broker],
+      audience: process.env.PROVIDER_AUDIENCE ?? "example-provider",
+      requiredScopes: ["tos:accept"],
+      termsUrl: process.env.TERMS_URL ?? `${origin}/terms`,
+      termsSha256: process.env.TERMS_SHA256,
+      jwksUrlOverride: process.env.BROKER_JWKS_URL,
+    });
+  } catch (err: unknown) {
+    const e = err as { status?: number; code?: string; message?: string };
+    return fail(e.status ?? 401, e.code ?? "invalid_assertion", e.message ?? "Assertion rejected");
+  }
+
+  const accountKey = `${claims.iss}:${claims.human.id}`;
+  const prev = seenJti.get(claims.jti);
+  if (prev !== undefined && prev !== accountKey) {
+    return fail(409, "assertion_replayed", "Assertion id used in a conflicting context");
+  }
+  seenJti.set(claims.jti, accountKey);
+
+  const existing = accounts.get(accountKey);
+  if (existing) {
+    return Response.json(
+      { resolution: "resolved", account_id: existing.accountId },
+      { status: 200, headers: noStore },
+    );
+  }
+
+  const created = { accountId: `acct_${crypto.randomUUID()}`, apiKey: `sk_live_${crypto.randomUUID()}` };
+  accounts.set(accountKey, created);
+  return Response.json(
+    { resolution: "created", account_id: created.accountId, api_key: created.apiKey },
+    { status: 201, headers: noStore },
+  );
+}
+```
+
+If bootstrapping a plain JS project with `npm init -y`, run `npm pkg delete main && npm pkg set type=module` so Next.js loads ESM route handlers cleanly. Validate locally with:
+
+```bash
+npx next dev -p 3003
+npx @agentregistrar/discovery@2.1.0 validate http://127.0.0.1:3003/.well-known/agent-signup.json --probe-jwks --probe-endpoints --json
+```
+
+  </TabItem>
+  <TabItem label="Cloudflare Workers">
+
+`jose` uses Web Crypto globals (`crypto.subtle`, `crypto.randomUUID`) and runs on Workers without Node compatibility flags. Configure `wrangler.jsonc`:
+
+```json
+{
+  "name": "provider-worker-example",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-11-22"
+}
+```
+
+Save as `src/worker.ts`:
+
+```ts
+import { verifyAssertion } from "./verify-assertion";
+
+interface Env {
+  BROKER_ORIGIN?: string;
+  BROKER_JWKS_URL?: string;
+  AUDIENCE?: string;
+  PROVIDER_URL?: string;
+  TERMS_VERSION?: string;
+  TERMS_URL?: string;
+  TERMS_SHA256?: string;
+}
+
+// Demo-only in-memory state. Use D1, Durable Objects, or KV in production.
+const accounts = new Map<string, { accountId: string; apiKey: string }>();
+const seenJti = new Map<string, string>();
+
+const json = (body: unknown, status = 200, extraHeaders: Record<string, string> = {}) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json", ...extraHeaders },
+  });
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const broker = env.BROKER_ORIGIN ?? "https://agentregistrar.dev";
+    const origin = env.PROVIDER_URL ?? "https://example.com";
+    const audience = env.AUDIENCE ?? "example-provider";
+    const termsUrl = env.TERMS_URL ?? `${origin}/terms`;
+    const url = new URL(request.url);
+
+    if (url.pathname === "/.well-known/agent-signup.json" && request.method === "GET") {
+      return json(
+        {
+          protocol: "agent-identity-protocol",
+          protocol_version: "2.0",
+          audience,
+          provider_name: "Example Provider",
+          provider_url: origin,
+          contact: "security@example.com",
+          issuer_allowlist: [broker],
+          required_scopes: ["tos:accept"],
+          terms: { version: env.TERMS_VERSION ?? "2026.1", url: termsUrl },
+          endpoints: { agent_signup: `${origin}/api/signup/agent` },
+          attestation: {
+            mode: "broker",
+            uri: `${broker}/api/broker/provider-verification?origin=${encodeURIComponent(origin)}&audience=${encodeURIComponent(audience)}`,
+          },
+        },
+        200,
+        { "cache-control": "public, max-age=60", "access-control-allow-origin": "*" },
+      );
+    }
+
+    if (url.pathname === "/api/signup/agent" && request.method !== "POST") {
+      return new Response(null, { status: 405, headers: { allow: "POST" } });
+    }
+    if (url.pathname !== "/api/signup/agent") {
+      return json({ error: "not_found", error_description: "No such endpoint", retryable: false }, 404);
+    }
+
+    let claims;
+    try {
+      claims = await verifyAssertion(request.headers.get("authorization") ?? "", {
+        issuerAllowlist: [broker],
+        audience,
+        requiredScopes: ["tos:accept"],
+        termsUrl,
+        termsSha256: env.TERMS_SHA256,
+        jwksUrlOverride: env.BROKER_JWKS_URL,
+      });
+    } catch (err: unknown) {
+      const e = err as { status?: number; code?: string; message?: string };
+      return json(
+        { error: e.code ?? "invalid_assertion", error_description: e.message ?? "Assertion rejected", retryable: false },
+        e.status ?? 401,
+        { "cache-control": "no-store" },
+      );
+    }
+
+    const accountKey = `${claims.iss}:${claims.human.id}`;
+    const prev = seenJti.get(claims.jti);
+    if (prev !== undefined && prev !== accountKey) {
+      return json(
+        { error: "assertion_replayed", error_description: "Assertion id used in a conflicting context", retryable: false },
+        409,
+        { "cache-control": "no-store" },
+      );
+    }
+    seenJti.set(claims.jti, accountKey);
+
+    const existing = accounts.get(accountKey);
+    if (existing) {
+      return json({ resolution: "resolved", account_id: existing.accountId }, 200, { "cache-control": "no-store" });
+    }
+
+    const created = { accountId: `acct_${crypto.randomUUID()}`, apiKey: `sk_live_${crypto.randomUUID()}` };
+    accounts.set(accountKey, created);
+    return json(
+      { resolution: "created", account_id: created.accountId, api_key: created.apiKey },
+      201,
+      { "cache-control": "no-store" },
+    );
+  },
+};
+```
+
+Run locally and validate:
+
+```bash
+npx wrangler dev --port 3004 --local --var PROVIDER_URL:http://127.0.0.1:3004
+npx @agentregistrar/discovery@2.1.0 validate http://127.0.0.1:3004/.well-known/agent-signup.json --probe-jwks --probe-endpoints --json
+```
+
+  </TabItem>
+  <TabItem label="Generic Node HTTP">
+
+Any HTTP runtime that reads headers and writes JSON works the same way. Save as `signup-server.mjs` (importing `verifyAssertion` from `./verify-assertion.mjs`):
+
+```ts
+import { createServer } from "node:http";
+import { randomUUID } from "node:crypto";
+import { verifyAssertion } from "./verify-assertion.mjs";
+
+const BROKER = process.env.BROKER_ORIGIN ?? "https://agentregistrar.dev";
+const ORIGIN = process.env.PROVIDER_URL ?? "http://127.0.0.1:3002";
+const AUDIENCE = process.env.AUDIENCE ?? "example-provider";
+const TERMS_URL = process.env.TERMS_URL ?? `${ORIGIN}/terms`;
+
+const accounts = new Map<string, { accountId: string; apiKey: string }>();
+const seenJti = new Map<string, string>();
+
+function send(res: import("node:http").ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
+  res.writeHead(status, { "content-type": "application/json", ...headers });
+  res.end(JSON.stringify(body));
+}
+
+createServer(async (req, res) => {
+  if (req.method === "GET" && req.url === "/.well-known/agent-signup.json") {
+    return send(
+      res,
+      200,
+      {
+        protocol: "agent-identity-protocol",
+        protocol_version: "2.0",
+        audience: AUDIENCE,
+        provider_name: "Example Provider",
+        provider_url: ORIGIN,
+        contact: "security@example.com",
+        issuer_allowlist: [BROKER],
+        required_scopes: ["tos:accept"],
+        terms: { version: "2026.1", url: TERMS_URL },
+        endpoints: { agent_signup: `${ORIGIN}/api/signup/agent` },
+        attestation: {
+          mode: "broker",
+          uri: `${BROKER}/api/broker/provider-verification?origin=${encodeURIComponent(ORIGIN)}&audience=${encodeURIComponent(AUDIENCE)}`,
+        },
+      },
+      { "cache-control": "public, max-age=60", "access-control-allow-origin": "*" },
+    );
+  }
+
+  if (req.url === "/api/signup/agent" && req.method !== "POST") {
+    res.writeHead(405, { allow: "POST" });
+    return res.end();
+  }
+  if (req.method !== "POST" || req.url !== "/api/signup/agent") {
+    return send(res, 404, { error: "not_found", error_description: "No such endpoint", retryable: false });
+  }
+
+  let claims;
+  try {
+    claims = await verifyAssertion(req.headers.authorization ?? "", {
+      issuerAllowlist: [BROKER],
+      audience: AUDIENCE,
+      requiredScopes: ["tos:accept"],
+      termsUrl: TERMS_URL,
+      termsSha256: process.env.TERMS_SHA256,
+      jwksUrlOverride: process.env.BROKER_JWKS_URL,
+    });
+  } catch (err: unknown) {
+    const e = err as { status?: number; code?: string; message?: string };
+    return send(
+      res,
+      e.status ?? 401,
+      { error: e.code ?? "invalid_assertion", error_description: e.message ?? "Assertion rejected", retryable: false },
+      { "cache-control": "no-store" },
+    );
+  }
+
+  const accountKey = `${claims.iss}:${claims.human.id}`;
+  const prev = seenJti.get(claims.jti);
+  if (prev !== undefined && prev !== accountKey) {
+    return send(
+      res,
+      409,
+      { error: "assertion_replayed", error_description: "Assertion id used in a conflicting context", retryable: false },
+      { "cache-control": "no-store" },
+    );
+  }
+  seenJti.set(claims.jti, accountKey);
+
+  const existing = accounts.get(accountKey);
+  if (existing) {
+    return send(res, 200, { resolution: "resolved", account_id: existing.accountId }, { "cache-control": "no-store" });
+  }
+
+  const created = { accountId: `acct_${randomUUID()}`, apiKey: `sk_live_${randomUUID()}` };
+  accounts.set(accountKey, created);
+  return send(
+    res,
+    201,
+    { resolution: "created", account_id: created.accountId, api_key: created.apiKey },
+    { "cache-control": "no-store" },
+  );
+}).listen(3002, "127.0.0.1", () => console.log(`listening on ${ORIGIN}`));
+```
+
+Run locally and test against the offline fixture in [Verify assertions](/providers/guides/verify-assertions/):
+
+```bash
+export BROKER_JWKS_URL=http://127.0.0.1:3015/.well-known/jwks.json
+node signup-server.mjs
+```
+
+  </TabItem>
+</Tabs>
+
+## Notes before deploying
+
+- **Persist accounts and `jti`:** Replace the in-memory `Map` stores with unique constraints in your database (or D1/Durable Objects on Workers) so restarts cannot create duplicate accounts for the same `(iss, human.id)`.
+- **Remove test overrides:** Leave `BROKER_JWKS_URL` unset in production so keys always resolve from `<iss>/.well-known/jwks.json`.
+- **Do not cache signup responses:** Always set `Cache-Control: no-store` on `POST /api/signup/agent` responses because creation responses may carry show-once credentials.
+- **Add optional receipts and guides later:** Once signup works, see [Receipts and context guide](/providers/guides/issue-signup-receipt/) to return an RP-signed `signup_token` and a hash-pinned `context` pointer.
+
+## Next steps
+
+- [Verify assertions](/providers/guides/verify-assertions/): test all failure codes with a local JWKS fixture.
+- [Provider Portal](/providers/portal/): verify your domain and run the live setup test.
+- [Checklist and troubleshooting](/providers/troubleshooting/): full pre-launch verification checklist.

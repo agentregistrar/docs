@@ -1,44 +1,141 @@
 ---
 title: Contribute
-description: Help maintain the docs, the specification and the registry, and learn the checks a contribution must pass.
+description: Contribute to the docs, specification, and implementation registry, run the site locally, sync the spec, and verify every gate.
 audience: human
 aiGenerated: true
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 sidebar:
   order: 0
 ---
 
-The documentation site and the specification are public and Apache-2.0. Anyone can open a pull request. The rule is the same for every contribution: cite the canonical source or a dated verification record, keep rendered text ASCII, and do not restate normative text on a product page.
+The documentation site (`agentregistrar/docs`) and the specification
+(`agentregistrar/spec`) are public and Apache-2.0. Anyone can open a pull
+request. Every contribution cites a canonical source or dated verification
+record, keeps hand-authored text ASCII, and leaves normative protocol rules in
+the spec repository.
 
-## What you can contribute
+## What goes where
 
-- **A docs page or fix.** Add a page from a template, correct a broken step, or update a claim after a behavior change. Start with [Contribute to the docs](/contribute/docs/).
-- **A specification change.** Propose a protocol change with compatibility and conformance evidence. Start with [Contribute to the spec](/contribute/spec/).
-- **A registry entry.** Publish a conformant discovery document and add the evidence to the implementation registry.
-- **A harness check.** Re-run an install or signup flow and report the exact client version, tier and date.
-- **A reproducible example.** A runnable sample or fixture that other readers can repeat.
-
-## How review works
-
-A page drafted by an agent stays marked `aiGenerated: true` and shows "awaiting review". Only a human reviewer clears the flag, after checking the page against its source and running the steps it contains. The reviewer records the result in the pull request and sets `lastReviewed` to the date of the review.
-
-No review means no reviewed date. Do not clear the flag for someone else, and do not invent a verification date.
-
-## Read the rules
-
-- [Docs contribution rules](https://github.com/agentregistrar/docs/blob/main/CONTRIBUTING.md): page templates, frontmatter, the review checklist and pull request rules.
-- [Maintenance runbook](https://github.com/agentregistrar/docs/blob/main/MAINTENANCE.md): spec sync, redirects, releases, freshness audits and incidents.
-- [Visual system](https://github.com/agentregistrar/docs/blob/main/THEME.md): tokens, typography and component recipes. Content pages link it; they do not restate it.
-- [Scope boundaries](https://github.com/agentregistrar/spec/blob/main/scope-boundaries.md): what belongs in the protocol and what belongs to a vendor.
-- [Implementation registry](https://github.com/agentregistrar/spec/blob/main/registry/README.md): conformance criteria and entry evidence.
-
-## Paths through this section
-
-| Page | Use it for |
+| Change | Repository |
 | :--- | :--- |
-| [Contribute to the docs](/contribute/docs/) | Page types, provenance, voice, review and the checks a docs change must pass. |
-| [Contribute to the spec](/contribute/spec/) | The spec change process, conformance evidence, and how the docs pick up a release. |
-| [Local development](/contribute/local-development/) | Clone, run, build, sync and check the site. |
+| Protocol field, claim, error code, or conformance rule | [agentregistrar/spec](https://github.com/agentregistrar/spec) with schema, fixture, and validator coverage. |
+| Provider entry in the public implementation registry | [Implementation registry](https://github.com/agentregistrar/spec/blob/main/registry/README.md) with zero-error validator evidence. |
+| Guide, quickstart, reference table, or Agent Skill fix | [agentregistrar/docs](https://github.com/agentregistrar/docs) (this site). |
+| Vendor API, SKUs, provisioning, or credential recovery | The provider's own post-signup guide (`context.url`), never the spec or docs. |
 
-## Next
+## Local docs setup
 
-Start with [Contribute to the docs](/contribute/docs/) for the templates and the review checklist, then run the site locally with [Local development](/contribute/local-development/). For the contract itself, read [Protocol](/protocol/).
+Requirements: Node `22.12` or newer (developed on Node 24), pnpm `9.15.4`, and
+Git.
+
+```bash
+git clone https://github.com/agentregistrar/docs.git
+cd docs
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+`pnpm dev` starts the Astro dev server at `http://localhost:4321`. Do not run
+`pnpm build` and `pnpm dev` against the same `.nimbus/` cache at the same time.
+
+To verify Cloudflare Workers response headers, content types, CORS, and
+redirects locally, serve the built output with Wrangler:
+
+```bash
+pnpm build
+pnpm exec wrangler dev --port 8787
+```
+
+## Authoring and provenance rules
+
+- **One persona and one job per page.** Match the section's technical depth:
+  plain outcome-first prose on `/start/` and front-door pages, guided steps on
+  `/agents/` and `/providers/`, and exact normative precision on `/protocol/`
+  and `/reference/`.
+- **ASCII only.** Use `-`, `->`, and `...`. No smart quotes, em dashes, Unicode
+  arrows, emoji, or exclamation marks.
+- **No body H1.** The layout renders frontmatter `title` as the sole H1 on
+  hand-authored pages. Start sections at `##` and never skip heading levels.
+- **Frontmatter provenance.** Agent drafts set `aiGenerated: true` (displayed as
+  "awaiting review"). Only a human reviewer clears `aiGenerated` and sets
+  `lastReviewed` after verifying the page against its canonical source. Set
+  `verifiedAgainst` only when naming a real artifact and date.
+- **Redirects on rename.** Never leave a previously public URL as a 404. Add
+  permanent redirects in `astro.config.ts` for both the slashless and
+  trailing-slash paths, and update all internal links in the same pull request.
+
+Full templates, review checklist, and visual token rules live in
+[CONTRIBUTING.md](https://github.com/agentregistrar/docs/blob/main/CONTRIBUTING.md),
+[MAINTENANCE.md](https://github.com/agentregistrar/docs/blob/main/MAINTENANCE.md),
+and [THEME.md](https://github.com/agentregistrar/docs/blob/main/THEME.md).
+
+## Syncing the specification
+
+The five rendered pages under `/protocol/` (`specification`, `scope-boundaries`,
+`implementation-guide`, `validator`, and `changelog`) and
+`public/protocol/agent-signup.schema.json` are generated from a pinned
+`agentregistrar/spec` release. Never edit generated files by hand.
+
+To pick up a new spec tag:
+
+```bash
+node scripts/sync-spec.mjs --write --tag <new-tag>
+pnpm sync:spec:check
+```
+
+Do not edit `tag` manually in `spec.lock.json` and run `pnpm sync:spec`, which
+re-fetches the old commit under the new label. Review the normative diff, update
+hand-authored pages and cross-links where fields or claims changed, and commit
+the lock, generated pages, and hand-authored updates in one pull request.
+
+## Spec and registry pull requests
+
+For a protocol change in [agentregistrar/spec](https://github.com/agentregistrar/spec):
+
+1. State the problem, proposed rule, and compatibility impact in the pull request.
+2. Update the normative Markdown, JSON Schema, fixtures, and validator together.
+3. Run the conformance validator against the fixtures and paste the command and
+   output in the pull request.
+4. Update the release notes before tagging; the docs site only pins a tag (or an
+   explicit commit for a post-tag docs refresh).
+
+For a registry entry, run the validator against your public HTTPS discovery
+document and confirm zero errors:
+
+```bash
+pnpm --silent validate:discovery https://example.com/.well-known/agent-signup.json --json
+```
+
+See [Validate and register](/providers/guides/validate-and-register/) for the
+provider-side checklist and [Scope boundaries](/protocol/scope-boundaries/) for
+forbidden vendor fields.
+
+## Required verification gates
+
+There is no unit test suite in the docs repository. Run these gates in order and
+record the results in your pull request (`pnpm build` must run before `pnpm
+lint` because link rules read `.nimbus/routes.json`):
+
+```bash
+pnpm sync:spec:check
+pnpm check:seo
+pnpm check:theme
+pnpm check
+pnpm typecheck
+pnpm build
+pnpm lint
+```
+
+`pnpm build` runs `check:links` and `check:sitemap` in `postbuild`. Also run
+`git diff --check` before pushing. Every gate must exit `0` with zero errors;
+explain any remaining warnings in the pull request rather than silencing rules.
+
+## Verify
+
+Before opening a pull request, confirm:
+
+- Every gate above exits `0`.
+- Any page you added or changed appears in `/llms.txt` and renders cleanly at
+  `/<slug>/index.md` under `wrangler dev`.
+- No private path, internal issue ID, secret, or personal data appears in the
+  diff.

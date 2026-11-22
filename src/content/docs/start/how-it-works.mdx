@@ -1,69 +1,70 @@
 ---
 title: How it works
-description: The end-to-end brokered signup handshake, the claims a provider verifies and what revocation changes.
+description: Follow the six-step brokered signup flow, see what a provider verifies, and learn what revocation stops.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v2.1.0 (563525e), 2026-11-21"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 sidebar:
-  order: 3
+  order: 2
 ---
 
 import HandshakeDiagram from "../../../components/diagrams/HandshakeDiagram.astro";
 
-A brokered signup is five steps and one artifact. The human signs one master agreement, the agent gets an identity, the broker mints a short-lived proof for each service acceptance, the provider verifies it, and the broker records what happened.
+A brokered signup takes six steps. The human verifies once, binds an agent during browser OAuth consent, and lets the agent request a short-lived signed identity token for each service. The agent posts that token directly to the provider's signup API, and the broker records the terms acceptance and optional receipt in `/activity`.
 
-## The handshake
+## The six-step signup flow
 
 <HandshakeDiagram />
 
-Diagram legend, eight events: 1 human consent, 2 connect, 3 register, 4 discover, 5 prove, 6 post, 7 verify, 8 record. The dashed rules mark the three trust boundaries: human consent after step 1, broker minting after step 5, provider verification after step 7.
+The dashed lines mark three trust boundaries: human consent after step 1, broker token minting after step 3, and provider verification after step 5.
 
-The five steps below are the same flow at a coarser grain than the diagram's eight events.
+1. **Verify once (Human).** Sign in at [agentregistrar.dev/login](https://agentregistrar.dev/login) with GitHub, verify your email address with a six-digit code, and sign the Master Agent Delegation Agreement. This happens once per human account.
+2. **Connect and bind an agent (Agent + Human).** Add `https://agentregistrar.dev/mcp` to your coding tool and complete OAuth 2.1 sign-in in your browser. On the consent screen, pick an existing active agent or create a new one (up to your active agent quota, default `2`). That binds the OAuth session to one specific agent identity and its `@agents.agentregistrar.dev` inbox.
+3. **Fetch terms and mint a token (Broker).** When the agent calls `identity_signup` with a service URL, the broker fetches `/.well-known/agent-signup.json` and the provider's terms page (`terms.url`), hashes the exact bytes received, checks the provider's optional verification credential against your trust policy (`verify` by default), records the acceptance, emails a copy of the terms to your verified email, and mints a five-minute signed identity token. It returns a ready-to-send `signup_request`.
+4. **Sign up directly (Agent).** The agent sends `signup_request` verbatim (`POST` to the provider's signup URL with `Authorization: Bearer <token>` and body `{}`). The broker does not proxy this request and never sees any API key the provider returns.
+5. **Verify and create or resolve the account (Provider).** The provider verifies the signed token against the broker's public keys (JWKS), checks the issuer allowlist, audience, expiry, scopes, verified human flag, and accepted terms URL, and creates or resolves the account. On first creation, the provider returns its show-once credential (which the agent stores immediately), an optional signed receipt (`signup_token`), and an optional hash-pinned usage guide link (`context`).
+6. **Record the receipt (Broker).** If the provider returned a `signup_token`, the agent calls `identity_record_signup`. The broker verifies the receipt and attaches it to the acceptance row in your `/activity` audit trail. Even when a provider does not issue a signed receipt, the terms acceptance from step 3 is already visible in `/activity`.
 
-1. **Register.** The harness connects to the broker's MCP endpoint at `https://agentregistrar.dev/mcp` and completes OAuth in the browser. `identity_register` returns the agent sub-identity: id, inbox address and delegated scopes.
-2. **Discover.** The agent calls `identity_signup` with the service and `accept_terms: true`. The Broker fetches `/.well-known/agent-signup.json`, checks the protocol value, the issuer allowlist and the required scopes, fetches `terms.url` and hashes the exact response bytes, fetches the attestation source if one is published and verifies it, and applies the human's `no_verify`/`verify`/`strict` policy plus the separate `blocked` action.
-3. **Prove.** `identity_signup` records a delegated acceptance for the human owner and mints the assertion. The call is side-effecting: it writes a durable consent row and sends the terms acceptance email to the agent inbox plus a forward to the human. `identity_prove` is the advanced equivalent when you need the raw claims or an explicit discovery source.
-4. **Sign up.** The agent posts `assertion.jwt` as `Authorization: Bearer <assertion>` to the single endpoint `endpoints.agent_signup`. The provider verifies the assertion, creates or resolves the account, and returns an RP-signed receipt and usually a context pointer.
-5. **Record.** `identity_record_signup` verifies the RP-signed `signup_token` against the exact historical attestation and stores the proof against the human's ledger. The result carries a handoff reminder: store any provider credential now, and never re-run signup to recover one.
+## Why terms are fetched and hashed by the broker
 
-The diagram is not normative. The contract is [section 3](https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md#3-roles--end-to-end-flow) and [section 7](https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md#7-assertion--agent_signup-handshake) of the specification.
+Providers host their agreement at a plain URL (`terms.url`) and publish a `terms.version`. At signup time, the broker fetches that URL directly and computes a SHA-256 hash of the exact response bytes.
 
-## What the provider sees
+- The agent cannot spoof or alter the terms hash it claims to have accepted.
+- You receive an emailed copy of every accepted terms agreement at your verified email address, regardless of your `/settings` email forwarding preference.
+- If a provider updates its terms later, its signup endpoint rejects assertions carrying an outdated terms URL or version, prompting a fresh acceptance rather than overwriting history.
 
-The assertion is a signed JWT with four claim groups. The provider must verify the signature against the issuer's JWKS before trusting any of it.
+## What the provider verifies
 
-| Claim | Meaning | What the provider checks |
+The provider inspects four groups of signed claims inside the five-minute token after verifying its signature against the broker's public JWKS:
+
+| Claim group | What it proves | Key check at the provider |
 | :--- | :--- | :--- |
-| `iss` | Broker origin | Exact match against an entry in `issuer_allowlist`; JWKS fetched from that origin |
-| `aud` | Service audience | Equals the discovery `audience` |
-| `jti` | Assertion id | Not reused in a conflicting context; a repeat for the same account resolves |
-| `iat`, `exp` | Issued and expiry | Not expired, allowing at most 60 seconds of clock skew; a lifetime of about five minutes is expected |
-| `agent.id`, `agent.name`, `agent.email`, `agent.harness` | Agent identity | Stable key for attribution |
-| `human.id`, `human.name`, `human.email` | Human principal | Stable across that human's agents |
-| `human.verified` | Email verification flag | Must be `true` |
-| `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash` | The accepted terms | URL matches `terms.url`; the hash is the Broker-computed digest of the bytes it fetched |
-| `delegation.accepted_at` | Original consent time | The durable acceptance time, not the mint time |
-| `delegation.scopes` | Delegated scopes | Covers every `required_scopes` entry |
-| `delegation.master_tos_version` | Master agreement version | Informational |
+| Token envelope (`iss`, `aud`, `jti`, `iat`, `exp`) | Issued by an allowed broker for this exact service within the last five minutes | `iss` in `issuer_allowlist`, `aud` equals discovery `audience`, not expired (up to 60s skew) |
+| Agent (`agent.id`, `agent.name`, `agent.email`, `agent.harness`) | Which delegated agent is acting and where to email notices | Stable attribution key when keying accounts per agent |
+| Human (`human.id`, `human.name`, `human.email`, `human.verified`) | Which verified human owner is accountable | `human.verified` must be `true`; stable key when keying accounts per human |
+| Delegation (`delegation.accepted_rp_tos_url`, `accepted_rp_tos_hash`, `accepted_at`, `scopes`, `master_tos_version`) | Exact terms accepted, original consent time, and granted scopes | `accepted_rp_tos_url` matches current `terms.url`; `scopes` covers all `required_scopes` |
 
-A provider keys an account on `(iss, human.id)` for one account per human, or on `(iss, agent.id)` for one account per agent. Keying on email creates duplicates when an address changes, and agent addresses are broker-controlled.
+Providers should key accounts on `(iss, human.id)` for one account per human or `(iss, agent.id)` for one account per agent, never on email alone. See [Assertion claims](/protocol/assertion-claims/) for the full normative table.
 
-## Where email fits
+## Where the agent inbox fits
 
-The broker's inbox is part of the handshake, not an add-on.
+Every agent gets a dedicated address (`<agent-slug>@agents.agentregistrar.dev`).
 
-- The acceptance receipt goes to the agent inbox and is forwarded to the verified human email. That is the human's record of what was accepted.
-- Provider welcome mail and legal receipts go to the agent's inbox address.
-- If a provider verifies by email, the six-digit code arrives in the same inbox and is read with `inbox_read` or `inbox_wait_for_email` as `detected_otp`.
+- **Terms copies:** always emailed to your verified human email and logged in `/activity`.
+- **Provider emails and verification codes:** arrive in the agent inbox. The agent reads or polls for them with `inbox_read` (which automatically extracts standalone six-digit codes as `detected_otp`).
+- **Forwarding control:** in `/settings`, you choose whether inbound agent emails forward to your human address (`all` by default, `legal_only`, or `off`). You can also view every message live in `/agents/[id]`.
 
 ## Revocation and retries
 
-**Revocation and suspension.** The kill switch sets the agent to `revoked`; an operator protective action after a verified abuse report sets `suspended`. New `identity_signup`/`identity_prove` calls fail with `agent_revoked` (a suspension uses the same code with a suspension message), and the identity and inbox tools reject the agent at the gate. `identity_record_signup` still accepts a receipt the provider already issued. An assertion already minted and handed to a provider stays valid until it expires, at most five minutes, because the provider verifies it offline. Neither state deletes a provider account, revokes a provider credential, or undoes an accepted terms agreement.
+**What the kill switch stops.** Clicking **Revoke agent** in `/dashboard` or `/agents/[id]` immediately blocks that agent from minting new identity tokens or reading its inbox. An operator protective suspension (following a verified, receipt-linked abuse report) sets status to `suspended` and blocks new tokens and new OAuth connections until reviewed and restored by the broker operator.
 
-**Retries.** Identical `identity_signup`/`identity_prove` calls while the assertion is unexpired return the same JWT, with `reuse.reused: true`, and create no new acceptance and no new ledger mail; every gate and policy still re-run. After expiry a fresh assertion references the same acceptance and the original consent time. On the provider side, a repeated signup for the same account resolves idempotently and reports `resolution: "resolved"`, which is a success.
+**What the kill switch does not stop.** Revocation is a broker control, not a remote delete button on third-party infrastructure. It does not delete accounts a provider already created, revoke provider API keys you stored, erase recorded terms acceptances, or recall a token already handed to a provider (which expires within five minutes).
+
+**Safe retries.** Calling `identity_signup` again with the same inputs while a token is unexpired reuses the exact same token and sends no duplicate email. After expiry, a new token references the same original acceptance timestamp. On the provider side, repeating a signup for an existing account returns `resolution: "resolved"` with no new credential.
 
 ## Next
 
-- [First signup](/agents/first-signup/) walks the same steps with real request and response shapes.
-- [Trust and limits](/start/trust-and-limits/) states what this model does not cover.
-- [Identity lifecycle](/agents/identity-lifecycle/) covers register, resume, prove, record and revoke in detail.
+- [Agent quickstart](/agents/quickstart/) runs this flow live against VaporCloud.
+- [Provider quickstart](/providers/quickstart/) implements discovery and verification on your own service.
+- [Trust and limits](/start/trust-and-limits/) states every guarantee and known gap in full technical detail.
+- [Specification](/protocol/specification/) is the normative contract.

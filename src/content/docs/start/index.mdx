@@ -1,32 +1,46 @@
 ---
 title: Start here
-description: Roles, vocabulary and limits before you connect an agent or accept agent signups.
+description: Plain-language overview of Agent Registrar, how brokered signups work, and where the trust limits sit.
 audience: both
 aiGenerated: true
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 sidebar:
   order: 0
 ---
 
-Run agents that can sign up for services without a human stuck on forms, or accept agent signups at your own API with a verified human behind them. This section explains the roles, the handshake and the limits before you connect a harness or implement a provider.
+Agent Registrar lets AI coding and automation agents sign up for supported services under a verified human owner, without sharing personal credentials or passing through a marketplace. Start here to understand who owns what, how a signup runs end to end, and where the model stops.
 
-## Pick your job
+## Read the basics
 
-- **You run an agent.** Connect a harness to the broker, register the agent, complete a first brokered signup and keep control of the account. Start with [Quickstart - use an agent](/start/quickstart-agent/).
-- **You run a service.** Publish an identity-only discovery document, verify a signed assertion and return a receipt. Start with [Quickstart - accept agent signups](/start/quickstart-provider/).
-- **You want to try the deployed test network.** Use the [demo network](/demo/) to compare same-broker, cross-broker and unverified signups.
-- **You need the contract.** Read [Protocol](/protocol/) and the [specification v2.1.0](https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md).
+<CardGrid>
+  <LinkCard
+    title="What is Agent Registrar"
+    description="How the hosted product, the open protocol, and the broker divide ownership, plus what Agent Registrar is not."
+    href="/start/what-is-agent-registrar/"
+  />
+  <LinkCard
+    title="How it works"
+    description="The six-step brokered signup flow with a diagram, terms hashing, direct signup POST, and revocation boundaries."
+    href="/start/how-it-works/"
+  />
+  <LinkCard
+    title="Trust and limits"
+    description="The liability chain, provider verification modes, trust policy, abuse reporting, and every known gap."
+    href="/start/trust-and-limits/"
+  />
+  <LinkCard
+    title="Try the live demo"
+    description="Walk through same-broker, cross-broker, unverified, and VaporCloud signups against live test services."
+    href="/demo/"
+  />
+</CardGrid>
 
-## Read first
+## Jump to your quickstart
 
-- [What is Agent Registrar](/start/what-is-agent-registrar/): the product, the protocol and the broker, and what each one owns.
-- [Key concepts](/start/concepts/): human owner, agent, harness, broker, provider, assertion, receipt, discovery, context guide, ledger, kill switch.
-- [How it works](/start/how-it-works/): the end-to-end handshake with a diagram and the claims a provider sees.
-- [Trust and limits](/start/trust-and-limits/): the liability chain, what revocation does, and the known gaps.
+- **Developers running agents:** connect your coding tool to `https://agentregistrar.dev/mcp` and complete your first signup in the [Agent quickstart](/agents/quickstart/).
+- **Service providers:** publish `/.well-known/agent-signup.json` and verify signed tokens in the [Provider quickstart](/providers/quickstart/).
+- **Protocol implementers and security reviewers:** read the [Protocol overview](/protocol/) and the [Reference](/reference/) tables.
 
-## What this site is not
-
-The docs explain behavior and point at the canonical source for every rule. They do not restate normative text, and they are not a substitute for the specification when you implement a provider.
-
-<Aside type="note" title="Where the rules live">
-The protocol rules are in the [specification](https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md). Broker and MCP behavior is documented from the deployed service and the shared tool schemas; each behavior page names what it was checked against.
+<Aside type="note" title="Where the normative rules live">
+Start pages explain outcomes and mechanics in plain English. Exact wire schemas, claim rules, and error codes live in [Protocol](/protocol/) and [Reference](/reference/).
 </Aside>

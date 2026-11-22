@@ -1,78 +1,83 @@
 ---
 title: Providers
-description: Implement the Agent Identity Protocol and accept brokered agent signups with a verified human owner.
+description: Accept direct AI agent signups on your own domain with a verified human owner and an auditable terms trail.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-21
-verifiedAgainst: "spec v2.1.0 (563525e), validator 2.1.0, 2026-11-21"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+sidebar:
+  order: 1
 ---
 
-A self-serve signup flow usually assumes a human at a browser: a form, an email inbox and a click. Brokered signup gives a provider a verified human owner and a hash-pinned record of which terms the agent accepted. If the provider issues a receipt, it also gets a signed attribution proof. The provider keeps its own account model, credentials and product API.
+Let AI agents sign up directly on your own domain without handing your customer relationship to a marketplace. Every agent arrives with a signed identity token backed by a verified human owner and a hash-pinned record of the exact terms accepted at signup.
 
-The Agent Identity Protocol (`agent-identity-protocol` on the wire) is an
-identity and brokerage protocol. It does not sell, provision or describe your
-product. This section is the implementation path: publish one document, verify
-one signed assertion, return a stable answer.
+Agent Registrar is not a marketplace, directory, or proxy. You keep your domain, signup API, account model, credentials, pricing, and user experience. The [Agent Identity Protocol](/protocol/) covers identity and terms acceptance; your service owns everything after signup.
 
-## The three-step path
+## Choose your setup path
 
-1. **Publish discovery.** Serve `GET /.well-known/agent-signup.json` with the identity fields and `terms: { version, url }` pointing at your hosted agreement. Start with [Publish discovery](/providers/guides/publish-discovery/).
-2. **Verify assertions.** Accept `POST` at `endpoints.agent_signup`, verify the Ed25519 JWT against the issuer's JWKS, and enforce the checks. Start with [Verify assertions](/providers/guides/verify-assertions/).
-3. **Validate and register.** Confirm the document with the conformance validator, then submit a registry entry with the evidence. Start with [Validate and register](/providers/guides/validate-and-register/).
+Two adoption paths are supported. Pick the one that matches how you want clients to trust your service.
 
-The [provider quickstart](/providers/quickstart/) walks discovery, terms and
-validation in one pass, then links to verification and registration.
-
-If you use a provider account, the portal reduces setup to four steps: create the
-service (display name, origin, audience), verify the domain, copy the generated
-discovery document, and run one synchronous setup test that marks the service
-live. The optional provider verification credential (an `attestation` object in
-discovery) is broker-managed by default, so no provider signing key is needed to
-accept signups.
-
-## What you publish, check and return
-
-| Artifact | Where | What it proves |
+| Path | Setup | How clients treat your service |
 | :--- | :--- | :--- |
-| Discovery document | `GET /.well-known/agent-signup.json` | Which issuers you accept, what scopes you need, the provider-hosted terms URL and version, and the one signup endpoint. |
-| Assertion | `Authorization: Bearer <jwt>` at signup | The agent, its verified human owner, the delegated scopes and the accepted terms URL and hash. |
-| Signup receipt and context pointer | Signup response, optional | Identity facts for attribution, an opaque account id and a hash-pinned link to your guide. |
+| **Provider Portal (recommended)** | Create a free provider organization at [agentregistrar.dev/provider/new](https://agentregistrar.dev/provider/new), add your service, and complete the 3-step setup wizard (verify domain, publish discovery, test setup). | Recognized as a **verified domain** by clients running the default `verify` policy and `strict` policy. Gives you the signup dashboard, optional signing keys, and authenticated abuse reporting. |
+| **Permissionless DIY** | Publish `GET /.well-known/agent-signup.json` and verify incoming signed identity tokens against `https://agentregistrar.dev/.well-known/jwks.json`. No broker account and no SDK required. | Conformant and **unverified**. Works for agents running under `no_verify`; refused by clients running the default `verify` policy or `strict` policy. |
 
-The field-level rules are in [Discovery fields](/protocol/discovery-fields/), [Assertion claims](/protocol/assertion-claims/) and [Receipt and context](/protocol/receipt-and-context/). The normative contract is the [specification](/protocol/specification/).
+## What you publish and keep
 
-## What you do not need
+- **One discovery file:** Serve `GET /.well-known/agent-signup.json` listing your service identifier, accepted broker, terms URL, and signup endpoint.
+- **One signup endpoint:** Verify the incoming signed identity token against the broker's public keys, check the accepted terms URL, and create or resolve your own account.
+- **Full product ownership:** Credentials, API keys, billing, rate limits, and post-signup documentation stay on your origin. Agent Registrar never stores or proxies your customer credentials.
+- **No signing key needed to start:** Accepting agent signups only requires reading the broker's public keys. Add a provider signing key later only if you want signed signup receipts or authenticated abuse reports.
 
-- **No broker account to publish or verify.** The broker mints assertions and does not call your signup endpoint. The JWKS is public. The optional receipt is recorded after signup, not during the handshake.
-- **No provider signing key to accept signups.** Broker-managed attestations accept `keys: []`. A key is optional and is used only for provider-signed receipts or authenticated abuse reports.
-- **No catalog in discovery.** Product capabilities stay in your own post-signup guide.
-- **No SDK dependency.** The protocol is one JSON document and one HTTP endpoint. Examples use `jose` or Web Crypto; any stack works.
+## Explore provider docs
 
-## What you own
+<CardGrid>
+  <LinkCard
+    title="Provider quickstart"
+    description="Publish agent-signup.json, add a ~25-line TypeScript verification handler, and validate your setup."
+    href="/providers/quickstart/"
+  />
+  <LinkCard
+    title="Provider Portal"
+    description="Walk through the 3-step setup wizard, signup history and CSV export, credentials, team roles, and settings."
+    href="/providers/portal/"
+  />
+  <LinkCard
+    title="Framework examples"
+    description="Copy-pasteable Next.js App Router, Cloudflare Workers, and generic Node HTTP handlers."
+    href="/providers/hosting/"
+  />
+  <LinkCard
+    title="Publish discovery"
+    description="Author an identity-only discovery file, serve stable terms bytes, and configure domain verification modes."
+    href="/providers/guides/publish-discovery/"
+  />
+  <LinkCard
+    title="Verify assertions"
+    description="Check every signature, claim, terms URL, and replay rule, and test locally with a fixture."
+    href="/providers/guides/verify-assertions/"
+  />
+  <LinkCard
+    title="Receipts and context guide"
+    description="Optionally issue signed signup receipts and link a hash-pinned post-signup guide for agents."
+    href="/providers/guides/issue-signup-receipt/"
+  />
+  <LinkCard
+    title="Validate and register"
+    description="Run the conformance validator and submit your live service to the public registry."
+    href="/providers/guides/validate-and-register/"
+  />
+  <LinkCard
+    title="Report abuse"
+    description="Send an authenticated abuse report when an agent acts outside its human owner's intent."
+    href="/providers/guides/abuse-reporting/"
+  />
+  <LinkCard
+    title="Checklist and troubleshooting"
+    description="Pre-launch checks and symptom, cause, and fix tables for discovery, tokens, terms, and transport."
+    href="/providers/troubleshooting/"
+  />
+</CardGrid>
 
-- The terms document at a stable `terms.url`, its version, and re-acceptance when the agreement changes.
-- The account model, idempotent resolution and show-once credentials.
-- The stable error envelope and your rate limits.
-- The optional receipt and the context guide, including hash updates.
-- Your abuse and security contact, and reports to the broker.
-
-## Proof, not promises
-
-- [Live VaporCloud discovery document](https://skdl.dev/.well-known/agent-signup.json), the reference implementation at `skdl.dev`.
-- [Reference walkthrough](/providers/reference-vaporcloud/): discovery, signup response, guide and vendor boundary.
-- [Conformance validator](/protocol/validator/): the objective check.
-- [Implementation registry](https://github.com/agentregistrar/spec/blob/main/registry/README.md): entry criteria and evidence.
-- [Specification](/protocol/specification/): the normative text.
-
-<Aside type="note" title="What conformance means">
-A valid discovery document is a statement about the document, not about your security, uptime or product. Discovery conformance is cheap to publish. The protocol does not prevent abuse; it makes accountability and revocation possible.
+<Aside type="note" title="What domain verification covers">
+Domain verification proves control of the domain at verification time. It is an identity check, not a safety certificate, uptime guarantee, or product endorsement. See [Trust and limits](/start/trust-and-limits/) for the full accountability model and [Demo network](/demo/) to inspect live reference services.
 </Aside>
-
-## Read next
-
-- [Demo network](/demo/): a deployed two-broker, three-provider test network with broker-managed, provider-managed and absent attestation sources.
-- [Identity-only discovery](/providers/concepts/identity-only-discovery/): why a parameter document is not a catalog.
-- [Brokered signup handshake](/providers/concepts/brokered-signup/): the sequence and the trust boundary.
-- [Liability and terms](/providers/concepts/liability-and-terms/): delegation, hash pinning and what to retain.
-- [Quickstart](/providers/quickstart/): terms text to a validator-passing document.
-- [Hosting recipes](/providers/hosting/generic-http/): Next.js, Cloudflare Workers and generic HTTP.
-- [Troubleshooting](/providers/troubleshooting/): symptom, cause and fix.

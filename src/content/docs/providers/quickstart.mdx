@@ -1,101 +1,26 @@
 ---
 title: Provider quickstart
-description: Go from a hosted terms page to a validator-passing agent-signup.json document, then optionally complete the four-step portal setup.
+description: Publish agent-signup.json, add a short TypeScript JWT signup handler, and validate your setup with @agentregistrar/discovery.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-24
-verifiedAgainst: "spec v2.1.0 (563525e), validator 2.1.0, @agentregistrar/discovery 2.1.0, Node 24.21.0, 2026-11-21"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+sidebar:
+  order: 2
 ---
 
-This is the shortest conformant path. You host one terms page, generate one
-JSON document, serve it over HTTP and validate it. The last step returns a
-stable error from a stub signup route. `example.com` and `example-provider` are
-synthetic values; replace them with your own origin and audience.
+Go from an existing web service to accepting brokered agent signups in four steps: serve a discovery file, add a short JWT verification handler, validate the live document, and verify your domain in the Provider Portal.
 
-The base flow is free and needs **no broker account and no broker API call** to
-accept an assertion. The provider verifies the assertion against the issuer's
-public JWKS, so the only broker request is that public key fetch. A provider
-account is optional and is required only to become a verified provider, issue
-authenticated receipts, or report abuse with standing.
+No broker account or SDK is required to verify incoming assertions against `https://agentregistrar.dev/.well-known/jwks.json`. Completing domain verification in the [Provider Portal](/providers/portal/) is recommended so clients using the default `verify` policy recognize your service as verified.
 
-The current spec keeps the terms with the provider. Discovery carries
-`terms: { "version", "url" }`; the broker fetches `terms.url` at signup and
-hashes the exact response bytes. There is no `terms.text`, no `terms.sha256`,
-and no manual hash step.
+## Prerequisites
 
-## Before you start
+- Node 22 or newer with `npm` or `pnpm`.
+- A public HTTPS origin for production (`http://localhost` and `http://127.0.0.1` are allowed for local development).
+- A stable public page hosting your terms of service at `terms.url` (for example `https://example.com/terms`).
 
-- Node 22 or newer, with `npm` or `pnpm`.
-- An HTTPS origin for production. `http://localhost` and `http://127.0.0.1` are the documented development exception.
-- A public page where a human can read the agreement you serve at `terms.url`.
-- No broker account and no SDK are required. The only broker request is the
-  public JWKS fetch when you verify an assertion.
+## 1. Publish your discovery document
 
-## 1. Write the terms and serve them
-
-The complete agreement lives in `terms.txt`. This example is synthetic. Serve
-those exact bytes at `https://example.com/terms`; a static file with
-`text/plain; charset=utf-8` is enough.
-
-```bash
-mkdir provider-quickstart
-cd provider-quickstart
-cat > terms.txt <<'EOF'
-Example Provider Terms of Service
-Version: 2026.1
-
-These terms govern accounts created through a brokered agent signup. The agent
-acts for a verified human owner, and that human owner is bound by these terms.
-
-1. The service is provided as-is, with no uptime guarantee.
-2. The human owner is responsible for the agent's actions.
-3. Either party may terminate the account at any time.
-EOF
-```
-
-The content rules are in [terms binding](/protocol/specification/#6-tos-binding). Serve stable bytes: no redirect, no per-request token, no wrapper that changes between fetches. See [Serve terms at a URL](/providers/guides/serve-terms/).
-
-## 2. Generate the document
-
-Save this as `build-discovery.mjs`. It writes the document with the terms URL
-and version; the agreement stays on your origin.
-
-```js
-import { writeFileSync } from "node:fs";
-
-const document = {
-  protocol: "agent-identity-protocol",
-  protocol_version: "2.0",
-  audience: "example-provider",
-  provider_name: "Example Provider",
-  provider_url: "https://example.com",
-  contact: "security@example.com",
-  issuer_allowlist: ["https://agentregistrar.dev"],
-  required_scopes: ["tos:accept"],
-  terms: {
-    version: "2026.1",
-    url: "https://example.com/terms",
-  },
-  endpoints: {
-    agent_signup: "https://example.com/api/signup/agent",
-  },
-};
-
-writeFileSync("agent-signup.json", JSON.stringify(document, null, 2) + "\n");
-console.log("wrote agent-signup.json");
-```
-
-```bash
-node build-discovery.mjs
-```
-
-Expected output:
-
-```text
-wrote agent-signup.json
-```
-
-The generated document:
+Serve `GET /.well-known/agent-signup.json` with `Content-Type: application/json`, no authentication, and no redirects. Replace `example.com` and `example-provider` with your own origin and audience identifier.
 
 ```json
 {
@@ -105,12 +30,8 @@ The generated document:
   "provider_name": "Example Provider",
   "provider_url": "https://example.com",
   "contact": "security@example.com",
-  "issuer_allowlist": [
-    "https://agentregistrar.dev"
-  ],
-  "required_scopes": [
-    "tos:accept"
-  ],
+  "issuer_allowlist": ["https://agentregistrar.dev"],
+  "required_scopes": ["tos:accept"],
   "terms": {
     "version": "2026.1",
     "url": "https://example.com/terms"
@@ -121,217 +42,83 @@ The generated document:
 }
 ```
 
-Every field above is identity-only. The allowed and forbidden fields are in
-[Discovery fields](/protocol/discovery-fields/). Do not add product
-catalogs, SKUs, provisioning endpoints or OTP endpoints.
+Keep `terms` to `{ version, url }` only. At signup time, the broker fetches `terms.url`, hashes the exact UTF-8 response bytes, and writes that digest into `delegation.accepted_rp_tos_hash`. When you complete domain verification in the Provider Portal, add the generated `attestation` object to this file.
 
-## 3. Serve it
+## 2. Add the JWT signup handler
 
-Save this as `serve.mjs`. The discovery route returns JSON with no
-authentication and no redirect; the signup route is a stub that returns one
-stable error.
-
-```js
-import { createServer } from "node:http";
-import { readFileSync } from "node:fs";
-
-const document = readFileSync("agent-signup.json", "utf8");
-const terms = readFileSync("terms.txt", "utf8");
-
-const server = createServer((req, res) => {
-  if (req.url === "/.well-known/agent-signup.json" && req.method !== "GET") {
-    res.writeHead(405, { allow: "GET" });
-    return res.end();
-  }
-  if (req.url === "/.well-known/agent-signup.json") {
-    res.writeHead(200, {
-      "content-type": "application/json",
-      "cache-control": "public, max-age=60",
-      "access-control-allow-origin": "*",
-    });
-    return res.end(document);
-  }
-  if (req.url === "/terms") {
-    res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
-    return res.end(terms);
-  }
-  if (req.url === "/api/signup/agent" && req.method !== "POST") {
-    res.writeHead(405, { allow: "POST" });
-    return res.end();
-  }
-  if (req.url === "/api/signup/agent") {
-    // Stub: real verification is in the generic HTTP guide.
-    res.writeHead(401, { "content-type": "application/json" });
-    return res.end(JSON.stringify({
-      error: "invalid_assertion",
-      error_description: "Signature or JOSE header verification failed",
-      retryable: false,
-    }));
-  }
-  res.writeHead(404, { "content-type": "application/json" });
-  res.end(JSON.stringify({ error: "not_found" }));
-});
-
-server.listen(3001, "127.0.0.1", () => console.log("listening on http://127.0.0.1:3001"));
-```
+Install `jose` to verify `EdDSA` assertions against the broker's public JWKS:
 
 ```bash
-node serve.mjs
+npm install jose
 ```
 
-Expected output:
+This ~25-line TypeScript helper checks the JWT signature, issuer, audience, expiry and 5-minute max lifetime, `human.verified`, required scopes, and accepted terms URL (plus optional exact hash when `terms.url` serves deterministic UTF-8 bytes):
 
-```text
-listening on http://127.0.0.1:3001
-```
+```ts
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
-In another terminal, check the transport:
+const ISSUER = "https://agentregistrar.dev";
+const AUDIENCE = "example-provider";
+const TERMS_URL = "https://example.com/terms";
+const TERMS_SHA256: string | undefined = process.env.TERMS_SHA256; // optional, only for deterministic bytes
+const jwks = createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`));
 
-```bash
-curl -sS -D - -o /dev/null http://127.0.0.1:3001/.well-known/agent-signup.json
-curl -sS -o /dev/null -w '%{http_code} %{content_type}\n' http://127.0.0.1:3001/terms
-```
+const norm = (u: string) => u.replace(/\/+$/, "");
 
-Expected, in part:
-
-```text
-HTTP/1.1 200 OK
-content-type: application/json
-cache-control: public, max-age=60
-access-control-allow-origin: *
-200 text/plain; charset=utf-8
-```
-
-## 4. Validate the document
-
-Two paths are supported. Use the one that fits your project.
-
-Path A, from a clone of the spec repository:
-
-```bash
-git clone https://github.com/agentregistrar/spec
-cd spec
-pnpm install
-pnpm --silent validate:discovery http://127.0.0.1:3001/.well-known/agent-signup.json --json --probe-jwks
-```
-
-Path B, with the published package in any project. The package has no `bin` entry, so run its TypeScript source with `tsx`:
-
-```bash
-npm install @agentregistrar/discovery@2.0.0 tsx@4.23.15
-npx tsx node_modules/@agentregistrar/discovery/src/validate-discovery.ts \
-  http://127.0.0.1:3001/.well-known/agent-signup.json --json --probe-jwks
-```
-
-Both paths use `--probe-jwks`, so both report one probe. Expected from either path, shortened here:
-
-```json
-{
-  "validator": "agent-identity-protocol",
-  "validatorVersion": "2.0.0",
-  "mode": "url",
-  "valid": true,
-  "exitCode": 0,
-  "protocol": "agent-identity-protocol",
-  "protocol_version": "2.0",
-  "audience": "example-provider",
-  "providerName": "Example Provider",
-  "errors": [],
-  "warnings": []
+export async function verifyAgentAssertion(authHeader: string) {
+  if (!authHeader.startsWith("Bearer ")) throw { status: 400, code: "invalid_request" };
+  const { payload } = await jwtVerify(authHeader.slice(7), jwks, {
+    algorithms: ["EdDSA"],
+    typ: "agent-id+jwt",
+    clockTolerance: 60,
+  });
+  if (payload.iss !== ISSUER) throw { status: 403, code: "issuer_not_allowed" };
+  if (payload.aud !== AUDIENCE) throw { status: 403, code: "audience_mismatch" };
+  if ((payload.exp ?? 0) - (payload.iat ?? 0) > 300) throw { status: 401, code: "invalid_assertion" };
+  const human = payload.human as { id: string; email: string; verified?: boolean } | undefined;
+  const del = payload.delegation as { scopes?: string[]; accepted_rp_tos_url?: string; accepted_rp_tos_hash?: string } | undefined;
+  if (human?.verified !== true) throw { status: 403, code: "human_unverified" };
+  if (!del?.scopes?.includes("tos:accept")) throw { status: 403, code: "insufficient_scope" };
+  if (!del.accepted_rp_tos_url || norm(del.accepted_rp_tos_url) !== norm(TERMS_URL)) {
+    throw { status: 409, code: "tos_hash_mismatch" };
+  }
+  if (TERMS_SHA256 && del.accepted_rp_tos_hash !== TERMS_SHA256) throw { status: 409, code: "tos_hash_mismatch" };
+  return payload;
 }
 ```
 
-The result also carries separate `conformance` and `attestation` objects; a
-document with no `attestation` object reports `attestation.status: "unverified"`
-and still exits `0`. The exact field reference is in the [conformance
-validator](/protocol/validator/).
+In your `POST /api/signup/agent` route:
 
-Exit code `0` means valid. `1` means the document was read and rejected; `2`
-means it could not be fetched. `--probe-jwks` additionally checks that every
-issuer publishes a usable JWKS and does not touch your signup endpoint.
+1. Call `verifyAgentAssertion(request.headers.get("authorization") ?? "")`. Map `ERR_JWT_EXPIRED` to `401 assertion_expired` and other JOSE failures to `401 invalid_assertion`.
+2. Enforce `jti` replay protection and resolve or create the account by `(payload.iss, payload.human.id)`.
+3. Return `201` with `resolution: "created"` and any show-once credential on first signup, or `200` with `resolution: "resolved"` and no credential on repeats. Always send `Cache-Control: no-store`.
+4. Return failures in the stable JSON envelope `{ "error": "<code>", "error_description": "...", "retryable": false }`. See [Error codes](/reference/error-codes/).
 
-`terms.text` and `terms.sha256` are legacy fields. The current validator accepts
-and ignores them; discovery carries only the version and the URL, and the broker
-hashes the bytes at `terms.url` at signup.
+Ready-to-run handlers for Next.js App Router, Cloudflare Workers, and Node HTTP are in [Framework examples](/providers/hosting/).
 
-## 5. Return one stable error
+## 3. Validate your discovery document
 
-Send a request with a malformed assertion:
+Run the `@agentregistrar/discovery@2.1.0` conformance validator against your live URL (or local file during development):
 
 ```bash
-curl -sS -X POST http://127.0.0.1:3001/api/signup/agent \
-  -H 'Authorization: Bearer test' \
-  -w '\nHTTP %{http_code}\n'
+npx @agentregistrar/discovery@2.1.0 validate https://example.com/.well-known/agent-signup.json --probe-jwks --json
 ```
 
-Expected output:
+Exit code `0` confirms your document is conformant and every listed issuer serves a valid JWKS. Without an `attestation` object, the validator reports `attestation.status: "unverified"` and still exits `0`.
 
-```text
-{"error":"invalid_assertion","error_description":"Signature or JOSE header verification failed","retryable":false}
-HTTP 401
-```
+## 4. Verify your domain and go live
 
-The envelope and the fixed code table are in [Stable error codes](/providers/guides/error-codes/). `error_description` is non-normative; agents branch on `error`.
+Without domain verification, your service is conformant and unverified: agents configured with `no_verify` can sign up, while agents using the default `verify` policy or `strict` policy will refuse it.
 
-## 6. Verify a real assertion
+To verify your domain and run a live dry-run test:
 
-Replace the stub with a verifier. Start with [Verify assertions](/providers/guides/verify-assertions/), which includes a runnable local fixture and the mapping from each failed check to a stable code.
+1. Create a free provider organization at [agentregistrar.dev/provider/new](https://agentregistrar.dev/provider/new).
+2. Add your service (`display_name`, `origin`, `audience`).
+3. Complete the **3-step setup wizard** in the [Provider Portal](/providers/portal/): verify your domain via HTTPS file or DNS TXT, paste the generated broker-managed `attestation` block into `/.well-known/agent-signup.json`, and click **Test my setup** to run a synchronous dry-run and mark your service live.
 
-## 7. Register
+## Next steps
 
-Once the document passes live HTTPS validation, submit it with the evidence. The criteria and pull-request shape are in [Validate and register](/providers/guides/validate-and-register/).
-
-## Optional: the four-step portal setup
-
-A provider account replaces the manual document with a generated one. The
-portal flow is four linear steps:
-
-1. **Create service.** Enter three fields: display name, origin and audience.
-   The free plan allows one service.
-2. **Verify domain.** Publish the HTTPS well-known file or the DNS TXT record
-   the portal shows. The first verified origin makes the account active.
-3. **Publish discovery.** Copy the generated `/.well-known/agent-signup.json`
-   and deploy it. Its `terms` is `{ version, url }` and its default
-   `attestation` is broker-managed, so you host no token and run no renewal job.
-4. **Test my setup.** One synchronous check validates the live document,
-   fetches `terms.url`, checks the broker-managed attestation, probes
-   `endpoints.agent_signup` and shows the exact assertion preview. The first
-   passing run marks the service live.
-
-No RP key is required. Broker-managed attestations accept `keys: []`, because
-accepting agent signups only needs the broker JWKS. Register an Ed25519 RP key
-later only if you want RP-signed receipts (Contract F) or authenticated abuse
-reporting.
-
-The portal has five tabs: `Services`, `Signups`, `Credentials`, `Team` and
-`Settings`. Attestation issuance is not plan-gated, and this release ships no
-checkout, pricing page, invoice or DPA.
-
-See [Trust and limits](/start/trust-and-limits/) for why verification is
-identity, not safety, and [Validate and register](/providers/guides/validate-and-register/)
-for the registry's five-field verification snapshot. Upgrading an older
-document? Follow [Migrate to Agent Identity Protocol
-v2.1.0](/providers/guides/publish-discovery/#migrate-to-agent-identity-protocol-v210).
-
-## Optional: receipt and context
-
-A signup response may include an RP-signed `signup_token` and a hash-pinned
-`context` pointer to your guide. Both are optional. The receipt has no
-`exp`; a legacy `exp` is ignored. See [Issue a signup
-receipt](/providers/guides/issue-signup-receipt/) and [Publish a context
-guide](/providers/guides/publish-context-guide/).
-
-## Verify your work
-
-- [ ] `terms` is exactly `{ "version", "url" }` with no `text` or `sha256`.
-- [ ] `terms.url` serves stable bytes with no redirect.
-- [ ] The discovery route returns `200`, `application/json`, no redirect and no authentication.
-- [ ] The validator exits `0` with zero errors.
-- [ ] One failing signup request returns a fixed v1 error code.
-- [ ] No forbidden vendor field appears at any depth, including under `extensions`.
-
-## Next
-
-- [Publish discovery](/providers/guides/publish-discovery/): framework routes, caching and terms changes.
-- [Hosting: generic HTTP](/providers/hosting/generic-http/): replace the stub with a working handler.
-- [Production checklist](/providers/guides/production-checklist/): keys, replay, logs and incidents.
+- [Provider Portal](/providers/portal/): full walkthrough of the 3-step wizard, signup ledger, credentials, team, and settings.
+- [Framework examples](/providers/hosting/): complete Next.js, Cloudflare Workers, and Node HTTP routes.
+- [Verify assertions](/providers/guides/verify-assertions/): production replay checks, JWKS rotation, and a runnable local fixture.
+- [Validate and register](/providers/guides/validate-and-register/): `--verify-attestation` checks and submitting to the public registry.

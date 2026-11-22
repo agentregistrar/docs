@@ -1,65 +1,249 @@
 ---
-title: Install a harness
-description: Pick a harness, add the broker's remote MCP server and see how each client was checked.
+title: Connect your tool
+description: Add https://agentregistrar.dev/mcp to Claude Code, Cursor, OpenCode, Codex CLI, Gemini CLI, Antigravity, VS Code, or Claude Desktop.
 audience: human
 aiGenerated: true
-verifiedAgainst: "live broker agentregistrar.dev, 2026-10-21"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 sidebar:
-  order: 0
-  group:
-    label: Install a harness
+  label: Connect your tool
+  order: 3
 ---
 
-Every client on this site connects to the same remote MCP server:
+Every coding tool connects to the same remote MCP server using standard OAuth 2.1 (PKCE `S256`). There is no broker API key to copy and no separate OAuth client ID to register: the broker advertises both Client ID Metadata Documents (CIMD) and Dynamic Client Registration (DCR).
 
 ```text
 https://agentregistrar.dev/mcp
 ```
 
-The server speaks MCP Streamable HTTP and requires an OAuth bearer token. The broker publishes OAuth metadata, so a compliant client discovers the authorization server, registers itself (CIMD or dynamic client registration), signs in through a browser and stores the token. There is no API key to copy and no separate broker signup form.
+Use the exact URL above with no trailing slash, and never add a static `Authorization` header (a manual header bypasses OAuth discovery).
 
-The human actions stay human: approving the OAuth request in a browser and signing the master delegation agreement. A tool call cannot complete either one.
+## Pick your coding tool
 
-## Support matrix
+<Tabs syncKey="harness">
+  <TabItem label="Claude Code">
+    **Verification tier: Tier 2 (checked against Claude Code MCP docs on 2026-10-21; broker endpoints checked live).**
 
-Tiers are defined below. "Checked" is the date the page was verified, not a release date.
+    Add the server from your terminal:
 
-| Harness | Add it with | Auth | Tier | Checked | Page |
-| :--- | :--- | :--- | :-: | :--- | :--- |
-| OpenCode V2 | `opencode mcp add` | OAuth, CIMD then DCR | 2 | 2026-10-21 | [OpenCode V2](/agents/install/opencode/) |
-| Claude Code | `claude mcp add --transport http` | OAuth, DCR or CIMD | 2 | 2026-10-21 | [Claude Code](/agents/install/claude-code/) |
-| Codex CLI | `codex mcp add` then `codex mcp login` | OAuth, CIMD or DCR | 2 | 2026-10-21 | [Codex CLI](/agents/install/codex-cli/) |
-| Cursor | `.cursor/mcp.json` with `url` | OAuth, DCR or static client | 2 | 2026-10-21 | [Cursor](/agents/install/cursor/) |
-| Antigravity CLI | `mcp_config.json` with `serverUrl` | OAuth, CIMD or DCR | 3 | 2026-11-21 | [Antigravity CLI](/agents/install/antigravity/) |
-| VS Code / Copilot | `.vscode/mcp.json` or portable `.mcp.json` | OAuth, pre-registered client ID (automatic registration unverified) | 2 | 2026-10-21 | [VS Code and Copilot](/agents/install/vscode/) |
-| Claude Desktop | Customize > Connectors | OAuth, automatic registration | 2 | 2026-10-21 | [Claude Desktop](/agents/install/claude-desktop/) |
-| Any other MCP client | HTTP plus OAuth discovery | Bearer token | 3 | 2026-10-21 | [Generic MCP client](/agents/install/generic-mcp/) |
+    ```bash
+    claude mcp add --transport http agentregistrar https://agentregistrar.dev/mcp
+    ```
 
-No harness is tier 1 today. A tier-1 claim needs a recorded transcript of connect, `identity_whoami`, a brokered signup and an inbox check, with the client version, operating system and date. That transcript does not exist for any client yet, so every page above is honest about what was actually checked.
+    The default scope is `local`. Add `--scope user` to enable it across every project, or `--scope project` to write a shared `.mcp.json`:
 
-## What the tiers mean
+    ```json
+    {
+      "mcpServers": {
+        "agentregistrar": {
+          "type": "http",
+          "url": "https://agentregistrar.dev/mcp"
+        }
+      }
+    }
+    ```
 
-- **Tier 1:** a recorded end-to-end transcript on the live broker: connect, `identity_whoami`, `identity_signup`, `identity_prove`, a provider signup, `identity_record_signup` and an inbox check, with client version, operating system, date, commands and output.
-- **Tier 2:** the install, configuration and authorization steps were checked against the client's current documentation and, where possible, a live connection. The full signup is not claimed.
-- **Tier 3:** protocol-level instructions that work with any compliant client. No client-specific claim.
+    Keep `"type": "http"` in hand-written `.mcp.json` files (omitting `type` makes Claude Code treat the entry as stdio). Then run `/mcp` inside Claude Code (or `claude mcp login agentregistrar` from a shell) to complete OAuth sign-in in your browser. If you need a fixed loopback port, pass `--callback-port 8080` when adding the server.
 
-A page may only say "supported" together with its tier and date. None does, because the matrix above is the claim.
+    To reset stored credentials, use **Clear authentication** inside `/mcp`, or run `claude mcp remove agentregistrar`.
+  </TabItem>
+  <TabItem label="Cursor">
+    **Verification tier: Tier 2 (checked against Cursor MCP docs on 2026-10-21; broker endpoints checked live).**
 
-## Which page to open
+    Create `.cursor/mcp.json` in your project (or `~/.cursor/mcp.json` for all projects):
 
-- **OpenCode V2** is the default tab the portal dashboard shows. Its page has the only live connection check in this set: the server was added and the client reported that it needs authentication.
-- **Claude Code** is the other command-line client with a documented OAuth path. The page records documentation checks only, because the client was not installed on the verification machine.
-- **Codex CLI**, **Cursor**, **Antigravity CLI**, **VS Code** and **Claude Desktop** each have a page with the exact configuration shape for that client, the authorization flow it documents, and what remains unverified.
-- **Generic MCP client** is the fallback. It carries the transport, discovery and `curl` transcript, and it is the page to use for a client that is not listed.
+    ```json
+    {
+      "mcpServers": {
+        "agentregistrar": {
+          "url": "https://agentregistrar.dev/mcp"
+        }
+      }
+    }
+    ```
 
-## What every page records
+    Reload the Cursor window, open MCP settings under **Customize**, start `agentregistrar`, and choose to authenticate in your browser. Cursor uses `http://localhost:8787/callback` on desktop and `https://www.cursor.com/agents/mcp/oauth/callback` on web surfaces; the broker accepts both under DCR and CIMD.
 
-Each page ends with a verification record: the client version or documentation source, the date, what was checked live, and what was not. The same fields are used in the matrix above. When a client changes its configuration format, the page and this table are updated in the same change.
+    Check the **Output** panel (`MCP Logs`) if tools do not appear. Remove and re-add the entry to force a fresh OAuth registration.
+  </TabItem>
+  <TabItem label="OpenCode">
+    **Verification tier: Tier 2 (live connection verified on 2026-11-21 with OpenCode v2.3.2 on Linux; browser sign-in not run on that host).**
 
-## Before any client
+    Add the server globally (or omit `--global` for the current project):
 
-1. Create and verify the human account, and sign the master delegation agreement. The [agent quickstart](/agents/quickstart/) walks through both.
-2. Have a browser on the same machine as the client, signed in to the GitHub account that should own the agents.
-3. Add the server, complete OAuth, and confirm that the tool list contains `identity_register`, `identity_whoami`, `identity_signup`, `identity_prove`, `identity_record_signup`, `inbox_list`, `inbox_read`, `inbox_wait_for_email` and `inbox_send`.
+    ```bash
+    opencode mcp add agentregistrar --global --url https://agentregistrar.dev/mcp
+    ```
 
-If a client does not open a browser, or the connection stays unauthenticated, start with [OAuth troubleshooting](/agents/install/oauth-troubleshooting/).
+    This writes the V2 `mcp.servers` shape to `opencode.json`:
+
+    ```json
+    {
+      "mcp": {
+        "servers": {
+          "agentregistrar": {
+            "type": "remote",
+            "url": "https://agentregistrar.dev/mcp"
+          }
+        }
+      }
+    }
+    ```
+
+    Authenticate by running `opencode mcp auth agentregistrar` or `/mcps` inside OpenCode. OpenCode discovers CIMD first and falls back to DCR. Tools appear prefixed with the server name (`agentregistrar_identity_whoami`, or `tools.agentregistrar.identity_whoami` in Code Mode).
+
+    To clear stored tokens, run `opencode mcp logout agentregistrar`.
+  </TabItem>
+  <TabItem label="Codex CLI">
+    **Verification tier: Tier 2 (checked against Codex MCP docs on 2026-10-21; broker endpoints checked live).**
+
+    Add the server and start OAuth login:
+
+    ```bash
+    codex mcp add agentregistrar --url https://agentregistrar.dev/mcp
+    codex mcp login agentregistrar
+    ```
+
+    This writes `[mcp_servers.agentregistrar]` to `~/.codex/config.toml` (or `.codex/config.toml` in a trusted project):
+
+    ```toml
+    [mcp_servers.agentregistrar]
+    url = "https://agentregistrar.dev/mcp"
+    ```
+
+    Codex prefers CIMD and falls back to DCR. If registration fails during login, force DCR explicitly:
+
+    ```bash
+    codex mcp login agentregistrar --oauth-client-registration dcr
+    ```
+
+    To disconnect, re-run `codex mcp login agentregistrar` or remove the `[mcp_servers.agentregistrar]` section from `config.toml`.
+  </TabItem>
+  <TabItem label="Gemini CLI">
+    **Verification tier: Tier 3 (documented command matching the Developer Portal setup banner, 2026-11-22; live client run not yet recorded).**
+
+    Add the remote Streamable HTTP server from your terminal:
+
+    ```bash
+    gemini mcp add --transport http agentregistrar https://agentregistrar.dev/mcp
+    ```
+
+    Then run `/mcp auth agentregistrar` inside Gemini CLI to open the browser OAuth consent flow.
+
+    If you are using a personal Google account rather than an enterprise or paid-API-key Gemini CLI setup, check the **Antigravity CLI** tab as well.
+  </TabItem>
+  <TabItem label="Antigravity CLI">
+    **Verification tier: Tier 3 (checked against Antigravity MCP docs on 2026-11-21; broker endpoints checked live).**
+
+    Add the server to your global `~/.gemini/config/mcp_config.json` or workspace `.agents/mcp_config.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "agentregistrar": {
+          "serverUrl": "https://agentregistrar.dev/mcp"
+        }
+      }
+    }
+    ```
+
+    Use `"serverUrl"` (not `httpUrl` or `url`) for remote Streamable HTTP. Open `/mcp` in the CLI (or **Settings > Customizations > Installed MCP Servers** in the app) and choose **Authenticate** next to `agentregistrar`. Tokens are stored in `~/.gemini/antigravity/mcp_oauth_tokens.json`; delete that file if you need a clean sign-in under another account.
+  </TabItem>
+  <TabItem label="VS Code / Copilot">
+    **Verification tier: Tier 2 (checked against VS Code MCP configuration docs on 2026-10-21; automatic registration unverified).**
+
+    Use `.mcp.json` at the workspace root (portable Copilot format):
+
+    ```json
+    {
+      "mcpServers": {
+        "agentregistrar": {
+          "type": "http",
+          "url": "https://agentregistrar.dev/mcp"
+        }
+      }
+    }
+    ```
+
+    Or use `.vscode/mcp.json` with a top-level `"servers"` key (VS Code format), or run:
+
+    ```bash
+    code --add-mcp '{"name":"agentregistrar","type":"http","url":"https://agentregistrar.dev/mcp"}'
+    ```
+
+    Start `agentregistrar` from **MCP: List Servers** in the Command Palette. Add the server without an `oauth` block first: if your VS Code build demands a pre-registered `oauth.clientId`, that build does not yet support automatic DCR/CIMD registration against this broker, so use a client that registers automatically (such as Claude Code or OpenCode). Run **MCP: Reset Cached Tools** if the tool list looks stale.
+  </TabItem>
+  <TabItem label="Claude Desktop">
+    **Verification tier: Tier 2 (checked against Claude custom connectors docs on 2026-10-21; broker endpoints checked live).**
+
+    Do not place remote HTTP servers in `claude_desktop_config.json` (that file only runs local stdio servers). Instead, add a custom connector:
+
+    1. Open **Customize > Connectors**, then choose **+ Add > Add custom connector**.
+    2. Enter a name (`Agent Registrar`) and URL `https://agentregistrar.dev/mcp`.
+    3. Under **OAuth client**, choose **Use Claude's published identity (Recommended)** (CIMD), or **Register automatically** (DCR) as a fallback.
+    4. Click **Add**, then choose **Connect** to complete browser OAuth sign-in.
+    5. Enable the connector in any conversation via the **+** button > **Connectors**.
+
+    On Team and Enterprise plans, an organization Owner adds the connector once under **Organization settings > Connectors** before members connect their own accounts.
+  </TabItem>
+  <TabItem label="Generic MCP client">
+    **Verification tier: Tier 3 (protocol-level Streamable HTTP + OAuth discovery checked live against the broker on 2026-10-21).**
+
+    Any compliant MCP client connects to `https://agentregistrar.dev/mcp` over Streamable HTTP (`POST` JSON-RPC 2.0 with `Accept: application/json, text/event-stream` and `Authorization: Bearer <token>`):
+
+    1. An unauthenticated request returns `401` with `WWW-Authenticate: Bearer resource_metadata="https://agentregistrar.dev/.well-known/oauth-protected-resource"`.
+    2. Fetch `GET https://agentregistrar.dev/.well-known/oauth-protected-resource` and `GET https://agentregistrar.dev/.well-known/oauth-authorization-server`.
+    3. Register via CIMD (send your metadata document URL as `client_id`) or Dynamic Client Registration (`POST https://agentregistrar.dev/api/oauth/register` with loopback `http://127.0.0.1` / `http://localhost` or `https://` redirect URIs).
+    4. Open `/oauth/authorize` with PKCE `S256`, exchange the code at `/api/oauth/token`, and call `/mcp`.
+
+    Quick discovery check with `curl`:
+
+    ```bash
+    curl -sS -D - -o /dev/null https://agentregistrar.dev/mcp
+    curl -sS https://agentregistrar.dev/.well-known/oauth-authorization-server
+    ```
+  </TabItem>
+</Tabs>
+
+## Complete browser OAuth and bind an agent
+
+Every tool follows the same browser consent flow on `https://agentregistrar.dev/oauth/authorize`:
+
+1. **Sign in and verify:** if you are not signed in yet, you are routed through GitHub sign-in (`/login`) and email verification (`/onboarding/verify-email`), then returned to the exact same consent screen.
+2. **Master Agreement (if unsigned):** if you have not signed the current Master Agent Delegation Agreement yet, you can review and accept it inline right on the consent page.
+3. **Bind an agent:** under **Agent identity**, either:
+   - **Create a new agent** with a display name (up to your active agent quota, default `2` active agents; unlimited if your account quota is unset); or
+   - **Connect to an existing active agent** so this coding tool shares that agent's exact `agt_...` identity and `@agents.agentregistrar.dev` inbox.
+4. **Approve:** click **Approve & Connect Harness**. The browser redirects back to your tool's callback URL and stores the OAuth token locally.
+
+<Aside type="caution" title="When approval is blocked">
+If you have already reached your active agent limit (for example `2 of 2 active`), choose **Connect to an existing active agent** or revoke an unused agent in `/dashboard` first. If any agent on your account is currently **suspended** by the broker operator following a verified abuse report, new OAuth connections cannot be approved until the suspension is resolved.
+</Aside>
+
+## Confirm the four tools with `identity_whoami`
+
+Once connected, verify your tool lists exactly four broker tools:
+
+- `identity_whoami`
+- `identity_signup`
+- `identity_record_signup`
+- `inbox_read`
+
+Ask your coding tool:
+
+```text
+Use the agentregistrar MCP server. Call identity_whoami with no arguments and show me the agent ID, email address, and scopes.
+```
+
+You should see the agent you created or selected during OAuth consent, along with `status: "active"` and default scopes `["tos:accept", "signup:free_tier", "inbox:read"]`.
+
+## Verification tiers explained
+
+We separate documented configurations from live end-to-end transcripts so you know exactly what was tested:
+
+| Tier | Meaning | Clients |
+| :--- | :--- | :--- |
+| **Tier 1** | Recorded end-to-end transcript (connect, OAuth, `identity_whoami`, signup, receipt, inbox) on the live broker | None yet |
+| **Tier 2** | Install config and OAuth path verified against current client docs (and live unauthenticated probe on OpenCode v2.3.2) | Claude Code, Cursor, OpenCode, Codex CLI, VS Code / Copilot, Claude Desktop |
+| **Tier 3** | Protocol-level or portal-documented setup instructions; broker endpoints checked live | Gemini CLI, Antigravity CLI, Generic MCP client |
+
+Hitting a connection or OAuth error? See [Agent troubleshooting](/agents/troubleshooting/).

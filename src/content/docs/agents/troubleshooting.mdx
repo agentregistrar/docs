@@ -1,102 +1,102 @@
 ---
-title: Troubleshooting
-description: The failures you are most likely to hit, what causes them and the fix for each.
+title: Agent troubleshooting
+description: Fix OAuth connection errors, agent quota limits, identity_signup policy blocks, inbox_read timeouts, and revoked or suspended agents.
 audience: human
 aiGenerated: true
-verifiedAgainst: "broker monorepo c7ddfa7, spec v2.1.0 (563525e), 2026-11-21"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 sidebar:
+  label: Troubleshooting
   order: 7
 ---
 
-Errors come from three places: the MCP transport, the broker tools, and the provider. A transport failure is the exception: an unauthenticated request gets a bare JSON-RPC error with a code and a message, and nothing else. The broker tools return a structured envelope with a stable code, a `retryable` flag and the side effects that did or did not happen. Read the code, not the prose.
+Failures come from four layers: your MCP client's OAuth connection, browser consent gates, broker MCP tool calls, and the provider's signup endpoint. Broker tools return a structured error envelope with a stable `code`, a `retryable` boolean, and `side_effects` showing what did or did not happen. Branch on the error code rather than prose.
 
-## OAuth and the connection
+## OAuth and MCP connection errors
 
-| Symptom | Cause | Fix |
+An unauthenticated request to `https://agentregistrar.dev/mcp` is supposed to return `401` with a `WWW-Authenticate` header pointing to `/.well-known/oauth-protected-resource`. That challenge triggers OAuth discovery and is not a server outage.
+
+```bash
+curl -sS -D - -o /dev/null https://agentregistrar.dev/mcp
+```
+
+| Symptom | Likely cause | Fix |
 | :--- | :--- | :--- |
-| The browser did not open | The client could not launch a browser, or the session is headless | Copy the authorization URL the client printed and open it yourself |
-| Signed in as the wrong GitHub account | The OAuth session decides the human, not the email you typed | Sign out of the client's session, sign out of GitHub, reconnect |
-| `401` with a `WWW-Authenticate` header | The bearer token is missing, expired or revoked | Re-run the client's OAuth step |
-| `403` "Master Agent Delegation ToS has not been signed" | The human has not signed the agreement | Sign it in onboarding, then reconnect |
-| `403` "Human owner account is suspended" | The human account is suspended | Contact the security address in the site footer |
-| Tools disappear after a while | The client dropped the session or the token expired | Reconnect; the agent identity is resumed, not recreated |
+| Config ignored or stdio error (Claude Code, VS Code) | Missing `"type": "http"`, or wrong top-level key (`servers` vs `mcpServers`) | Match the exact snippet in [Connect your tool](/agents/install/) and remove any trailing slash on `/mcp` |
+| Transport error in Antigravity CLI | Used `httpUrl` or `url` instead of `serverUrl` | Change the config field to `"serverUrl": "https://agentregistrar.dev/mcp"` |
+| Nothing happens in Claude Desktop | URL added to `claude_desktop_config.json` (stdio only) | Remove it and add a Custom Connector under **Customize > Connectors** |
+| `401` after a working session | Bearer token expired, refresh failed, or session disconnected in `/agents/[id]` | Re-run OAuth login in your tool; reconnecting an existing active agent keeps its ID and inbox |
+| `invalid_client` or registration fails | Stale DCR registration, or client tried CIMD and hit an issue | Remove and re-add the server so it re-registers (in Codex CLI, try `--oauth-client-registration dcr`) |
+| Client asks for a pre-registered `clientId` | Client build does not support DCR or CIMD | Agent Registrar does not issue manual client IDs in the portal; use a client that supports DCR or CIMD |
+| Browser does not open or callback fails | Headless/SSH session, firewall blocking loopback, or occupied callback port | Complete OAuth on a desktop session with a browser, free the callback port (or pass `--callback-port`), or paste the printed URL manually |
+| Connected to the wrong human account | Browser was already signed in to another GitHub account | Log out in the client, sign out of GitHub in the browser, and reconnect |
+| Connected, but zero tools listed | Initialization failed, wrong transport, or stale tool cache | Verify Streamable HTTP transport, remove any manual `Authorization` header, and refresh or clear the client's tool cache |
 
-The MCP endpoint returns `401` for an unauthenticated request with a JSON-RPC error and a `WWW-Authenticate` challenge. That is the expected first response, not a broken server.
+## Browser consent blocks (`/oauth/authorize`)
 
-## Registration
-
-| Symptom | Cause | Fix |
+| Symptom or code | Cause | Fix |
 | :--- | :--- | :--- |
-| `identity_register` returns an agent you did not just create | The session is bound to the agent it registered; that token-bound agent wins over `name` | Expected. Start a new OAuth session and use a different `name` for a distinct identity |
-| `agent_revoked` | The sub-identity is blocked | Reactivate it in the portal, or register a different name from a new session |
-| `internal_error` | Broker or database failure | Retry; registration is idempotent |
+| Redirected to `/onboarding/verify-email` or `email_verification_required` | Your human email is not verified yet | Enter the six-digit code sent to your email; you will return to the same OAuth consent screen automatically |
+| Master Agreement prompt on consent screen | Current Master Agent Delegation Agreement (`v2026-10-01`) is unsigned | Review and check the inline acceptance box before clicking **Approve & Connect Harness** |
+| Active agent limit reached (`agent_limit_reached`) | You already have `2 of 2` active agents (or reached your account quota) | Select **Connect to an existing active agent** on the consent screen, or revoke an unused agent in `/dashboard` first |
+| Approval button disabled with operator suspension notice | An agent on your account is currently `suspended` by the broker operator | New OAuth connections are blocked until the suspension is reviewed and resolved; check **Abuse Reports** on the agent page or contact `security@agentregistrar.dev` |
+| `403` "Master Agent Delegation ToS has not been signed" on `/mcp` | Master Agreement was not signed before tool calls ran | Sign the agreement in `/onboarding/tos` or re-run browser OAuth consent |
 
-## Prove and record
+## `identity_signup` and `identity_record_signup` errors
 
 | Code | Retryable | Cause | Fix |
 | :--- | :--- | :--- | :--- |
-| `human_email_unverified` | no | The human has not verified the email | Verify it in onboarding |
-| `master_tos_unsigned` | no | The master agreement is unsigned | Sign it in onboarding |
-| `human_suspended` | no | The human account is suspended | Contact the security address |
-| `agent_revoked` | no | The kill switch is on | Reactivate, or use a new identity |
-| `scope_not_granted` | no | `requested_scopes` includes something the agent does not hold | Request only delegated scopes |
-| `tos_text_hash_mismatch` | no | Only on the manual no-discovery `identity_prove` path: the text you sent does not hash to `accept_tos_hash` | Re-fetch `terms.url` and send the exact bytes, or omit the manual text/hash pair and use discovery |
-| `ledger_email_failed` | yes | The acceptance was recorded but the receipt did not send | Retry the same call; only the mail is retried |
-| `signup_token_invalid` | no | The receipt failed verification | Get a valid token from the provider |
-| `signup_token_not_linked` | no | The receipt references an acceptance this broker has not recorded | Run `identity_prove` for that audience, then retry |
-| `signup_token_ownership_mismatch` | no | The receipt belongs to another human | Stop; use the token for your account |
-| `internal_error` | yes | Broker failure | Retry with the same inputs; check `side_effects.assertion_minted` |
+| `rp_unverified` | no | Provider publishes no verification credential, and your `/trust` policy is `verify` or `strict` | Confirm you trust the provider, then add a per-provider `no_verify` override in `/trust` (or ask the provider to verify its domain) |
+| `rp_broker_untrusted` | no | Provider's verification credential was issued by a broker not in your trust list | Review the broker under **Advanced: federated broker trust** in `/trust` before deciding whether to trust it |
+| `rp_attestation_mode_not_allowed` | no | Your `/trust` policy is `strict` (broker-managed only), but the provider uses provider-managed verification | Switch policy to `verify` for that service in `/trust`, or do not proceed |
+| `rp_blocked` | no | You added this provider to your blocklist in `/trust` | Remove the block entry in `/trust` only if you want to allow signups again |
+| `rp_suspended` | no | Provider or its verification credential is suspended or revoked | Do not proceed; wait for the provider to resolve its status |
+| `rp_attestation_invalid` / `rp_attestation_expired` | no | Provider's verification credential failed signature or expiry checks | Do not retry blindly; report the issue to the provider |
+| `rp_broker_unavailable` | yes | Temporary outage reaching the attesting broker or its JWKS | Retry the same `identity_signup` or `identity_record_signup` call |
+| `discovery_unreachable` | yes | Provider's `/.well-known/agent-signup.json` or `terms.url` timed out or returned `5xx` | Retry the same call; nothing was minted |
+| `discovery_invalid` | no | Discovery document is missing (`404`), malformed, uses an unsupported protocol version, or `terms.url` is unreadable | Service does not conform to Agent Identity Protocol `v2.1.0`; stop and notify the provider |
+| `scope_not_granted` | no | Provider requires a scope your agent does not hold, or `requested_scopes` was empty | Check `identity_whoami` for granted scopes; omit `requested_scopes` to use the provider's `required_scopes` |
+| `discovery_source_not_allowed` | no | Passed forbidden fields (`rp_discovery`, `rp_discovery_url`, `rp_attestation`) to `identity_signup`, or passed `rp_attestation` without `signup_token` to `identity_record_signup` | Call `identity_signup` with `{ service }` only; pass `signup_token` with `identity_record_signup` |
+| `ledger_email_failed` | yes | Terms acceptance was recorded, but sending the emailed copy failed | Retry the exact same `identity_signup` call; only the email delivery is retried |
+| `signup_token_not_linked` | no | Receipt references an acceptance not recorded for this agent | Run `identity_signup` for that service first, then retry `identity_record_signup` |
+| `signup_token_invalid` | no | Receipt signature, structure, or historical attestation window check failed | Obtain a valid provider-signed receipt (and exact `rp_attestation` if required); do not retry the rejected token |
+| `signup_token_ownership_mismatch` | no | Receipt belongs to a different agent or human owner | Use the receipt issued for the active session's agent |
+| `human_email_unverified` / `master_tos_unsigned` / `human_suspended` | no | Human account gate failed | Complete onboarding or contact `security@agentregistrar.dev` if suspended |
 
-Two habits prevent most of these. Let the Broker fetch `terms.url` rather than supplying text on the manual path. And retry the same call rather than a new one: an identical mint cannot create a second acceptance.
+### Provider HTTP signup errors
 
-## Discovery
+When the agent POSTs `signup_request` to the provider, conformant services return stable error codes:
 
-| Symptom | Cause | Fix |
-| :--- | :--- | :--- |
-| `404` or `410` on `/.well-known/agent-signup.json` | The service does not support the protocol | Stop. This is not a retryable error |
-| The document parses but `protocol` is different | Another protocol or a malformed document | Treat the service as unsupported |
-| `issuer_allowlist` does not contain your broker origin | The provider does not accept this broker | Do not proceed; tell the human |
-| `required_scopes` is not covered by the agent's scopes | The provider asks for more than was delegated | Ask the human to re-delegate; do not proceed |
-| `terms` contains `text` or `sha256` | Older additive fields; the current validator accepts and ignores them | Continue if the rest of the document is valid. |
-| `terms.url` redirects or serves changing bytes | The terms URL is unstable, so the broker cannot record a reproducible hash | Do not proceed. Re-fetch; if it persists, report it to the provider. |
-| The document advertises SKUs, provisioning or quotas | Non-conformant vendor capability in discovery | Do not rely on those fields; report it to the provider |
-
-## Signup at the provider
-
-The specification fixes one error set for relying parties. `error_description` is for humans and must not drive control flow; use `error` and, when present, `retryable`. A provider that returns a different code is not conformant; report it rather than guessing.
-
-| Code | HTTP | Meaning | Action |
+| Provider `error` | HTTP | Meaning | Action |
 | :--- | :--- | :--- | :--- |
-| `invalid_request` | 400 | Malformed headers or body | Fix the request; do not retry blindly |
-| `invalid_assertion` | 401 | Signature or shape failed | Mint a new assertion |
-| `issuer_not_allowed` | 403 | `iss` is not in the allowlist | Stop; this broker is not accepted |
-| `audience_mismatch` | 403 | `aud` does not equal `audience` | Re-discover and mint for the right audience |
-| `assertion_expired` | 401 | `exp` passed | Mint a new assertion |
-| `assertion_replayed` | 409 | The `jti` was used in a conflicting context | Mint a new assertion; do not reuse |
-| `tos_hash_mismatch` | 409 | The accepted terms URL or version is stale | Re-discover, re-accept, then retry |
-| `insufficient_scope` | 403 | A required scope is missing | Ask the human to re-delegate |
-| `human_unverified` | 403 | `human.verified` is not true | Verify the human email |
-| `rate_limited` | 429 | Throttled | Back off for the advertised delay |
+| `invalid_request` | `400` | Malformed header or body | Send `signup_request` verbatim (`Authorization: Bearer <jwt>`, body `{}`) |
+| `invalid_assertion` / `assertion_expired` | `401` | Token signature failed or five-minute TTL passed | Call `identity_signup` again for a fresh token (reuses the same acceptance) |
+| `issuer_not_allowed` | `403` | Provider does not allow `https://agentregistrar.dev` | Stop; the provider does not accept this broker |
+| `audience_mismatch` | `403` | Token `aud` did not match provider's expected audience | Re-run `identity_signup` against the provider's canonical origin |
+| `insufficient_scope` / `human_unverified` | `403` | Missing required scope or unverified human email | Confirm scopes in `identity_whoami` and email status in `/settings` |
+| `assertion_replayed` | `409` | Token `jti` reused in a conflicting context | Mint a fresh token via `identity_signup` |
+| `tos_hash_mismatch` | `409` | Provider updated its terms since acceptance | Re-run `identity_signup` to fetch and accept the updated terms |
+| `rate_limited` | `429` | Provider throttled the request | Back off and retry after the advertised delay |
 
-A `resolution: "resolved"` response is a success, not an error. A provider that returns no credential on resolve is behaving correctly.
+Remember: `resolution: "resolved"` with no API key is a **success**, not an error. See [Credentials and recovery](/agents/credentials-and-recovery/) if you lost a show-once key.
 
-## Inbox
+## `inbox_read` errors and timeouts
 
-| Symptom | Cause | Fix |
+| Symptom or code | Cause | Fix |
 | :--- | :--- | :--- |
-| `wait_timeout` | Nothing matched inside the lookback window or the budget | Raise `since_seconds_ago`, check the filters, or call `inbox_list` first |
-| A message exists but the wait missed it | The filter is a substring of the raw address or subject | Match on `subject_contains` or a domain fragment that appears in the raw value |
-| `message_not_found` | The id belongs to another agent, or no longer exists | List the inbox and use an id from the result |
-| `detected_otp` is `null` | No standalone six-digit number in the subject or body | Read the body; the code may be split or formatted differently |
-| Two forwarded receipts for one signup | Two acceptances exist, for example changed terms or `force_new` | Check the ledger; the fix is to stop calling `force_new` |
-| `send_failed` | The outbound provider rejected the message | Nothing was sent; retry once, then investigate |
+| `wait_timeout` (`retryable: true`) | No matching inbound email arrived within `wait_seconds` (max `25`) and `since_seconds_ago` (default `120`) | Call `inbox_read` with `{}` to list recent messages, or raise `since_seconds_ago` (up to `3600`) and retry |
+| Email exists in portal, but `inbox_read` missed it | `from_contains` or `subject_contains` did not match the raw header | Match against the actual sender email address or a short subject keyword, or list without filters |
+| `message_not_found` | UUID belongs to another agent or does not exist | Call `inbox_read` without `message_id` and copy an ID from the returned list |
+| `detected_otp` is `null` | Email had no standalone six-digit number (for example an eight-digit code or a magic link) | Read `text_body` or `html_body` directly from the returned message |
 
-## A lost credential
+## Revoked vs. suspended agents
 
-Do not re-run signup. A resolve returns no credential. Use the provider's rotation path, described in [Credentials and recovery](/agents/credentials-and-recovery/).
+Both states return `agent_revoked` on `identity_whoami`, `identity_signup`, and `inbox_read` (a suspension includes a suspension-specific message):
 
-## Where to get help
+- **If you clicked Revoke agent (`revoked`):** open `/agents/[id]` and click **Reactivate agent** to resume the same identity and inbox, or connect a new agent via browser OAuth if you want a fresh identity.
+- **If the broker operator suspended the agent (`suspended`):** the kill switch is hidden and cannot restore the agent, and new OAuth connections are paused. Open the **Abuse Reports** tab on `/agents/[id]` to review the case, resolve any issue with the reporting provider, and appeal to `security@agentregistrar.dev` with the agent ID and case ID.
 
-- Security issues in the broker, the protocol or these docs: `security@agentregistrar.dev`.
-- Documentation and specification defects: [the specification repository issues](https://github.com/agentregistrar/spec/issues).
-- Provider-side problems: the provider's own support and security contacts, which its discovery document or guide should name.
+## Where to report bugs or security issues
+
+- **Security issues and suspension appeals:** `security@agentregistrar.dev` (never include live API keys, JWTs, or passwords).
+- **Protocol or documentation issues:** [agentregistrar/spec issues](https://github.com/agentregistrar/spec/issues).
+- **Provider-specific errors:** the `contact` address listed in that provider's discovery document.

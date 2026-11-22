@@ -1,36 +1,42 @@
 ---
 title: Verify assertions
-description: Verify the Ed25519 assertion against the issuer JWKS, enforce issuer, audience, expiry, scopes, status and terms checks, and verify an optional credential.
+description: Verify EdDSA agent assertions against broker JWKS, enforce claim and replay rules, and test locally with a fixture.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-24
-verifiedAgainst: "spec v2.1.0 (563525e), jose 6.2.13, Node 24.21.0, 2026-11-21"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+sidebar:
+  order: 6
 ---
 
-**Goal:** accept a compact Ed25519 JWT only when every check in [spec section 7.1](/protocol/specification/#7-assertion--agent_signup-handshake) passes, and map each failure to a fixed v1 code.
+Accept a signup request only when the compact `EdDSA` JWT in `Authorization: Bearer <jwt>` passes every signature, claim, terms, and replay check in [spec section 7.1](/protocol/specification/#7-assertion--agent_signup-handshake).
 
-The claim set is in [Assertion claims](/protocol/assertion-claims/). This guide is the implementation step. Verifying an assertion needs **no account and no SDK**: it uses the human broker's public JWKS. An account is required only to be a verified provider, issue authenticated receipts, or report abuse with standing.
+Verifying incoming assertions requires no broker account and no SDK: you fetch the issuer's public JWKS from `GET <iss>/.well-known/jwks.json` and check the signed claims locally. See [Assertion claims](/protocol/assertion-claims/) for the full payload schema and [Error codes](/reference/error-codes/) for the complete error envelope.
 
-A provider may also publish an optional **provider verification credential** (the
-RP attestation) as a stable source named by discovery. It is a separate, local
-check; it does not change how the assertion is verified. Broker-managed
-attestations are the default and are keyless: the credential may carry
-`keys: []`, and a provider needs no Ed25519 key to accept signups. A key is
-needed only for RP-signed receipts (Contract F) or authenticated abuse reports.
+## Verification checklist and error codes
 
-## Before you start
+Map each failed check to its fixed error code in `{ "error": "<code>", "error_description": "...", "retryable": false }`:
 
-- The issuer origin from your `issuer_allowlist`, for example `https://agentregistrar.dev`.
-- The published `audience`, `required_scopes` and current `terms.url`.
-- A place to record seen `jti` values, such as your account table.
-- `jose` 6.2.13, or an equivalent Ed25519 implementation. Nothing here requires a specific library.
+| Check | Requirement | Failure status and code |
+| :--- | :--- | :--- |
+| Bearer header | `Authorization: Bearer <jwt>` is present. | `400 invalid_request` |
+| JOSE header and signature | `alg` is `EdDSA`, `typ` is `agent-id+jwt`, key selected by `kid` from `<iss>/.well-known/jwks.json`. Reject `jku` and `x5u` headers. | `401 invalid_assertion` |
+| Expiry | `exp` has not passed (at most 60 seconds of clock skew). | `401 assertion_expired` |
+| Lifetime | `exp - iat` is at most 300 seconds (5 minutes). | `401 invalid_assertion` |
+| Issuer | `iss` matches an exact entry in your `issuer_allowlist`. | `403 issuer_not_allowed` |
+| Audience | `aud` matches your published `audience` exactly. | `403 audience_mismatch` |
+| Scopes | `delegation.scopes` includes every entry in `required_scopes` (at minimum `tos:accept`). | `403 insufficient_scope` |
+| Human verification | `human.verified === true`. | `403 human_unverified` |
+| Terms binding | `delegation.accepted_rp_tos_url` matches your current `terms.url` (trailing slashes normalized). Also compare `delegation.accepted_rp_tos_hash` when `terms.url` serves deterministic UTF-8 bytes. | `409 tos_hash_mismatch` |
+| Replay and idempotency | Unique account key `(iss, human.id)` (or `(iss, agent.id)`). Same `jti` for the same account resolves (`200`, `resolution: "resolved"`, no credential). Same `jti` in a conflicting context is rejected. | `409 assertion_replayed` |
 
-## The verifier
+If a JWKS fetch fails transiently, return a retryable `503` response rather than caching a failure or bypassing verification. Always read identity and delegation claims strictly from the verified JWT payload; never trust unverified identity fields in the request body.
 
-Save as `verify.mjs`. It verifies the signature first, then the claims, and throws an error whose `code` is the stable v1 code.
+## Reference verifier
+
+Save as `verify.mjs` (`npm install jose`):
 
 ```js
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, decodeProtectedHeader, jwtVerify } from "jose";
 
 const MAX_LIFETIME_SECONDS = 300;
 const CLOCK_TOLERANCE_SECONDS = 60;
@@ -45,6 +51,16 @@ export async function verifyAssertion(jwt, config) {
     error.code = code;
     throw error;
   };
+
+  let header;
+  try {
+    header = decodeProtectedHeader(jwt);
+  } catch {
+    fail("invalid_assertion", "Malformed JOSE header");
+  }
+  if ("jku" in header || "x5u" in header) {
+    fail("invalid_assertion", "Remote key headers jku and x5u are not allowed");
+  }
 
   let payload;
   try {
@@ -71,8 +87,8 @@ export async function verifyAssertion(jwt, config) {
   if (payload.aud !== config.audience) {
     fail("audience_mismatch", "Assertion audience does not match");
   }
-  if (typeof payload.exp !== "number" || payload.exp - payload.iat > MAX_LIFETIME_SECONDS) {
-    fail("invalid_assertion", "Assertion lifetime exceeds five minutes");
+  if (typeof payload.iat !== "number" || typeof payload.exp !== "number" || payload.exp - payload.iat > MAX_LIFETIME_SECONDS) {
+    fail("invalid_assertion", "Assertion lifetime exceeds 300 seconds");
   }
 
   const scopes = payload.delegation?.scopes ?? [];
@@ -102,21 +118,18 @@ export async function verifyAssertion(jwt, config) {
 }
 ```
 
-The `seenJti` map is a stand-in for a unique constraint in your account store. The semantics matter: the same `jti` for the same account resolves, a different account is a replay.
+In production, back `seenJti` and your account lookup with database unique constraints so concurrent requests and restarts remain idempotent.
 
-The URL check is mandatory. The hash check is optional: enable it only when
-`terms.url` serves deterministic bytes, because the Broker hashes the exact
-response bytes it fetches.
+## Test locally with a synthetic fixture
 
-## Try it locally
-
-This fixture mints an assertion with a throwaway key. A provider never mints assertions and never holds a broker private key; the fixture exists only so the verifier can be exercised offline.
+Providers never mint assertions or hold a broker private key in production. This offline fixture generates a throwaway Ed25519 key pair so you can test every verifier branch locally.
 
 ```bash
 mkdir provider-verify
 cd provider-verify
 npm init -y
-npm install jose@6.2.13
+npm pkg set type=module
+npm install jose
 ```
 
 Save as `mint-test-assertion.mjs`:
@@ -160,14 +173,14 @@ writeFileSync("assertion.jwt", jwt + "\n");
 console.log("wrote jwks.json and assertion.jwt");
 ```
 
-Save as `serve-jwks.mjs`, so other recipes can point at the same fixture:
+Save as `serve-jwks.mjs`:
 
 ```js
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 
 const jwks = readFileSync("jwks.json", "utf8");
-createServer((req, res) => {
+createServer((_req, res) => {
   res.writeHead(200, { "content-type": "application/json" });
   res.end(jwks);
 }).listen(3015, "127.0.0.1", () => {
@@ -183,201 +196,58 @@ import { readFileSync } from "node:fs";
 import { verifyAssertion } from "./verify.mjs";
 
 const jwt = readFileSync("assertion.jwt", "utf8").trim();
-try {
-  const result = await verifyAssertion(jwt, {
-    jwksUrl: "http://127.0.0.1:3015/.well-known/jwks.json",
-    issuerAllowlist: ["https://agentregistrar.dev"],
-    audience: "example-provider",
-    requiredScopes: ["tos:accept"],
-    termsUrl: "https://example.com/terms",
-    // Optional exact check: the fixture terms bytes are deterministic.
-    termsSha256:
-      "sha256:" +
-      createHash("sha256")
-        .update("Example Provider Terms of Service v2026.1", "utf8")
-        .digest("hex"),
-    seenJti: new Map(),
-  });
-  console.log(JSON.stringify({ outcome: "ok", resolution: result.resolution }));
-} catch (error) {
-  console.log(JSON.stringify({ outcome: "error", code: error.code }));
+const seenJti = new Map();
+const config = {
+  jwksUrl: "http://127.0.0.1:3015/.well-known/jwks.json",
+  issuerAllowlist: ["https://agentregistrar.dev"],
+  audience: "example-provider",
+  requiredScopes: ["tos:accept"],
+  termsUrl: "https://example.com/terms",
+  termsSha256:
+    "sha256:" +
+    createHash("sha256").update("Example Provider Terms of Service v2026.1", "utf8").digest("hex"),
+  seenJti,
+};
+
+for (const attempt of [1, 2]) {
+  try {
+    const result = await verifyAssertion(jwt, config);
+    console.log(JSON.stringify({ attempt, outcome: "ok", resolution: result.resolution }));
+  } catch (error) {
+    console.log(JSON.stringify({ attempt, outcome: "error", code: error.code }));
+  }
 }
 ```
 
-Generate the token and keys once:
+Run the generator, start the local JWKS server in one terminal, and run `check.mjs` in another:
 
 ```bash
 node mint-test-assertion.mjs
-```
-
-```text
-wrote jwks.json and assertion.jwt
-```
-
-Run the JWKS fixture in one shell and the check in another:
-
-```bash
 node serve-jwks.mjs
-```
-
-```text
-jwks on http://127.0.0.1:3015/.well-known/jwks.json
 ```
 
 ```bash
 node check.mjs
 ```
 
-Recorded output on 2026-10-21:
+Expected output:
 
 ```text
-{"outcome":"ok","resolution":"created"}
+{"attempt":1,"outcome":"ok","resolution":"created"}
+{"attempt":2,"outcome":"ok","resolution":"resolved"}
 ```
 
-## Failure cases
+You can also point any handler in [Framework examples](/providers/hosting/) at `http://127.0.0.1:3015/.well-known/jwks.json` using `BROKER_JWKS_URL` to test create and resolve over HTTP.
 
-The verifier was run against synthetic variants of the same fixture. Each row is a recorded result, not an illustration.
+## JWKS caching and key rotation
 
-| Case | Result |
-| :--- | :--- |
-| Valid assertion | `ok`, `resolution: "created"` |
-| Same `jti`, same account | `ok`, `resolution: "resolved"` |
-| Same `jti`, different human | `assertion_replayed` |
-| Wrong `aud` | `audience_mismatch` |
-| Stale or wrong terms URL or hash | `tos_hash_mismatch` |
-| `human.verified: false` | `human_unverified` |
-| Missing required scope | `insufficient_scope` |
-| Expired past the skew | `assertion_expired` |
-| Issuer not in the allowlist | `issuer_not_allowed` |
-| Tampered signature | `invalid_assertion` |
-| Lifetime over five minutes | `invalid_assertion` |
+- **Pin the JWKS path to your allowlisted issuer:** Always fetch `GET <iss>/.well-known/jwks.json` (never from `jku`, `x5u`, or a request parameter).
+- **Cache with refresh on unknown `kid`:** Cache keys for minutes rather than indefinitely, and refresh once when an assertion presents an unknown `kid`. Do not hard-code key IDs such as `broker-key-1`.
+- **Bound network calls:** Apply a timeout (for example 5 seconds) and a response size cap so a slow JWKS endpoint cannot stall your signup route.
+- **Revocation timing:** Agent revocation and suspension are enforced by the broker at minting time. Existing short-lived assertions remain cryptographically valid until `exp` (at most 5 minutes).
 
-## Checks and codes
+## Next steps
 
-| Check | Rule | Failure code |
-| :--- | :--- | :--- |
-| Signature | Verify against `GET <iss>/.well-known/jwks.json`; `alg` is `EdDSA`; the key matches `kid`; `typ` is `agent-id+jwt`. | `invalid_assertion` (401) |
-| Issuer | `iss` equals an `issuer_allowlist` entry exactly. | `issuer_not_allowed` (403) |
-| Audience | `aud` equals your published `audience`. | `audience_mismatch` (403) |
-| Expiry | `exp` has not passed; allow at most 60 seconds of clock skew. | `assertion_expired` (401) |
-| Lifetime | `exp - iat` is at most 5 minutes. | `invalid_assertion` (401) |
-| Replay | A `jti` in a conflicting context is rejected; the same context resolves. | `assertion_replayed` (409) |
-| Scopes | `delegation.scopes` covers every `required_scopes` entry. | `insufficient_scope` (403) |
-| Human | `human.verified === true`. | `human_unverified` (403) |
-| Terms | `delegation.accepted_rp_tos_url` equals the current `terms.url` (trailing slashes normalized). The hash is an optional second check when `terms.url` serves deterministic bytes. | `tos_hash_mismatch` (409) |
-
-Two checks are policy choices rather than fixed codes: the five-minute lifetime is the recommended maximum, and a JWKS transport failure is an operational error. Map the first to `invalid_assertion` and return a retryable `503`-style response for the second without inventing a core code. The normative table is [spec section 7.2](/protocol/specification/#72-error-envelope-and-stable-codes).
-
-## Verify the provider verification credential
-
-The credential is optional. Do this before signup when you want to check the
-provider's identity; skip it and the provider is `unverified`, not invalid. The
-normative steps are in [spec section 14](/protocol/specification/).
-
-1. **Fetch discovery** from the provider's canonical origin, `GET
-   /.well-known/agent-signup.json`. The fetched origin is authoritative. Read
-   `attestation`, an object `{ mode, uri }`. If it is absent, record `unverified`
-   and apply policy.
-2. **Check the mode and host binding before any fetch.** `mode` must be exactly
-   `broker` or `provider`. A `broker` URI origin must be in the document's
-   `issuer_allowlist` and in your trusted-broker list; a `provider` URI origin
-   must be the fetched discovery origin or a subdomain of it. A failure is a
-   conformance error, and the URI is never fetched.
-3. **Fetch the source** at `attestation.uri` with a bounded fetch: HTTPS only,
-   public addresses, no cross-origin redirect, 5-second timeout, 64 KiB cap.
-   Require `application/json` and read the `attestation` JWS string. A raw JWT
-   body or a different envelope key is `invalid`.
-4. **Check the issuer against your trusted RP-broker list before any JWKS
-   fetch.** Do not contact an untrusted broker. If the issuer is not trusted,
-   record `attested_untrusted_broker`.
-5. **Resolve Broker B's JWKS.** Use `jwks_uri` from
-   `/.well-known/agent-broker.json` only when its `issuer` equals the
-   attestation `iss` and the URI is HTTPS and same-origin; otherwise use
-   `<iss>/.well-known/jwks.json`. Never merge JWKS from different issuers.
-6. **Verify the signature** with the key selected by `kid`. Require `typ:
-   agent-rp-attestation+jwt`, `alg: EdDSA`, and exactly one `kid`.
-7. **Check time and binding**: `iat`/`exp` with 60 seconds of skew, non-empty
-   `jti`, `rp.origin` equal to the fetched discovery origin, and `rp.audience`
-   equal to `discovery.audience`.
-8. **Record the level** (`domain` or `entity`) and apply the policy mode. Both
-   levels are `verified`; the level is informational and displayed. `strict`
-   rejects a `provider` source with `rp_attestation_mode_not_allowed`;
-   `no_verify` never turns the result into a refusal.
-
-The snippet starts after the source fetch: `attestationJws` is the value of
-`attestation` inside the source document, already parsed under the bounded-fetch
-rules above.
-
-```js
-import { createRemoteJWKSet, decodeJwt, jwtVerify } from "jose";
-
-export async function verifyProviderCredential(attestationJws, discovery, config) {
-  // `mode` and the URI host binding were checked before the source fetch.
-  const { iss: issuer } = decodeJwt(attestationJws);
-  if (!config.trustedRpBrokers.includes(issuer)) {
-    return { status: "attested_untrusted_broker" };
-  }
-  const jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`), {
-    timeoutDuration: 5000,
-    cooldownDuration: 300000,
-  });
-  try {
-    const { payload } = await jwtVerify(attestationJws, jwks, {
-      algorithms: ["EdDSA"],
-      typ: "agent-rp-attestation+jwt",
-      clockTolerance: 60,
-    });
-    if (payload.rp.origin !== discovery.__fetched_origin) {
-      return { status: "invalid", reason: "origin_mismatch" };
-    }
-    if (payload.rp.audience !== discovery.audience) {
-      return { status: "invalid", reason: "audience_mismatch" };
-    }
-    return { status: "verified", level: payload.rp.verification.level, jti: payload.jti };
-  } catch (error) {
-    return { status: error.code === "ERR_JWT_EXPIRED" ? "expired" : "invalid" };
-  }
-}
-```
-
-`discovery.__fetched_origin` is a placeholder for the canonical origin of the
-document you actually fetched. Never infer it from `terms.url`, `provider_url`,
-or the attestation itself. A JWKS fetch failure is `unavailable`, not `invalid`.
-
-The broker's one-call `identity_signup` MCP tool does this check for you and
-returns `rp_verification` plus an optional advisory note. Use it when you do not
-need to inspect claims yourself. A provider does not need an account to accept an
-assertion; the credential only lets the agent check the provider.
-
-See [Trust and limits](/start/trust-and-limits/) for the trust list, policy
-matrix, and why verification is identity, not safety.
-
-## JWKS caching and rotation
-
-- Fetch only `GET <iss>/.well-known/jwks.json`. Do not accept a `jku` or `x5u` header that points at another host.
-- Cache keys by URL and `kid` for minutes, not forever. `createRemoteJWKSet` caches and refreshes; a custom cache must do the same.
-- On an unknown `kid`, refresh once before rejecting. This handles broker key rotation without a restart.
-- Apply a timeout and a size cap to the JWKS request. A slow issuer must not hold your signup route open.
-- The broker currently publishes one key with `kid` `broker-key-1`. Do not hard-code it; read it from the JWKS.
-- Revocation is enforced by the broker at minting time. A verifier learns about revocation the next time an assertion is requested, not from the signature.
-
-## Inspection-only rule
-
-Never decode, re-encode or modify the compact JWT to guess fields. The broker returns the exact signed payload as `assertion.claims` for inspection; the provider reads claims only from the verified token. Send `assertion.jwt` verbatim from the agent to your endpoint.
-
-## Verify your work
-
-- [ ] The verifier rejects a tampered token and accepts a valid one.
-- [ ] Each failure row above produces the listed code.
-- [ ] The JWKS URL is the issuer origin, not a request parameter.
-- [ ] Clock skew is bounded, and the lifetime check exists.
-- [ ] A repeated `jti` for the same account resolves instead of failing.
-- [ ] `delegation.accepted_rp_tos_url` is checked against `terms.url`, and the
-  optional hash check is enabled only for deterministic bytes.
-- [ ] No identity field is read from the request body.
-
-## Next
-
-- [Stable error codes](/providers/guides/error-codes/): the HTTP envelope.
-- [Hosting: generic HTTP](/providers/hosting/generic-http/): the verifier wired into a route.
-- [Production checklist](/providers/guides/production-checklist/): rotation, replay and incidents.
+- [Framework examples](/providers/hosting/): wire this verifier into Next.js, Cloudflare Workers, or Node HTTP.
+- [Receipts and context guide](/providers/guides/issue-signup-receipt/): return an optional signed receipt and post-signup guide.
+- [Checklist and troubleshooting](/providers/troubleshooting/): verify readiness before taking live traffic.

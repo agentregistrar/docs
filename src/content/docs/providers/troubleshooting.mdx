@@ -1,121 +1,110 @@
 ---
-title: Provider troubleshooting
-description: Symptom, cause and fix for discovery validation, attestation sources, assertion verification, terms hosting, JWKS, context guides and transport.
+title: Checklist and troubleshooting
+description: Pre-launch production readiness checklist and symptom, cause, and fix tables for discovery, JWKS, terms, receipts, and transport.
 audience: human
 aiGenerated: true
-lastReviewed: 2026-10-21
-verifiedAgainst: "spec v2.1.0 (563525e), validator 2.1.0, 2026-11-21"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+sidebar:
+  order: 10
 ---
 
-Find the symptom, fix the cause, then re-run the check. Each row links to the page that owns the step.
+Use the pre-launch checklist before taking live traffic and after changing keys, terms, or signup logic. If a check or live request fails, jump to the troubleshooting tables below.
 
-## Discovery and validation
+## Pre-launch production checklist
 
-| Symptom | Cause | Fix |
-| :--- | :--- | :--- |
-| Discovery still carries `terms.text` or `terms.sha256` | Legacy fields; the current validator accepts and ignores both | Publish `terms: { version, url }` and serve the agreement at that URL. See [Publish discovery](/providers/guides/publish-discovery/). |
-| `terms.url` serves changing bytes | A per-request challenge token, timestamp or variant wraps the agreement | Serve stable bytes with no redirect. See [Serve terms at a URL](/providers/guides/serve-terms/). |
-| Validator fails a forbidden field | Catalog, SKU, provisioning or OTP field under `endpoints` or `extensions` | Remove the capability surface; move it to the vendor guide. See [Identity-only discovery](/providers/concepts/identity-only-discovery/). |
-| Validator exits `2` | No usable document: DNS, TLS, timeout, redirect, wrong content type or oversize body; or the attestation source or JWKS could not be obtained under `--require-attestation` | Fetch the URL with `curl -D -`; fix transport before changing the JSON. |
-| Validator warns on cache or CORS | Missing `Cache-Control` or `Access-Control-Allow-Origin` | Add `public, max-age=60` and `*` where appropriate. Warnings do not fail conformance. |
-| `protocol` rejected | A typo or a version such as `v1` | Use exactly `agent-identity-protocol`. |
-| `issuer_allowlist` rejected | Empty, wildcard, path or trailing slash | Use exact origins such as `https://agentregistrar.dev`, no path. |
-| `audience` rejected | Whitespace, mixed case or a display name | Use a stable, case-sensitive service identifier. |
-| `agent_signup` rejected | Relative URL, or an `http` URL outside localhost | Use an absolute HTTPS URL. |
-| `field.rp_attestation` / `rp_attestation_removed` | The document still embeds the v1.2 token | Remove the field and publish `attestation: {mode, uri}`. There is no fallback or dual publication. |
-| `field.attestation.mode` / `attestation_mode_invalid` | A `mode` other than exactly `broker` or `provider` | Fix the value. There are no aliases. |
-| `field.attestation.uri` / `attestation_uri_invalid` | Relative, non-HTTPS, credentialed, or fragment-bearing `uri` | Publish a stable absolute HTTPS URL with no userinfo and no fragment. |
-| `field.attestation.binding` / `attestation_uri_host_untrusted` | A `broker` URI on an origin outside `issuer_allowlist`, or outside the verifier's trusted-broker list | Use the broker origin you already list, or add it to the allowlist. |
-| `field.attestation.binding` / `attestation_uri_host_unbound` | A `provider` URI on a third-party host, including a CDN | Host the source on the discovery origin or a subdomain of it. |
-| Document passes a file check but fails live | Wrong content type, a redirect, or an HTML error page | Compare `curl -D -` output with the file; fix the host, not the validator. |
+### Transport and discovery
 
-## Attestation source and status
+- [ ] `GET /.well-known/agent-signup.json` runs on canonical HTTPS (`localhost` is development only) and returns `200`, `application/json`, no auth, and no redirect.
+- [ ] `Cache-Control` is `public, max-age=60` (at most 300) and `Access-Control-Allow-Origin: *` is set where needed.
+- [ ] Discovery body is under 1 MiB, contains no forbidden capability fields at any depth, and is exempt from CDN bot challenges.
+- [ ] Unsupported deployments return `404` or `410` rather than `401` or `403`.
+- [ ] `issuer_allowlist` contains exact broker origins with no path, query, or wildcard.
+- [ ] `npx @agentregistrar/discovery@2.1.0 validate` exits `0` in CI or release checks.
 
-Broker-managed is the default: build the verification URI from the broker origin
-plus your origin and audience, or copy the snippet the provider portal shows
-(live 2026-11-14), and leave it alone. The broker renews on demand, so
-no cron, renewal job, or redeploy is needed, and the URI is stable across
-renewals. Provider-managed is an opt-in: register a stable HTTPS source URL,
-renew before expiry, host `{ "attestation": "<JWS>" }` as `application/json`, and
-accept that a suspension may lag until the token expires. Issuance is not
-plan-gated; a free but active provider with a verified origin and an active key
-can issue.
+### Terms lifecycle
 
-| Symptom | Cause | Fix |
-| :--- | :--- | :--- |
-| `attestation.status: "expired"` | The token is past `exp` | Broker-managed: the lookup should have renewed; check the `attestation.uri` and network. Provider-managed: you missed the 12-hour renewal target. |
-| `attestation.status: "suspended"` or a typed `403 provider_suspended` | The provider or origin is suspended | Stop serving or accepting signups from that origin until the broker restores it. |
-| `attestation.status: "unavailable"` | The source is unreachable, or the broker answered `429` or `5xx` | Retry later. Do not downgrade the result to unverified. |
-| `attestation.status: "invalid"` with reason `attestation_revoked` | The broker answered `410` | Stop. A revoked provider or attestation is not reinstated by a retry. |
-| `attestation.status: "unverified"` | No `attestation` object in discovery, or a typed `404` | Publish the object, or accept that the provider is unverified. `verify` and `strict` refuse it. |
-| Source check passes before a suspension but not after | Provider-managed expiry is the revocation bound | Expected. Do not describe provider-managed verification as instant revocation. |
-| Strict verification rejects a valid token | The source is provider-managed | Switch the origin to broker-managed mode, or use `verify`. |
+- [ ] `terms` is `{ "version", "url" }` only (no `text` or `sha256`).
+- [ ] `terms.url` serves deterministic UTF-8 bytes with no redirect and no per-request nonce or wrapper.
+- [ ] Material terms edits ship new bytes and a new `terms.version` atomically.
+- [ ] Stale `delegation.accepted_rp_tos_url` (or hash when checked) returns `409 tos_hash_mismatch`.
 
-The status vocabulary is `verified`, `unverified`, `attested_untrusted_broker`,
-`invalid`, `expired`, `unavailable`, and `suspended`. There is no separate
-`revoked` status in this release: a broker `410` is `invalid` with reason
-`attestation_revoked`, and the MCP code is `rp_attestation_revoked`. There is no
-"unsafe" status; a failure describes missing or unusable evidence, not the
-provider's conduct.
+### Assertion verification and replay
 
-## Signature and JWKS
+- [ ] Signature verifies `alg: "EdDSA"`, `typ: "agent-id+jwt"`, and `kid` against `<iss>/.well-known/jwks.json`; `jku` and `x5u` headers are rejected.
+- [ ] `iss`, `aud`, `exp` (at most 60s skew), lifetime (`exp - iat <= 300`), `delegation.scopes`, and `human.verified === true` are enforced strictly from the verified JWT payload.
+- [ ] Account uniqueness `(iss, human.id)` (or `(iss, agent.id)`) and `jti` replay protection are backed by durable database constraints.
+- [ ] `resolution: "resolved"` returns `200` with no credential and sends no duplicate welcome or legal emails.
+- [ ] `POST` signup responses send `Cache-Control: no-store` and enforce rate limits (`429 rate_limited`).
+
+### Attestation and optional keys
+
+- [ ] Domain is verified in the [Provider Portal](/providers/portal/) (or you intentionally run unverified for `no_verify` clients only).
+- [ ] Default broker-managed attestation needs no signing key (`keys: []`) and no renewal cron job.
+- [ ] If opted into provider-managed attestation, renewal runs on a 12-hour target against the 24-hour TTL via `POST /api/provider/v1/attestation`, and never serves an empty file.
+- [ ] Any optional RP Ed25519 private key (for receipts or Contract D.2 abuse reports) lives in a secret store, never in git or logs.
+- [ ] If issuing receipts, the exact historical attestation naming `service.attestation_jti` is retained for Contract F delivery.
+
+### Optional receipts, context guide, and incidents
+
+- [ ] Receipt header is `alg: "EdDSA"`, `typ: "agent-signup-receipt+jwt"`, `kid === service.key_id`, with no `exp`, `tos.sha256 === delegation.accepted_rp_tos_hash`, and `iat`/`signed_up_at` inside the attestation window.
+- [ ] `context.url` shares the signup endpoint's registrable domain, contains no secrets, and deploys atomically with `context.sha256`.
+- [ ] Audit logs record `jti`, `iss`, `agent.id`, `human.id`, opaque `account_id`, terms version/URL/hash, and `created`/`resolved`, without logging credentials.
+- [ ] `contact` in discovery reaches a monitored human inbox, and incident runbooks cover disabling signup, rotating keys, and sending Contract D.2 reports.
+
+## Troubleshooting
+
+### Discovery and validation
 
 | Symptom | Cause | Fix |
 | :--- | :--- | :--- |
-| `invalid_assertion` on every request | Wrong JWKS URL, wrong key, `alg` mismatch or a proxy rewriting the body | Fetch `<iss>/.well-known/jwks.json`; check `alg: EdDSA`, `kid` and `typ: agent-id+jwt`. |
-| `invalid_assertion` after a broker key rotation | Cached JWKS with no refresh | Refresh once on an unknown `kid`; do not hard-code `broker-key-1`. |
-| JWKS fetch times out | Egress block, DNS or a slow issuer | Allow the issuer origin, apply a timeout and cache successful keys. |
-| `assertion_expired` immediately | Clock skew beyond 60 seconds | Use NTP; allow at most 60 seconds of skew. |
-| `audience_mismatch` | Discovery audience differs from the assertion `aud` | Re-discover and mint with the exact audience. |
-| `issuer_not_allowed` | Broker origin not in `issuer_allowlist` | Add the exact origin, with no path or trailing slash. |
-| `insufficient_scope` | The agent was not delegated every `required_scopes` entry | Ask the human to re-delegate; do not retry unchanged. |
-| `human_unverified` | `human.verified` is not `true` | Complete verification; do not create the account. |
-| A verified-looking token is rejected | You decoded the JWT instead of verifying it, or read identity from the body | Verify the signature and read claims only from the verified payload. |
-| `invalid_assertion` only in production | A local fixture key is still configured | Remove test JWKS overrides; use the issuer origin. |
+| Validator fails a forbidden field | Catalog, SKU, provisioning, or OTP field in discovery or `extensions` | Remove capability fields and move them to your [context guide](/providers/guides/issue-signup-receipt/#post-signup-context-guide). |
+| Validator exits `2` | DNS, TLS, redirect, non-`200`, wrong content type, oversize body, or source/JWKS unavailable under `--require-attestation` | Inspect headers with `curl -sS -D -` and fix transport before editing JSON. |
+| `protocol` or `protocol_version` rejected | Legacy `agent-identity-v1` or missing `protocol_version` | Set `protocol: "agent-identity-protocol"` and `protocol_version: "2.0"`. |
+| `field.rp_attestation` / `rp_attestation_removed` | Document still embeds legacy `rp_attestation` JWS | Remove `rp_attestation` and publish `attestation: { mode, uri }`. |
+| `attestation_uri_host_untrusted` | `broker` URI origin is not in `issuer_allowlist` or trusted-broker list | Use the broker origin already listed in `issuer_allowlist`. |
+| `attestation_uri_host_unbound` | `provider` URI points to a third-party host or external CDN | Host the provider-managed JSON on your discovery origin or a subdomain. |
+| `terms.url` digest changes between fetches | Per-request nonce, timestamp, bot challenge, or dynamic banner | Serve deterministic UTF-8 bytes with no redirects. See [Publish discovery](/providers/guides/publish-discovery/). |
 
-## Terms and replay
+### Attestation status
 
 | Symptom | Cause | Fix |
 | :--- | :--- | :--- |
-| `tos_hash_mismatch` after a terms edit | The text changed without a new version and hash, or the assertion carries the old hash | Publish new text, version and hash atomically; the agent must re-discover and re-accept. |
-| `tos_hash_mismatch` only for some agents | A stale cache or an in-flight assertion from before the change | Honor the cache lifetime; document any bounded grace period outside discovery. |
-| `assertion_replayed` on a retry | The same `jti` is being used for a different agent, account or service | Same-context retries must resolve idempotently. Issue a new assertion only for a new context. |
-| Duplicate accounts | The account key is not unique, or the resolve path creates instead of looking up | Key on `(iss, human.id)` or `(iss, agent.id)` and enforce it in the database. |
-| A resolve returns an error | The code treats `resolution: "resolved"` as a failure | `resolved` is success; return `200` and omit the credential. |
-| A resolve returns a new credential | Credentials are minted on every call | Return credentials only on create; point at the recovery path otherwise. |
-| Duplicate welcome or legal email | Mail is sent on resolve | Send mail only on creation. |
+| `attestation.status: "unverified"` | No `attestation` object in discovery, or broker returned `404` | Verify your domain in the [Provider Portal](/providers/portal/) and publish the generated `attestation` block, or accept that `verify`/`strict` clients will refuse signups. |
+| `attestation.status: "expired"` | Token is past `exp` | For broker-managed, verify `attestation.uri` and network reachability; for provider-managed, renew via `POST /api/provider/v1/attestation` before the 24-hour TTL. |
+| `attestation.status: "suspended"` or `403 provider_suspended` | Provider or origin is suspended by the broker | Contact the broker operator; do not expect retries to clear suspension. |
+| `attestation.status: "invalid"` with `attestation_revoked` | Broker answered `410` | Revocation is terminal for that attestation; check status with the broker operator. |
+| `attestation.status: "unavailable"` | Network timeout, `429`, or `5xx` | Retry later; do not treat unavailability as `unverified`. |
+| `strict` client rejects a valid token | Service uses `mode: "provider"` | Switch to broker-managed attestation (`mode: "broker"`). |
 
-## Context guide
-
-| Symptom | Cause | Fix |
-| :--- | :--- | :--- |
-| Context fetch fails | URL moved, redirect or a non-HTTPS host | Serve a stable HTTPS path on the signup endpoint's registrable domain. |
-| Context hash mismatch | The guide changed without a new `context.sha256` | Update bytes and hash in the same deploy. |
-| Broker rejects the pointer | Cross-domain URL, or the receipt omits `service.provider_url` | Use the signup endpoint's domain and include `provider_url` in the receipt. |
-| Agent acts on a guide that changed | The agent cached the guide and skipped the hash check | Re-fetch at the start of a provisioning task and verify on every fetch. |
-| Guide exposes a credential | A secret was pasted into vendor documentation | Remove it, rotate the credential and republish the hash. |
-
-## Transport and browser
+### Signature, JWKS, terms, and replay
 
 | Symptom | Cause | Fix |
 | :--- | :--- | :--- |
-| CORS error in a browser | Discovery fetched from a page without CORS headers | Serve `Access-Control-Allow-Origin: *` where appropriate; agents should fetch server-side. |
-| `404` on `/.well-known/...` | The host treats dot-directories as hidden, or a rewrite strips the path | Add an explicit route; a Next.js route segment is `app/.well-known/agent-signup.json/route.js`. |
-| A CDN challenge page is returned | Bot protection in front of the well-known path | Exempt this path from challenges and redirects. |
-| JSON parses locally but not live | HTML error page or compression/proxy issue | Check the content type and the first bytes. |
-| The signup response is cached | A shared cache stored a credential response | Send `Cache-Control: no-store` on signup responses. |
+| `401 invalid_assertion` on every call | Wrong JWKS URL, local test override left in prod, wrong `alg`/`typ`, or proxy modifying header | Fetch `<iss>/.well-known/jwks.json`, remove `BROKER_JWKS_URL` overrides, and require `EdDSA` plus `typ: "agent-id+jwt"`. |
+| `401 invalid_assertion` after broker key rotation | JWKS cached without refresh | Refresh JWKS once on unknown `kid`; never hard-code `broker-key-1`. |
+| `401 assertion_expired` immediately | Server clock skew over 60 seconds | Sync host clocks with NTP and allow up to 60 seconds of skew. |
+| `403 issuer_not_allowed` or `audience_mismatch` | Trailing slash, path, or mismatched `audience` string | Match exact origin in `issuer_allowlist` and exact `audience` string. |
+| `409 tos_hash_mismatch` | Terms changed without updating `terms.version`, or assertion carries stale terms URL/hash | Publish new bytes and `terms.version` atomically so agents re-discover and re-accept. |
+| `409 assertion_replayed` on retry | Handler rejects same `jti` even for the same account | Allow same `jti` for the same account to resolve idempotently; reject only conflicting contexts. |
+| Duplicate accounts or reissued credentials | Account key not unique or credentials returned on `resolved` | Enforce unique `(iss, human.id)` in DB; return credentials and welcome email only on `created`. |
+
+### Context guide and transport
+
+| Symptom | Cause | Fix |
+| :--- | :--- | :--- |
+| Context hash mismatch | Guide updated without updating `context.sha256` | Deploy updated guide bytes and new `context.sha256` together. |
+| Broker rejects receipt `context` pointer | Cross-domain URL or missing `service.provider_url` | Host guide on the signup endpoint's registrable domain and include `service.provider_url`. |
+| `404` on `/.well-known/agent-signup.json` | Host hides dotfiles or framework rewrites route | Add an explicit route (for example `app/.well-known/agent-signup.json/route.ts`). |
+| CDN challenge HTML returned | Bot protection enabled on well-known or signup route | Exempt `/.well-known/agent-signup.json`, `terms.url`, and `endpoints.agent_signup` from interactive challenges. |
+| Signup credential cached by CDN | Missing `Cache-Control: no-store` | Send `Cache-Control: no-store` on every `POST` signup response. |
 
 ## Diagnostic sequence
 
-1. `curl -sS -D - https://<origin>/.well-known/agent-signup.json` and confirm status, content type, no redirect.
-2. Fetch `terms.url` twice and confirm the bytes are identical and the response is not a redirect.
-3. Run the validator with `--json` and read the failing check id.
-4. Fetch the issuer JWKS and compare `kid`, `alg` and `typ`.
-5. Reproduce the signup with a synthetic assertion and check the returned code.
-6. Only then change code. A conformance failure is usually the document, not the validator.
+When debugging a broken provider setup, run these six checks in order:
 
-## Next
-
-- [Validate and register](/providers/guides/validate-and-register/): commands and exit codes.
-- [Stable error codes](/providers/guides/error-codes/): code-to-action mapping.
-- [Verify assertions](/providers/guides/verify-assertions/): the full check list.
+1. `curl -sS -D - https://<origin>/.well-known/agent-signup.json` to confirm `200`, `application/json`, and no redirects.
+2. Fetch `terms.url` twice and compare `sha256sum` to confirm deterministic bytes.
+3. Run `npx @agentregistrar/discovery@2.1.0 validate https://<origin>/.well-known/agent-signup.json --probe-jwks --json` and inspect `errors`.
+4. Run **Test my setup** in the [Provider Portal](/providers/portal/#3-step-setup-wizard) to inspect the unsigned signup probe and assertion preview.
+5. Verify `<iss>/.well-known/jwks.json` is reachable from your backend and matches `kid`/`EdDSA`.
+6. Replay a local fixture assertion from [Verify assertions](/providers/guides/verify-assertions/) and confirm exact status and error codes against [Error codes](/reference/error-codes/).

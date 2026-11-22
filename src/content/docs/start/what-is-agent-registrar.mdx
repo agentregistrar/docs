@@ -1,64 +1,54 @@
 ---
 title: What is Agent Registrar
-description: The product, the protocol and the broker, and which one owns which part of a brokered signup.
+description: What Agent Registrar is, how the product, protocol, and broker divide ownership, and what it is not.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v2.1.0 (563525e), 2026-11-21"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 sidebar:
   order: 1
 ---
 
-Agent Registrar is an agent identity and brokerage service. A verified human signs one master delegation agreement; each agent gets a sub-identity, a dedicated email inbox, and scoped delegation. A provider publishes an identity-only discovery document and verifies a signed assertion; the broker records the terms acceptance and the signup receipt.
+Agent Registrar is an agent identity broker. A verified human signs one Master Agent Delegation Agreement; each connected agent gets its own identity and email inbox. When an agent signs up for a supported service, Agent Registrar records the exact terms accepted, emails a copy to the human, and issues a short-lived signed identity token the provider verifies directly on its own domain.
 
-## Three things with similar names
+## Product, protocol, and broker
 
-| Thing | What it is | What it owns |
+Three names appear across these docs. They are separate layers with clear boundaries:
+
+| Layer | What it is | What it owns |
 | :--- | :--- | :--- |
-| The product | The service a human signs up for, and the portal behind it | Human accounts, agent sub-identities, inboxes, the acceptance ledger, the kill switch |
-| The Agent Identity Protocol (`agent-identity-protocol` on the wire) | The provider contract | The discovery document shape, how an assertion is presented, the optional receipt, the stable error codes |
-| The broker | The running service at `agentregistrar.dev` | Human verification, assertion minting, acceptance records, the MCP tools, the agent inbox |
+| **Agent Registrar** (the product) | The hosted service and Developer and Provider Portals at `agentregistrar.dev` | Human accounts, agent identities, inboxes, the `/activity` audit trail, trust settings, and per-agent kill switches |
+| **Agent Identity Protocol** | The open Apache-2.0 specification (`v2.1.0`) | Discovery document format, signed identity token claims, optional signup receipts, and stable error codes |
+| **Broker** | Any service implementing the broker role (Agent Registrar is the hosted broker) | Human email verification, short-lived token minting, acceptance records, the 4-tool MCP server, and agent inboxes |
 
-The protocol is not the broker. Any broker that follows the specification can mint an assertion a conformant provider accepts, and any provider that follows it can accept assertions from any allowed issuer. The broker is one implementation, and the only one this site documents in detail.
+The specification, validator, and documentation are Apache-2.0; the hosted broker codebase is private. Any broker that implements the open protocol can mint tokens that a conformant provider accepts, and any provider can verify tokens against public keys without a broker SDK.
 
-## The four gaps the protocol addresses
+## Four gaps brokered signup closes
 
-A service that lets agents sign up has four problems that a normal signup form does not solve.
+Standard web signup forms assume a human is sitting at a browser. When an agent tries to sign up for an API or SaaS tool, four things break:
 
-1. **Legal acceptance.** An agent cannot click "I agree" in a way a provider can audit later. The human signs one master delegation agreement, and each service acceptance is delegated, recorded and pinned to a hash of the exact terms text.
-2. **Attribution.** A provider needs a verified human accountable for the account it creates. The assertion carries the human principal, a verified email flag and a stable identifier, so the provider is not guessing from a display name.
-3. **Reachability.** A provider needs an address that receives receipts, notices and abuse escalations. Each agent sub-identity has a dedicated inbox the human can also read.
-4. **Abuse control.** A provider needs a way to act when an agent misbehaves.
-   The broker exposes revocation and an authenticated abuse-report path, opens a
-   case, and can apply a protective suspension pending review. It notifies the
-   human and does not adjudicate the dispute.
+1. **Auditable terms acceptance.** An agent cannot click "I agree" in a way a service can audit later. With Agent Registrar, the human signs one master agreement, and every service signup fetches the provider's terms page, records a SHA-256 hash of the exact bytes, and emails a copy to the human.
+2. **Accountable human owner.** A service needs to know which verified human stands behind a new account. The signed identity token carries the human's verified email status and stable identifier alongside the agent's identity.
+3. **Reachable inbox.** A service needs an address for welcome mail, verification codes, billing notices, and abuse escalations. Every agent gets a dedicated `@agents.agentregistrar.dev` inbox that the agent can read and the human can inspect or forward.
+4. **Abuse escalation and stop control.** A human needs a one-click kill switch to stop a misbehaving agent from minting new tokens, and a verified provider needs an authenticated path to report abuse so the broker can open a case and, for verified receipt-linked reports, apply a protective suspension pending review.
 
 ## What each party gets
 
-**A human owner** gets one account, a list of their agents, each agent's inbox, the terms acceptance ledger, the service signups recorded against their account, and a kill switch per agent.
-
-**An agent** gets a stable sub-identity (`agt_...`), a dedicated address (`<agent-slug>@agents.agentregistrar.dev`), delegated scopes, the ability to mint a short-lived assertion for one audience, and a place to record a provider's signed receipt.
-
-**A provider** gets an identity-only discovery contract, the verification rules,
-stable error codes, an optional provider-signed receipt and context pointer, an
-optional broker-issued provider verification credential, and an authenticated
-abuse-reporting endpoint. A provider account is required only to be a verified
-provider, issue authenticated receipts, or report abuse with standing; it is not
-required to accept an assertion.
+- **Developers running agents** get a single remote MCP endpoint (`https://agentregistrar.dev/mcp`) with four tools (`identity_whoami`, `identity_signup`, `identity_record_signup`, `inbox_read`), one dedicated inbox per agent, emailed copies of every accepted terms agreement, a unified `/activity` audit trail, and a one-click kill switch per agent.
+- **Service providers** keep their own domain, signup API, customer accounts, credentials, and pricing. They publish one discovery file and verify incoming signed tokens against public keys. Creating a free provider account in the Provider Portal is optional for verifying tokens, and recommended so default `verify` clients recognize your verified domain and so you can issue signed receipts or submit authenticated abuse reports.
 
 ## What this is not
 
-- Not a marketplace. You host your own signup endpoint and keep the customer relationship, the account, the credentials, the pricing, and every vendor capability.
-- Not a wallet, a payment rail or a billing relationship. The protocol carries no payment capability.
-- Not a provisioning API. Signup creates or resolves an account; vendor resources are created by the vendor's own API, documented in its post-signup guide.
-- Not bot detection. The protocol does not try to distinguish a human from a script; it makes a verified human accountable for the agent.
-- Not a KYC provider. `human.verified` means a verified email address, not a verified legal identity.
-- Not a secrets vault. The broker never stores provider credentials; it records identity and signup proofs.
-- Not a guarantee that a provider enforces anything. Enforcement on the provider side is the provider's decision.
-- Not a guarantee that every provider is verified. The provider verification credential is optional; a conformant provider can omit it and stay conformant and unverified.
+- **Not a marketplace.** Providers host their own signup API on their own domain and keep the customer relationship, credentials, and product UX.
+- **Not a credential vault or password manager.** Agent Registrar never sees, stores, or proxies provider API keys or passwords.
+- **Not a payment or billing rail.** The protocol carries no wallet, card, or payment capability.
+- **Not a provisioning API.** Brokered signup creates or resolves an account; vendor resources are created through the provider's own API after signup.
+- **Not KYC or legal identity proofing.** A verified human owner means a verified email address, not government-ID KYC.
+- **Not bot detection.** The protocol does not try to distinguish humans from scripts; it makes a verified human accountable for the agent.
+- **Not a safety stamp.** A verified domain confirms domain control (or reviewed legal-entity evidence at the `entity` level). It never means a provider is safe, approved, or endorsed.
 
 ## Next
 
-- [Key concepts](/start/concepts/) for the vocabulary.
-- [How it works](/start/how-it-works/) for the handshake.
-- [Trust and limits](/start/trust-and-limits/) for what the model does not cover.
-- The [Agent Identity Protocol specification v2.1.0](https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md) for the normative text.
+- [How it works](/start/how-it-works/) walks through the six-step signup flow.
+- [Trust and limits](/start/trust-and-limits/) details every guarantee and known gap.
+- [Agent quickstart](/agents/quickstart/) connects your coding tool in about a minute.
+- [Provider quickstart](/providers/quickstart/) adds brokered agent signup to your service.

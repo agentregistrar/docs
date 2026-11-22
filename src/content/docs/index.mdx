@@ -1,56 +1,59 @@
 ---
 title: Agent Registrar Docs
-description: "Brokered identity for AI agents: every agent acts under a verified human owner."
+description: Give AI agents an accountable identity and inbox, or accept brokered agent signups on your own domain.
 audience: both
 aiGenerated: true
-verifiedAgainst: "live broker agentregistrar.dev and VaporCloud skdl.dev, 2026-10-21"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 ---
 
-Brokered identity for AI agents: every agent acts under a verified human owner.
+Give your AI agents an accountable identity and inbox so they can sign up for supported services without stopping for manual forms, or let agents sign up directly on your own API with a verified human owner behind every account.
 
-Agent Registrar is an agent identity and brokerage service. A verified human signs one master delegation agreement; each agent gets a sub-identity, a dedicated email inbox, and scoped delegation. A relying party publishes an identity-only discovery document and verifies a signed assertion; the broker records the terms acceptance and the signup receipt.
+Every agent acts under a verified human who signed one Master Agent Delegation Agreement. Providers keep their domain, signup endpoint, customer accounts, credentials, and pricing. Agent Registrar proves who is behind the agent, emails a copy of every accepted terms document to the human, and gives you a per-agent kill switch.
 
-## Choose a path
+## Choose your path
 
 <CardGrid>
   <LinkCard
     title="Use an agent"
-    description="Connect a harness, register an agent and complete a first brokered signup. You get an identity, an inbox, a ledger and a kill switch."
+    description="Connect Claude Code, Cursor, OpenCode, Codex CLI, Gemini CLI, or another MCP client in about a minute and complete your first signup."
     href="/agents/quickstart/"
   />
   <LinkCard
     title="Accept agent signups"
-    description="Publish identity-only discovery, verify a signed assertion and return a receipt. The provider keeps the account and every vendor capability."
+    description="Publish one discovery file and add a short JWT verification handler on your own domain. No marketplace or broker proxy."
     href="/providers/quickstart/"
+  />
+  <LinkCard
+    title="Try the live demo"
+    description="Test same-broker, cross-broker, and unverified signup flows against deployed demo services and VaporCloud."
+    href="/demo/"
+  />
+  <LinkCard
+    title="Read the protocol"
+    description="Inspect the Apache-2.0 Agent Identity Protocol v2.1.0 specification, scope boundaries, validator, and security model."
+    href="/protocol/"
   />
 </CardGrid>
 
-## How it works
+## How brokered signup works
 
-1. The human verifies an email address and signs the master delegation agreement.
-2. The agent registers a sub-identity with a dedicated inbox address.
-3. The agent reads the provider discovery document and accepts the terms at `terms.url`.
-4. `identity_signup` fetches `terms.url`, records the acceptance and its hash, and returns a prepared signup request with a short-lived signed assertion.
-5. The provider verifies the assertion, creates the account and returns a receipt.
+1. **Verify once.** The human signs in with GitHub, verifies their email address, and signs the Master Agent Delegation Agreement.
+2. **Connect a coding tool.** The developer adds `https://agentregistrar.dev/mcp` and picks or creates an agent during browser OAuth consent.
+3. **Prepare the signup.** The agent calls `identity_signup`. The broker reads the service's discovery document and terms page, hashes the exact bytes, emails a copy of the terms to the human, and mints a short-lived signed identity token.
+4. **Sign up directly.** The agent sends that prepared request straight to the provider's signup endpoint. The broker never sits in the provider's request path or stores provider API keys.
+5. **Verify and record.** The provider verifies the signed token against public keys, creates or resolves the account, and returns an optional signed receipt that the agent records in the human's `/activity` audit trail.
 
-[How the handshake works](/start/how-it-works/) has the diagram, the numbered flow and the claim-by-claim detail.
+Read [How it works](/start/how-it-works/) for the full six-step diagram, or [What is Agent Registrar](/start/what-is-agent-registrar/) for a plain-language breakdown of what each party owns.
 
 ## Protocol and reference
 
-- [Protocol](/protocol/): the landing page for the Agent Identity Protocol.
-- [Specification v2.1.0](https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md): discovery, assertion, handshake, receipt and context.
-- [Scope boundaries](https://github.com/agentregistrar/spec/blob/v2.1.0/scope-boundaries.md): what belongs in the protocol and what stays vendor capability.
-- [Validator](https://github.com/agentregistrar/spec/blob/v2.1.0/validator.md): check a discovery document before publishing it.
-- [Registry](https://github.com/agentregistrar/spec/blob/main/registry/README.md): the conformance criteria for relying parties.
-- [Reference](/reference/): MCP tools, broker endpoints, error codes and the glossary.
-- [Key concepts](/start/concepts/): the vocabulary used across this site.
+- [Start here](/start/): roles, the signup flow, and trust limits.
+- [Protocol overview](/protocol/): landing page for the open Agent Identity Protocol (`v2.1.0`).
+- [Specification](/protocol/specification/): normative discovery, assertion, receipt, and verification contract.
+- [Scope boundaries](/protocol/scope-boundaries/): what stays in the protocol versus what stays vendor capability.
+- [Validator](/protocol/validator/): check a provider's discovery document before shipping.
+- [Reference](/reference/): exact [MCP tools](/reference/mcp-tools/), [broker HTTP endpoints](/reference/broker-http/), [error codes](/reference/error-codes/), and [glossary](/reference/glossary/).
 
-## Live demo
-
-The broker runs at [agentregistrar.dev](https://agentregistrar.dev). The reference relying party is [VaporCloud](https://skdl.dev), a mock infrastructure provider built for the demo: it publishes terms, a discovery document, a signup endpoint and a vendor guide, and its appliances are fictional.
-
-The [two-broker, three-provider demo network](/demo/) is also live, so you can compare same-broker, cross-broker and unverified signup paths against deployed test providers.
-
-<Aside type="caution" title="Known limits">
-A malicious relying party can harvest contact details, and discovery conformance is cheap to publish. Revocation suspends the broker identity but does not delete accounts a provider already created. The protocol does not prevent abuse; it makes accountability and revocation possible. [Trust and limits](/start/trust-and-limits/) states every known gap.
+<Aside type="caution" title="Trust and limits">
+Agent Registrar proves a verified email owner is accountable for an agent and records the exact terms accepted at signup. It does not store provider credentials, verify legal identity (KYC), detect bots, or delete accounts a provider already created when you revoke an agent. Read [Trust and limits](/start/trust-and-limits/) for every known gap.
 </Aside>

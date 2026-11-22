@@ -1,120 +1,134 @@
 ---
 title: Inbox and verification
-description: List, read, wait for and send mail from an agent inbox, and extract a one-time code safely.
+description: Read and wait for inbound emails in your agent's @agents.agentregistrar.dev inbox with inbox_read, extract 6-digit OTPs, and configure forwarding.
 audience: human
 aiGenerated: true
-verifiedAgainst: "broker monorepo c7ddfa7 and live agentregistrar.dev, 2026-10-21"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 sidebar:
-  order: 4
+  order: 5
 ---
 
-Every agent sub-identity has its own address: `<agent-slug>@agents.agentregistrar.dev`. The agent reads it through four MCP tools; the human reads the same messages in the portal. The inbox is where acceptance receipts, provider welcome mail and verification codes arrive.
+Every agent gets its own receive-only email address of the form `<agent-slug>@agents.agentregistrar.dev`. Providers send welcome emails, legal receipts, billing alerts, and email verification codes to that address. Your agent reads the inbox through one MCP tool (`inbox_read`), and you can view every message live in the Developer Portal or forward it to your verified email.
 
-## The address
+## How the agent address works
 
-The slug is derived from the agent name plus a short suffix, so two agents called the same thing still get distinct addresses. The address is stable for the life of the sub-identity and is the `agent.email` claim a provider sees.
+- The address is generated when you create the agent during browser OAuth consent, combining a slug of your chosen name with a short unique suffix so duplicate names never collide.
+- It stays fixed for the life of the agent (renaming an agent in `/agents/[id]` changes its display label only, never its email address).
+- The inbox is **receive-only** over MCP: agents can read incoming mail when they hold the `inbox:read` scope, and cannot send outbound email.
+- Treat it as a monitored channel, not a throwaway inbox: services may deliver account notices and legal updates there.
 
-Treat it as a monitored channel, not a throwaway: providers may treat notices to that address as delivered, and the broker forwards acceptance receipts to the human as well.
+## Reading mail with `inbox_read`
 
-## inbox_list
+One tool handles all three inbox workflows: listing recent messages, reading a full message by ID, and waiting for a new inbound email to arrive.
 
-Lists recent messages, newest first.
-
-| Input | Type | Default | Notes |
+| Parameter | Type | Range / Default | Used in |
 | :--- | :--- | :--- | :--- |
-| `limit` | integer 1-50 | 10 | Maximum messages to return |
-| `direction` | `inbound` or `outbound` | both | Omit to return both directions |
+| `message_id` | UUID string | optional | Read one full message (returns `text_body`, `html_body`, `headers`, `detected_otp`) |
+| `wait_seconds` | integer | `1` to `25` | Poll for a matching recent inbound email (every 1.5s up to 25s) |
+| `since_seconds_ago` | integer | `1` to `3600` (default `120`) | Lookback window when `wait_seconds` is set |
+| `from_contains` | string | optional | Case-insensitive substring match against raw `from_address` |
+| `subject_contains` | string | optional | Case-insensitive substring match against `subject` |
+| `limit` | integer | `1` to `20` (default `5`) | Max messages returned in list mode |
 
-Each message carries `id`, `direction`, `from_address`, `to_address`, `subject`, `received_at`, `is_legal_or_tos` and a 200-character `snippet`. The result also echoes `agent_id`, `agent_email` and `count`.
+### Mode 1: list recent messages
 
-`is_legal_or_tos` is `true` for acceptance receipts and provider legal mail, which makes it a cheap filter for "what did this agent accept".
-
-## inbox_read
-
-Reads one message by id and returns the full `text_body`, `html_body`, `headers` and `detected_otp`.
-
-`message_id` must be a UUID from `inbox_list` or `inbox_wait_for_email`. An id that belongs to another agent, or no longer exists, returns `message_not_found` with no side effects.
-
-Headers are worth reading on acceptance receipts. The broker's ledger mail carries `x-ledger-type`, `x-assertion-jti`, `x-service-audience`, `x-service-tos-hash` and `x-forwarded-to-human`.
-
-## inbox_wait_for_email
-
-Waits for a matching inbound message and returns the newest match. It checks the database immediately, then waits on a realtime subscription with a polling fallback, and tears both down when it returns or times out.
-
-| Input | Type | Default | Notes |
-| :--- | :--- | :--- | :--- |
-| `from_contains` | string | none | Case-insensitive substring of the sender address |
-| `subject_contains` | string | none | Case-insensitive substring of the subject |
-| `since_seconds_ago` | integer | 60 | Lookback window; older messages are ignored |
-| `timeout_seconds` | integer 1-60 | 30 | Wait budget |
-
-Only inbound messages are considered. If nothing matches within the budget, the tool returns `wait_timeout` with `retryable: true` and a next step, and nothing is consumed or acknowledged.
-
-Two practical notes:
-
-- `since_seconds_ago` is the usual cause of a surprising timeout. If you minted the assertion more than a minute ago, raise the window.
-- Filters are substrings of the raw address and subject. A sender display name such as `VaporCloud <noreply@agents.agentregistrar.dev>` matches `noreply@` or `agents.agentregistrar.dev`, not `skdl.dev`.
-
-## inbox_send
-
-Sends mail from the agent address and records it in the inbox ledger as an outbound message.
-
-| Input | Type | Notes |
-| :--- | :--- | :--- |
-| `to` | email address | One recipient |
-| `subject` | string | Required |
-| `text` | string | Plain-text body, required |
-| `html` | string | Optional HTML alternative; `text` stays the plain-text part |
-
-It is **not** idempotent: a retry sends another email. A send failure returns `send_failed` with side effects that state whether anything left the broker.
-
-Use it for legitimate agent workflows, such as replying to a provider's support thread or sending a summary the human asked for. Do not use it for bulk mail, unsolicited outreach or anything the human owner has not sanctioned: the human is accountable for the account, and the broker can revoke the agent.
-
-## One-time codes
-
-`detected_otp` is the first standalone six-digit number found in the subject, the plain-text body or the HTML body, with tags stripped first so a code split across markup is not glued together. It is `null` when no code is present.
-
-That is a convenience, not a verification protocol. Vendor verification-email flows are the vendor's own: `endpoints.verify_otp` is not part of `agent-identity-protocol`, and the current VaporCloud signup does not ask the agent for a code. Older demo flows did send one; if a provider sends a code today, read it, submit it to that provider's own endpoint, and do not treat the code as a broker credential.
-
-This synthetic message shows the shape a code-bearing email takes in the inbox:
+Call `inbox_read` without `message_id` or `wait_seconds` to inspect the newest messages (up to 20, default 5). Each item includes `id`, `from_address`, `subject`, `received_at`, `is_legal_or_tos`, `detected_otp`, and a truncated `text_body` (up to 2,000 characters):
 
 ```json
 {
   "name": "inbox_read",
-  "arguments": { "message_id": "5c1f..." }
+  "arguments": {
+    "limit": 5,
+    "subject_contains": "VaporCloud"
+  }
 }
 ```
 
+### Mode 2: wait for a verification email
+
+When a provider sends an asynchronous welcome or verification email right after signup, pass `wait_seconds` (up to `25`) and narrow the match with `subject_contains` or `from_contains`:
+
 ```json
 {
-  "id": "5c1f...",
-  "agent_id": "agt_01JAB...",
+  "name": "inbox_read",
+  "arguments": {
+    "subject_contains": "Verification",
+    "wait_seconds": 20,
+    "since_seconds_ago": 300
+  }
+}
+```
+
+If a matching inbound email arrived within `since_seconds_ago` (default `120` seconds) or arrives before `wait_seconds` elapses, `inbox_read` returns it immediately. Otherwise it returns `wait_timeout` with `retryable: true` and no side effects.
+
+Two common filter pitfalls:
+
+- **Lookback window:** if the email arrived more than two minutes ago, raise `since_seconds_ago` (up to `3600`) or omit `wait_seconds` to list recent messages instead.
+- **Substring matching:** `from_contains` matches the raw sender address (for example `noreply@agents.agentregistrar.dev`), not the provider's website domain if the sender uses a different mail domain.
+
+### Mode 3: read one full message
+
+Pass a `message_id` from list mode to fetch the complete `text_body`, `html_body`, `headers`, and `detected_otp`:
+
+```json
+{
+  "name": "inbox_read",
+  "arguments": {
+    "message_id": "5c1f0000-0000-4000-8000-000000000000"
+  }
+}
+```
+
+Asking for an ID that belongs to another agent or does not exist returns `message_not_found`.
+
+## Automatic six-digit OTP extraction (`detected_otp`)
+
+Every message returned by `inbox_read` includes a `detected_otp` field. Agent Registrar strips HTML tags first (so codes split across tags are not accidentally glued together) and extracts the first standalone six-digit number found across the subject, plain-text body, and HTML body. If no standalone six-digit code is present, `detected_otp` is `null`.
+
+Example response shape for a verification email:
+
+```json
+{
+  "id": "5c1f0000-0000-4000-8000-000000000000",
   "direction": "inbound",
-  "from_address": "VaporCloud <noreply@agents.agentregistrar.dev>",
-  "to_address": "opencode-macbook-1a2b3c@agents.agentregistrar.dev",
-  "subject": "[VaporCloud] Your Verification Code: 482910",
-  "text_body": "Your VaporCloud verification code is: 482910. ...",
-  "html_body": "<div>...</div>",
-  "headers": { "x-mailer": "..." },
+  "from_address": "Example Service <noreply@example.com>",
+  "to_address": "claude-code-macbook-1a2b3c@agents.agentregistrar.dev",
+  "subject": "Your verification code: 482910",
+  "text_body": "Your verification code is 482910.",
+  "html_body": "<p>Your verification code is <strong>482910</strong>.</p>",
+  "headers": {},
   "is_legal_or_tos": false,
-  "received_at": "2026-10-21T18:03:02.000Z",
+  "received_at": "2026-11-22T10:03:02.000Z",
   "detected_otp": "482910"
 }
 ```
 
-## Forwarding and duplicates
+`detected_otp` is a convenience helper for provider-specific email verification flows. Submit the code only to the provider's own verification endpoint and never treat it as an Agent Registrar token.
 
-- The acceptance receipt is sent to the agent inbox and forwarded once to the verified human email. Both are tied to the acceptance, not to the tool call.
-- An identical `identity_prove` call while the assertion is unexpired sends no mail. A fresh assertion after expiry also sends no mail; the acceptance already dispatched its receipt.
-- A conformant provider suppresses its welcome and legal mail on a resolve, because nothing about the account changed. A repeated signup therefore does not produce a second welcome.
-- `inbox_send` has no dedupe. If you retry it, the recipient gets two messages.
+## Email forwarding modes (`/settings`)
 
-## Privacy
+Every inbound email to your agents is stored and viewable in the Developer Portal (`/agents/[id]` -> **Live Inbox**). In [agentregistrar.dev/settings](https://agentregistrar.dev/settings), you choose which inbound emails are also forwarded to your verified human email address:
 
-The human owner can read every message in the agent inbox from the portal. Do not send secrets, credentials or personal data through it, and do not assume a message is private to the agent. Inbound mail is also stored in the broker's inbox ledger, including headers.
+| Mode | What forwards to your verified email |
+| :--- | :--- |
+| **`all`** (default) | Every inbound email delivered to any of your agents |
+| **`legal_only`** | Only inbound notices matching terms, legal, billing, invoice, privacy, security, or abuse keywords |
+| **`off`** | No inbound agent emails are forwarded; view them in the portal **Live Inbox** tab |
+
+<Aside type="note" title="Terms acceptance copies always email to you">
+Changing your forwarding mode to `legal_only` or `off` affects inbound provider mail only. Broker-generated copies of terms your agents accept via `identity_signup` are always emailed to your verified address regardless of your forwarding mode.
+</Aside>
+
+## Portal Live Inbox and privacy
+
+You can inspect any agent's inbox directly in `/agents/[id]` under the **Live Inbox** tab, which updates live and displays plain text, rendered HTML, raw headers, and `is_legal_or_tos` badges.
+
+- **Not private to the agent:** the human owner can read every message in the portal, and messages are persisted in the broker's inbox store.
+- **Keep secrets out of email:** never ask a provider or agent to send long-lived API keys, passwords, or sensitive personal data through the inbox.
+- **No duplicate welcome mail on retries:** repeating an identical `identity_signup` call while a token is unexpired sends no new terms copy, and conformant providers suppress duplicate welcome emails on `resolution: "resolved"`.
 
 ## Next
 
-- [Credentials and recovery](/agents/credentials-and-recovery/): why a credential never belongs in the inbox or the transcript.
-- [Terms and ledger](/agents/terms-and-ledger/): what the acceptance receipt records.
-- [Troubleshooting](/agents/troubleshooting/): timeout and filter problems.
+- [Credentials and recovery](/agents/credentials-and-recovery/) covers storing show-once provider API keys safely.
+- [Developer Portal](/agents/portal/) walks through `/settings` and `/agents/[id]`.
+- [Agent troubleshooting](/agents/troubleshooting/) resolves `wait_timeout` and filter issues.

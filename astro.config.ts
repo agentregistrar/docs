@@ -36,9 +36,7 @@ const nimbusConfig = defineNimbusConfig({
   sidebar: {
     indexDisplay: "header-link",
     overviewLabel: true,
-    // The content tree is the sidebar. Manual groups only fix the top-level
-    // order from docs/12-docs-push/01-docs-ia-audit-and-decisions.md section 5.4
-    // and keep the versioned protocol family inside the Protocol group.
+    // The content tree is the sidebar. Manual groups fix the top-level order.
     items: [
       { label: "Home", link: "/" },
       {
@@ -52,7 +50,7 @@ const nimbusConfig = defineNimbusConfig({
         collapsed: false,
       },
       {
-        label: "Agents & harnesses",
+        label: "Agents & developers",
         autogenerate: { directory: "agents" },
         collapsed: false,
       },
@@ -64,11 +62,6 @@ const nimbusConfig = defineNimbusConfig({
       {
         label: "Protocol",
         autogenerate: { directory: "protocol" },
-        collapsed: false,
-      },
-      {
-        label: "Portal",
-        autogenerate: { directory: "portal" },
         collapsed: false,
       },
       {
@@ -85,6 +78,19 @@ const nimbusConfig = defineNimbusConfig({
   },
   search: {},
 });
+
+/** Helper to register both slashless and trailing-slash permanent (308) redirects. */
+function permanentRedirectPairs(
+  map: Record<string, string>,
+): Record<string, { status: 308; destination: string }> {
+  const entries: Record<string, { status: 308; destination: string }> = {};
+  for (const [source, destination] of Object.entries(map)) {
+    const clean = source.replace(/\/+$/, "");
+    entries[clean] = { status: 308, destination };
+    entries[`${clean}/`] = { status: 308, destination };
+  }
+  return entries;
+}
 
 export default defineConfig({
   output: "static",
@@ -105,11 +111,7 @@ export default defineConfig({
     nimbus(nimbusConfig, {
       icons: false,
       validateMdx: true,
-      // Authoring lint rules. The policy and the pass/fail workflow live in
-      // AGENT.md ("Lint and the review gates"); this block is the single
-      // configuration. Errors block merge, warnings are reviewed in the PR.
-      // `astro build` (or `astro sync`) materializes these into
-      // `.nimbus/lint.json`, which `nimbus-docs lint` reads.
+      // Authoring lint rules. Errors block merge, warnings are reviewed in the PR.
       rules: {
         // Structural: a page that fails these is broken for a reader.
         "nimbus/frontmatter-shape": "error",
@@ -122,9 +124,7 @@ export default defineConfig({
         "nimbus/internal-link": "error",
         "nimbus/redirected-link": "error",
         "nimbus/image-ref": "error",
-        // Advisory: readable prose, not correctness. Review the count, do not
-        // gate on it. `bare-url` is the release's replacement for the
-        // "descriptive link text" rule in the plan (recorded in AGENT.md).
+        // Advisory: readable prose, not correctness.
         "nimbus/bare-url": "warn",
         "nimbus/no-self-host-url": "warn",
         "nimbus/code-block-prompt-prefix": "warn",
@@ -148,79 +148,84 @@ export default defineConfig({
       },
     }),
   ],
-  // Redirect map from the information architecture decisions. Permanent (308)
-  // single hops. Every source is registered twice, with and without the
-  // trailing slash: Workers static assets matches `_redirects` entries
-  // exactly, so the trailing-slash form needs its own rule or the built
-  // `<path>/index.html` meta-refresh stub is served with a 200 instead. Only
-  // entries whose destination route is in this build are active: a redirect
-  // may never point at a 404. The staged shortcuts are activated by the issue
-  // that lands their target page, and every entry is re-verified against the
-  // deployed host by the release verification issue.
-  redirects: {
-    "/docs": { status: 308, destination: "/" },
-    "/docs/": { status: 308, destination: "/" },
-    "/spec": { status: 308, destination: "/protocol/specification/" },
-    "/spec/": { status: 308, destination: "/protocol/specification/" },
-    "/specification": {
-      status: 308,
-      destination: "/protocol/specification/",
-    },
-    "/specification/": {
-      status: 308,
-      destination: "/protocol/specification/",
-    },
-    "/protocol/agent-signup": {
-      status: 308,
-      destination: "/protocol/",
-    },
-    "/protocol/agent-signup/": {
-      status: 308,
-      destination: "/protocol/",
-    },
-    // Permanent redirects from the former /agent-identity/v1/ paths.
-    "/agent-identity/v1": { status: 308, destination: "/protocol/" },
-    "/agent-identity/v1/": { status: 308, destination: "/protocol/" },
-    "/agent-identity/v1/agent-signup": { status: 308, destination: "/protocol/" },
-    "/agent-identity/v1/agent-signup/": { status: 308, destination: "/protocol/" },
-    "/agent-identity/v1/specification": { status: 308, destination: "/protocol/specification/" },
-    "/agent-identity/v1/specification/": { status: 308, destination: "/protocol/specification/" },
-    "/agent-identity/v1/scope-boundaries": { status: 308, destination: "/protocol/scope-boundaries/" },
-    "/agent-identity/v1/scope-boundaries/": { status: 308, destination: "/protocol/scope-boundaries/" },
-    "/agent-identity/v1/implementation-guide": { status: 308, destination: "/protocol/implementation-guide/" },
-    "/agent-identity/v1/implementation-guide/": { status: 308, destination: "/protocol/implementation-guide/" },
-    "/agent-identity/v1/validator": { status: 308, destination: "/protocol/validator/" },
-    "/agent-identity/v1/validator/": { status: 308, destination: "/protocol/validator/" },
-    "/agent-identity/v1/discovery-fields": { status: 308, destination: "/protocol/discovery-fields/" },
-    "/agent-identity/v1/discovery-fields/": { status: 308, destination: "/protocol/discovery-fields/" },
-    "/agent-identity/v1/assertion-claims": { status: 308, destination: "/protocol/assertion-claims/" },
-    "/agent-identity/v1/assertion-claims/": { status: 308, destination: "/protocol/assertion-claims/" },
-    "/agent-identity/v1/receipt-and-context": { status: 308, destination: "/protocol/receipt-and-context/" },
-    "/agent-identity/v1/receipt-and-context/": { status: 308, destination: "/protocol/receipt-and-context/" },
-    "/agent-identity/v1/security": { status: 308, destination: "/protocol/security/" },
-    "/agent-identity/v1/security/": { status: 308, destination: "/protocol/security/" },
-    "/agent-identity/v1/conformance": { status: 308, destination: "/protocol/conformance/" },
-    "/agent-identity/v1/conformance/": { status: 308, destination: "/protocol/conformance/" },
-    "/agent-identity/v1/versioning": { status: 308, destination: "/protocol/versioning/" },
-    "/agent-identity/v1/versioning/": { status: 308, destination: "/protocol/versioning/" },
-    "/agent-identity/v1/changelog": { status: 308, destination: "/protocol/changelog/" },
-    "/agent-identity/v1/changelog/": { status: 308, destination: "/protocol/changelog/" },
-    // The provider, agent, reference and registry shortcuts. Their target pages
-    // landed in Issues 07, 08 and 10; the release verification issue activates
-    // the shortcuts and re-checks every entry against the deployed host.
-    "/implement": { status: 308, destination: "/providers/quickstart/" },
-    "/implement/": { status: 308, destination: "/providers/quickstart/" },
-    "/quickstart": { status: 308, destination: "/start/quickstart-agent/" },
-    "/quickstart/": { status: 308, destination: "/start/quickstart-agent/" },
-    "/mcp": { status: 308, destination: "/reference/mcp-tools/" },
-    "/mcp/": { status: 308, destination: "/reference/mcp-tools/" },
-    "/registry": {
-      status: 308,
-      destination: "/providers/guides/validate-and-register/",
-    },
-    "/registry/": {
-      status: 308,
-      destination: "/providers/guides/validate-and-register/",
-    },
-  },
+  // Permanent (308) single-hop redirects. Both slashless and trailing-slash
+  // forms are registered so Workers static assets match `_redirects` directly.
+  // Every destination must exist in this build (never chain redirects or 404).
+  redirects: permanentRedirectPairs({
+    // Top-level shortcuts.
+    "/docs": "/",
+    "/spec": "/protocol/specification/",
+    "/specification": "/protocol/specification/",
+    "/protocol/agent-signup": "/protocol/",
+    "/implement": "/providers/quickstart/",
+    "/quickstart": "/agents/quickstart/",
+    "/mcp": "/reference/mcp-tools/",
+    "/registry": "/providers/guides/validate-and-register/",
+    "/checker": "/providers/guides/validate-and-register/",
+
+    // Former /agent-identity/v1/ protocol paths (single-hop to final destinations).
+    "/agent-identity/v1": "/protocol/",
+    "/agent-identity/v1/agent-signup": "/protocol/",
+    "/agent-identity/v1/specification": "/protocol/specification/",
+    "/agent-identity/v1/scope-boundaries": "/protocol/scope-boundaries/",
+    "/agent-identity/v1/implementation-guide": "/protocol/implementation-guide/",
+    "/agent-identity/v1/validator": "/protocol/validator/",
+    "/agent-identity/v1/discovery-fields": "/protocol/discovery-fields/",
+    "/agent-identity/v1/assertion-claims": "/protocol/assertion-claims/",
+    "/agent-identity/v1/receipt-and-context": "/protocol/receipt-and-context/",
+    "/agent-identity/v1/security": "/protocol/security/",
+    "/agent-identity/v1/conformance": "/protocol/validator/",
+    "/agent-identity/v1/versioning": "/protocol/changelog/",
+    "/agent-identity/v1/changelog": "/protocol/changelog/",
+
+    // Consolidated Start pages.
+    "/start/concepts": "/reference/glossary/",
+    "/start/quickstart-agent": "/agents/quickstart/",
+    "/start/quickstart-provider": "/providers/quickstart/",
+
+    // Consolidated Agents & install pages.
+    "/agents/first-signup": "/agents/quickstart/",
+    "/agents/identity-lifecycle": "/agents/portal/",
+    "/agents/terms-and-ledger": "/agents/portal/",
+    "/agents/install/antigravity": "/agents/install/",
+    "/agents/install/claude-code": "/agents/install/",
+    "/agents/install/claude-desktop": "/agents/install/",
+    "/agents/install/codex-cli": "/agents/install/",
+    "/agents/install/cursor": "/agents/install/",
+    "/agents/install/generic-mcp": "/agents/install/",
+    "/agents/install/opencode": "/agents/install/",
+    "/agents/install/vscode": "/agents/install/",
+    "/agents/install/oauth-troubleshooting": "/agents/troubleshooting/",
+
+    // Retired /portal/* section folded into /agents/portal/ and related guides.
+    "/portal": "/agents/portal/",
+    "/portal/sign-in-and-verification": "/agents/portal/",
+    "/portal/master-agreement": "/agents/portal/",
+    "/portal/dashboard": "/agents/portal/",
+    "/portal/agent-detail": "/agents/portal/",
+    "/portal/ledger": "/agents/portal/",
+    "/portal/kill-switch-and-revocation": "/agents/portal/",
+    "/portal/inbox": "/agents/inbox-and-verification/",
+    "/portal/abuse-reports": "/providers/guides/abuse-reporting/",
+
+    // Consolidated Providers pages.
+    "/providers/concepts/brokered-signup": "/start/how-it-works/",
+    "/providers/concepts/identity-only-discovery": "/providers/guides/publish-discovery/",
+    "/providers/concepts/liability-and-terms": "/start/trust-and-limits/",
+    "/providers/guides/serve-terms": "/providers/guides/publish-discovery/",
+    "/providers/guides/error-codes": "/reference/error-codes/",
+    "/providers/guides/publish-context-guide": "/providers/guides/issue-signup-receipt/",
+    "/providers/guides/production-checklist": "/providers/troubleshooting/",
+    "/providers/hosting/nextjs": "/providers/hosting/",
+    "/providers/hosting/cloudflare-worker": "/providers/hosting/",
+    "/providers/hosting/generic-http": "/providers/hosting/",
+    "/providers/reference-vaporcloud": "/demo/",
+
+    // Consolidated Protocol & Contribute pages.
+    "/protocol/conformance": "/protocol/validator/",
+    "/protocol/versioning": "/protocol/changelog/",
+    "/contribute/docs": "/contribute/",
+    "/contribute/local-development": "/contribute/",
+    "/contribute/spec": "/contribute/",
+  }),
 });

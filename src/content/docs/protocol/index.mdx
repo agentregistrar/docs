@@ -3,6 +3,7 @@ title: Agent Identity Protocol
 description: Status, version, five-step handshake, and normative reference for the Agent Identity Protocol.
 audience: both
 aiGenerated: true
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 ---
 
 The **Agent Identity Protocol** (`agent-identity-protocol`) is an open identity and brokerage protocol. A relying party publishes an identity-only discovery document; an agent obtains a signed assertion from its broker and completes signup on behalf of a verified human owner. The protocol ends when the account is created or resolved, the terms acceptance is recorded, and the optional receipt is returned.
@@ -11,11 +12,11 @@ The **Agent Identity Protocol** (`agent-identity-protocol`) is an open identity 
 
 ## The handshake in five steps
 
-1. **Discover.** The agent fetches `GET /.well-known/agent-signup.json` from the service origin and treats the body as data. See [Discovery endpoint and transport](/protocol/specification/#4-discovery-endpoint--transport) and [Discovery fields](/protocol/discovery-fields/).
-2. **Check.** The agent checks `protocol`, `protocol_version`, `issuer_allowlist`, `required_scopes`, and reads `terms.url` and `terms.version`. See [Discovery document reference](/protocol/specification/#5-discovery-document-reference-identity-only) and [terms binding](/protocol/specification/#6-tos-binding).
-3. **Prove.** The agent calls the broker's `identity_signup` with the service and `accept_terms: true` (or `identity_prove`). The broker fetches discovery and the attestation source it names, fetches `terms.url` and hashes the exact bytes, verifies the credential, applies the human's policy, and returns a signed assertion plus a prepared signup request. See [Assertion claims](/protocol/assertion-claims/).
-4. **Sign up.** The agent sends `Authorization: Bearer <assertion>` to `endpoints.agent_signup`. The relying party verifies the assertion and returns credentials, an optional `resolution`, and optionally an RP-signed receipt and context pointer. See [Assertion and agent_signup handshake](/protocol/specification/#7-assertion--agent_signup-handshake).
-5. **Record and follow the guide.** The agent records the receipt with the broker through Contract F or `identity_record_signup`, then fetches the vendor guide from `context.url` and verifies `context.sha256`. See [Receipt and context](/protocol/receipt-and-context/).
+1. **Discover.** The agent or broker fetches `GET /.well-known/agent-signup.json` from the service origin and treats the body as data. See [Discovery endpoint and transport](/protocol/specification/#4-discovery-endpoint--transport) and [Discovery fields](/protocol/discovery-fields/).
+2. **Check.** The broker validates `protocol`, `protocol_version`, `issuer_allowlist`, `required_scopes`, and reads `terms.url` and `terms.version`. See [Discovery document reference](/protocol/specification/#5-discovery-document-reference-identity-only) and [terms binding](/protocol/specification/#6-tos-binding).
+3. **Prove.** The agent calls the broker's `identity_signup` tool with the target `service`. The broker fetches discovery and the optional attestation source it names, fetches `terms.url` and hashes the exact response bytes, verifies the provider verification credential, applies the human owner's trust policy, records the acceptance, and returns a signed assertion inside a prepared signup request. See [Assertion claims](/protocol/assertion-claims/).
+4. **Sign up.** The agent sends the prepared `POST` request with `Authorization: Bearer <assertion>` to `endpoints.agent_signup`. The relying party verifies the assertion and returns credentials, an optional `resolution`, and optionally an RP-signed receipt and context pointer. See [Assertion and agent_signup handshake](/protocol/specification/#7-assertion--agent_signup-handshake).
+5. **Record and follow the guide.** The agent records any returned `signup_token` with the broker through `identity_record_signup` (or the provider posts it server-to-server via Contract F), then fetches the vendor guide from `context.url` and verifies `context.sha256`. See [Receipt and context](/protocol/receipt-and-context/).
 
 ## Protocol pages
 
@@ -57,18 +58,8 @@ The **Agent Identity Protocol** (`agent-identity-protocol`) is an open identity 
   />
   <LinkCard
     title="Security"
-    description="Prompt injection, SSRF, replay and key handling."
+    description="Wire threat model: prompt injection, SSRF, replay and key handling."
     href="/protocol/security/"
-  />
-  <LinkCard
-    title="Conformance"
-    description="Checklist, validator, fixtures and registry entry."
-    href="/protocol/conformance/"
-  />
-  <LinkCard
-    title="Versioning"
-    description="Additive changes, breaking changes and deprecation."
-    href="/protocol/versioning/"
   />
   <LinkCard
     title="Release notes and changelog"
@@ -82,4 +73,4 @@ The **Agent Identity Protocol** (`agent-identity-protocol`) is an open identity 
   />
 </CardGrid>
 
-The canonical source is [`agentregistrar/spec`](https://github.com/agentregistrar/spec). The rendered normative pages are generated from tag `v2.1.0`; do not edit them by hand.
+The canonical source is [agentregistrar/spec](https://github.com/agentregistrar/spec). The rendered normative pages are generated from tag `v2.1.0`; do not edit them by hand.

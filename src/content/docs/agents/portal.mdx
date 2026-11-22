@@ -1,0 +1,108 @@
+---
+title: Developer Portal
+description: Manage your connected agents, unified /activity audit trail, /trust policies, /settings email forwarding, and kill switch in the Developer Portal.
+audience: human
+aiGenerated: true
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+sidebar:
+  order: 4
+---
+
+The Developer Portal at [agentregistrar.dev/dashboard](https://agentregistrar.dev/dashboard) is your control panel for every agent acting under your verified human account. You inspect agents, disconnect OAuth sessions, read live inboxes, audit every terms acceptance and signup in `/activity`, manage verification rules in `/trust`, and configure email forwarding in `/settings`.
+
+## First-time onboarding
+
+New developer accounts complete three one-time steps before connecting a coding tool:
+
+1. **GitHub sign-in (`/login`):** sign in with GitHub. There is no separate username/password form. Your GitHub email becomes the verified human owner contact.
+2. **Email verification (`/onboarding/verify-email`):** enter the six-digit code sent via Resend to your email address. Codes expire after ten minutes, and you can request a new code after a short cooldown.
+3. **Master Agent Delegation Agreement (`/onboarding/tos`):** read and sign the Master Agreement (`v2026-10-01`). This one agreement authorizes your agents to accept standard service terms on your behalf. If a coding tool opens `/oauth/authorize` before you finish onboarding, you can verify your email and sign the agreement inline without losing your OAuth session.
+
+## Dashboard (`/dashboard`)
+
+The dashboard gives you an at-a-glance view of your account:
+
+- **Identity header:** confirms your verified human email and account state.
+- **MCP setup banner:** copy-paste connection snippets for **Claude Code**, **OpenCode**, **Codex CLI**, **Cursor**, and **Gemini CLI**. Once you have connected at least one agent, the banner collapses automatically so your active agents stay at the top.
+- **Active agents grid:** shows your current quota usage (for example `1 of 2 active`, or unlimited when no cap is set), each agent's status (`ACTIVE`, `REVOKED`, or `SUSPENDED`), ID, inbox address, scopes, a link to open `/agents/[id]`, and a one-click kill switch.
+- **Recent activity preview:** displays the newest entries from `/activity` with a link to the full audit trail.
+
+Agents are created when you approve a coding tool on the browser OAuth consent screen (`/oauth/authorize`), not via a standalone create button on the dashboard.
+
+## Agent detail (`/agents/[id]`)
+
+Opening any agent shows its identity header, session controls, kill switch, and three activity tabs:
+
+- **Identity header:** agent name, status badge, copy buttons for the agent ID (`agt_...`) and inbox address (`<agent-slug>@agents.agentregistrar.dev`), harness label, and delegated scopes (`tos:accept`, `signup:free_tier`, `inbox:read`).
+- **Rename and OAuth sessions:** rename the agent inline (updating its display label without changing its `agt_...` ID or email address), and review every connected OAuth session with a per-session **Disconnect** button. Disconnecting one session revokes that tool's bearer token without revoking the agent or affecting other connected tools.
+- **Kill switch:** one-click **Revoke agent** / **Reactivate agent** button (hidden when an agent is under operator suspension).
+- **Three tabs:**
+  - **Live Inbox:** reads every inbound message delivered to the agent's address in real time, showing plain text, HTML, headers, and legal/terms flags.
+  - **Activity:** filtered view of `/activity` showing only this agent's terms acceptances and signup receipts.
+  - **Abuse Reports:** lists any authenticated abuse reports filed by providers against this agent, including standing (`verified` or `unverified`), reason, evidence JTI, and case details.
+
+## Kill switch, suspension, and compromise response
+
+### Revoke vs. operator suspension
+
+| State | Who sets it | What stops immediately | How it is restored |
+| :--- | :--- | :--- | :--- |
+| **`revoked`** | Human owner via one-click **Revoke agent** in `/dashboard` or `/agents/[id]` | New `identity_signup` tokens, `identity_whoami`, and `inbox_read` for that agent. Other agents stay active. | Human clicks **Reactivate agent** (restores the exact same ID and inbox). |
+| **`suspended`** | Broker operator following a verified, receipt-linked provider abuse report | Same tool blocks as `revoked`, plus new browser OAuth approvals on the account are blocked. | Operator review and restore only; the kill switch is hidden and cannot clear it. |
+
+### What revocation does not do
+
+The kill switch is a broker identity control, not a remote delete button on third-party services:
+
+- It does **not** delete accounts the agent already created at providers.
+- It does **not** revoke or rotate provider API keys (Agent Registrar never stored them).
+- It does **not** erase recorded terms acceptances in `/activity`.
+- It does **not** recall a signed identity token already sent to a provider (tokens expire within five minutes).
+
+### If an agent or credential is compromised
+
+1. Click **Revoke agent** in `/dashboard` or `/agents/[id]`, or **Disconnect** the affected OAuth session if only one tool's token leaked.
+2. Open `/activity` to list every service the agent signed up for.
+3. Rotate or revoke provider API keys directly in each affected provider's dashboard or API.
+4. Inspect the agent's **Live Inbox** and **Activity** tabs for unexpected signups or verification emails.
+5. Preserve the agent ID, assertion JTIs, and timestamps before deleting anything, and contact affected providers.
+6. If your GitHub account or Agent Registrar account itself was compromised, secure GitHub and your email first, revoke all active agents, and report the incident to `security@agentregistrar.dev` (never send passwords, session cookies, or provider API keys).
+
+## Activity (`/activity`)
+
+`/activity` is your unified, paginated audit trail across all agents. Every row starts from a recorded terms acceptance (`tos_acceptances`) joined with its strongest signup receipt (if the provider issued one).
+
+Because acceptances are the base of the table:
+
+- **Keyless and receiptless signups stay visible.** Even when a provider verifies your agent's token without issuing a signed receipt, you still see the service, agent, terms URL, SHA-256 hash, timestamp, and email delivery status.
+- **Receipt-backed signups show proof details.** When a provider posts a receipt (or your agent records one with `identity_record_signup`), the row includes the provider account ID, proof source (`rp_callback` or `rp_signed`), and optional hash-pinned guide link.
+- **Verification snapshots stay transparent.** Each entry records the provider's verification status at signup time separately from its latest known status.
+
+## Trust (`/trust` and `/trust/report`)
+
+Every agent under your account inherits your trust policy from [agentregistrar.dev/trust](https://agentregistrar.dev/trust):
+
+- **Default verification policy:**
+  - **`verify` (recommended default):** requires a valid verified domain (or entity) credential from a trusted broker before minting a signup token. Accepts both broker-managed and provider-managed verification.
+  - **`no_verify`:** allows signups to unverified services (the service is still labeled unverified in `/activity`).
+  - **`strict`:** requires a valid broker-managed verification credential and rejects provider-managed sources.
+- **Per-provider rules and blocklist:** override the default policy for a specific provider origin and audience (for example, allowing one local or unverified tool with `no_verify`), or mark any service as **blocked** (`rp_blocked` refuses signup regardless of verification status).
+- **Submitted provider reports and `/trust/report`:** if a provider misbehaves, use [agentregistrar.dev/trust/report](https://agentregistrar.dev/trust/report) to submit a report naming the origin, audience, reason, and optional evidence. You can optionally block the provider or distrust its attesting broker in the same step. Provider reports open a case and update your personal policy; they do not adjudicate disputes.
+- **Advanced: federated broker trust:** collapsed by default on `/trust`. Expand it to view broker defaults or explicitly trust or distrust another broker (for example, trusting the demo Broker B in [Try the demo network](/demo/)).
+
+<Aside type="note" title="Verification is identity, not safety">
+A verified provider proved control of its domain (or legal-entity details at the `entity` level). It is not an endorsement, security audit, or safety guarantee.
+</Aside>
+
+## Settings (`/settings`)
+
+[agentregistrar.dev/settings](https://agentregistrar.dev/settings) manages two areas:
+
+- **Email forwarding mode:** choose how inbound emails sent to your agents' `@agents.agentregistrar.dev` addresses are forwarded to your verified email: **`all`** (default), **`legal_only`**, or **`off`**. Terms acceptance copies are **always** emailed to you regardless of this setting. See [Inbox and verification](/agents/inbox-and-verification/) for full details.
+- **Account and Delegation Agreement (read-only):** confirms your verified email address, active agent quota (`X of 2` or unlimited), signed Master Delegation Agreement version (`v2026-10-01`), signing timestamp, and agreement SHA-256 hash.
+
+## Next
+
+- [Inbox and verification](/agents/inbox-and-verification/) covers `inbox_read` and email forwarding rules.
+- [Credentials and recovery](/agents/credentials-and-recovery/) explains how to store and rotate provider API keys.
+- [Trust and limits](/start/trust-and-limits/) details the full threat model and known gaps.

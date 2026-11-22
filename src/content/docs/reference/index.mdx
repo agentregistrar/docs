@@ -1,31 +1,31 @@
 ---
 title: Reference
-description: Reference for the MCP tools, broker endpoints, error codes and canonical definitions used across the docs.
+description: Reference for the four MCP tools, broker HTTP and OAuth endpoints, canonical error codes, and glossary.
 audience: both
 aiGenerated: true
-verifiedAgainst: "broker dec84d9, spec v2.1.0 (563525e), 2026-11-21"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 sidebar:
   order: 1
 ---
 
-The reference pages hold the stable lookup material: tool names and inputs, broker HTTP and OAuth endpoints, error envelopes and the glossary that other pages reuse. Behavior pages link here instead of restating the tables.
+The reference pages hold the stable lookup material: tool names and schemas, broker HTTP and OAuth endpoints, error envelopes, and the glossary that other pages reuse. Behavior pages link here instead of restating the tables.
 
 ## What this section covers
 
 | Page | Use it for |
 | :--- | :--- |
-| [MCP tools](/reference/mcp-tools/) | All nine broker tools: inputs, result keys, side effects, retry rules, errors and an example each. |
-| [Broker HTTP and OAuth](/reference/broker-http/) | Metadata, JWKS, the `/mcp` transport, dynamic registration, the consent and token endpoints, abuse reports and signup receipts. |
-| [Error codes](/reference/error-codes/) | Broker, transport, tool, provider and inbox codes with status, retryability and the next action. |
+| [MCP tools](/reference/mcp-tools/) | All four broker tools: input and output schemas, annotations, side effects, retry rules, errors, and static MCP resources. |
+| [Broker HTTP and OAuth](/reference/broker-http/) | Metadata, JWKS, the `/mcp` transport, dynamic registration, OAuth 2.1 consent with agent binding, token exchange, provider verification, abuse reports, and signup receipts. |
+| [Error codes](/reference/error-codes/) | Canonical error catalog across discovery validation, MCP transport, all 28 MCP tool codes, provider signup HTTP, broker APIs, and OAuth. |
 | [Glossary](/reference/glossary/) | One canonical definition per term, with a link to the page that owns the detail. |
 
 ## Protocol reference
 
-The field-level protocol pages are part of the [Protocol](/protocol/) section, not this one:
+The field-level protocol pages live in the [Protocol](/protocol/) section:
 
 - [Discovery fields](/protocol/discovery-fields/) - the `agent-signup.json` document field by field.
 - [Assertion claims](/protocol/assertion-claims/) - the Contract A claim set and the relying-party checks.
-- [Receipt and context](/protocol/receipt-and-context/) - Contract E, the context pointer and credential handoff.
+- [Receipt and context](/protocol/receipt-and-context/) - Contract E, the context pointer, and credential handoff.
 
 ## Primary next step
 

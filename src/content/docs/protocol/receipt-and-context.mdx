@@ -3,15 +3,15 @@ title: Receipt and context
 description: The provider-signed Contract E signup receipt, its historical validity window, proof sources, Contract F ingestion, and the hash-pinned context pointer.
 audience: both
 aiGenerated: true
-lastReviewed: 2026-10-24
-verifiedAgainst: "spec v2.1.0 (563525e), 2026-10-24"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 ---
 
 A successful signup can return two identity artifacts: a provider-signed signup
 receipt (Contract E, introduced in v1.2 and unchanged in v2.1.0) and an optional
-`context` pointer to the vendor's post-signup guide. The receipt is proof of who signed up, for whom, under which
-terms, and when. The context pointer is an opaque, hash-pinned handoff to vendor
-documentation; it is not a capability catalog.
+`context` pointer to the vendor's post-signup guide. The receipt is proof of who
+signed up, for whom, under which terms, and when. The context pointer is an
+opaque, hash-pinned handoff to vendor documentation; it is not a capability
+catalog.
 
 The normative rules are [spec section
 11](/protocol/specification/#11-contract-e-identity-facts--the-context-pointer)
@@ -36,9 +36,8 @@ at the credential recovery path in the guide.
 
 ## Contract E claims
 
-The v1.2 receipt is a compact JWS with header `{"alg":"EdDSA",
-"typ":"agent-signup-receipt+jwt","kid":"<rp key id>"}`. The typ is unchanged; the
-claims changed.
+The Contract E receipt is a compact JWS with header `{"alg":"EdDSA",
+"typ":"agent-signup-receipt+jwt","kid":"<rp key id>"}`.
 
 | Claim | Type | Meaning |
 | :--- | :--- | :--- |
@@ -61,16 +60,16 @@ claims changed.
 | `tos.master_tos_version` | string, optional | The Master Terms version the human accepted. |
 | `context` | object, optional | The hash-pinned post-signup guide. See below. |
 
-**No `exp`.** A v1.2 receipt has no expiry. A legacy receipt may carry `exp`;
-verifiers ignore it and never reject a receipt because it passed. The removed
-vendor claims `service.instance_sku` and `service.endpoint_url` stay removed. No
-free-form vendor `metadata` object exists.
+**No `exp`.** A Contract E receipt has no expiry. A legacy receipt may carry
+`exp`; verifiers ignore it and never reject a receipt because it passed. The
+removed vendor claims `service.instance_sku` and `service.endpoint_url` stay
+removed. No free-form vendor `metadata` object exists.
 
 ## Signing and validity
 
 - The signing key is the RP key named in `service.key_id`. It must appear in the
   attestation identified by `service.attestation_jti`.
-- There is **no broker-key fallback**. A new verified proof requires an RP key
+- There is **no broker-key fallback**. A verified proof requires an RP key
   inside a valid attestation.
 - The receipt is valid when both `iat` and `signed_up_at` fall inside that
   attestation's `[iat, exp]` window. This is a historical comparison; the 60
@@ -97,21 +96,21 @@ Contract F (`POST /api/broker/signup-receipt`) accepts exactly:
 
 Both fields are required. The broker checks the effective RP-broker trust list
 before any JWKS fetch, verifies the historical attestation and the receipt
-signature, and records an `event_kind:"signup"` verification snapshot with
-`proof_source:"rp_callback"`. It never uses a broker key and never substitutes the
-current attestation.
+signature, and records an `event_kind: "signup"` verification snapshot with
+`proof_source: "rp_callback"`. It never uses a broker key and never substitutes
+the current attestation.
 
-`identity_record_signup` (Tier 2) carries the same receipt, optionally with the
-exact attestation. If the attestation is omitted, the broker fetches discovery at
+[`identity_record_signup`](/reference/mcp-tools/#identity_record_signup) (Tier 2)
+carries the same `signup_token`, optionally with the exact historical
+`rp_attestation`. If `rp_attestation` is omitted, the broker fetches discovery at
 `service.origin` and requires the presented attestation's `jti` to equal
 `service.attestation_jti`. Tier 2 records `rp_signed`.
 
 | Proof source | Meaning |
 | :--- | :--- |
-| `rp_callback` | Tier 1: the RP posted the receipt to Contract F. |
-| `rp_signed` | Tier 2: the agent recorded the same RP-signed receipt. |
-| `agent_self_reported` | No RP signature; weaker and marked. |
-| `legacy_broker_signed` | Pre-v1.2 row; historical and unverified. |
+| `rp_callback` | Tier 1: the RP posted the signed receipt directly to Contract F. |
+| `rp_signed` | Tier 2: the agent submitted the same RP-signed receipt via `identity_record_signup`. |
+| `agent_self_reported` | Historical unsigned row from an earlier broker release; `identity_record_signup` no longer writes unsigned rows. |
 
 Tier 1 wins. A matching Tier 2 row can be upgraded by Tier 1. A different account
 id for the same soft key is flagged `conflict` for operator review; it is never
@@ -129,8 +128,8 @@ The pointer appears in the signup response and in the signed receipt. Discovery
 does not advertise a post-signup context field. After the broker records the
 receipt, the same two values are returned to the agent as `context_url` and
 `context_sha256` on
-[identity_record_signup](/reference/mcp-tools/#identity_record_signup), alongside
-the handoff reminder.
+[`identity_record_signup`](/reference/mcp-tools/#identity_record_signup),
+alongside the handoff reminder.
 
 ### Domain rule
 
@@ -216,7 +215,7 @@ lifecycle:
 ## Related
 
 - [Contract E identity facts and the context pointer](/protocol/specification/#11-contract-e-identity-facts--the-context-pointer)
-- [Contract F authenticated ingestion](/protocol/specification/)
 - [Post-signup context handoff](/protocol/specification/#12-post-signup-context-handoff)
 - [Issue a signup receipt](/providers/guides/issue-signup-receipt/)
+- [Credentials and recovery](/agents/credentials-and-recovery/)
 - [Scope boundaries](/protocol/scope-boundaries/)

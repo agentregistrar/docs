@@ -1,27 +1,30 @@
 ---
 title: Error codes
-description: Broker, MCP, OAuth, provider and inbox errors with status, retryability and the next action, including the current trust and terms codes.
+description: Canonical error reference across discovery validation, MCP transport, all 28 MCP tool codes, provider signup HTTP, broker APIs, and OAuth.
 audience: both
 aiGenerated: true
-lastReviewed: 2026-10-24
-verifiedAgainst: "spec v2.1.0 (563525e), shared MCP schemas, 2026-11-21"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 sidebar:
   order: 4
 ---
 
-Errors come from five layers, and each has its own envelope. Read the layer
-first, then the code. `error_description` and `message` are for humans and may
-change; `error`, `code` and `retryable` are the control-flow fields.
+This page is the canonical error catalog across every layer of Agent Registrar
+and the Agent Identity Protocol. Identify the layer first, then branch on
+`code` (or `error`) and `retryable`. Human-readable `message` and
+`error_description` strings may change and are not for control flow.
 
-| Layer | Where it appears | Shape |
+| Layer | Where it appears | Envelope shape |
 | :--- | :--- | :--- |
-| Discovery validation | The conformance/attestation validator, not an agent call | Exit code plus `errors`, `warnings`, `conformance`, `attestation` |
-| MCP transport | `POST /mcp` before a tool runs | HTTP status plus a JSON-RPC `error` object |
-| MCP tools | Inside a tool result | HTTP `200` with `isError: true` and the tool error envelope |
-| Provider handshake | The provider's `agent_signup` response | `error`, optional `error_description`, optional `retryable` |
-| Broker APIs and OAuth | `/api/broker/*`, `/api/oauth/*` | HTTP status plus `{error, error_description, code}` where a client branches |
+| Discovery validation | Conformance validator CLI | Exit code (`0`, `1`, `2`) plus `errors`, `warnings`, `conformance`, `attestation` |
+| MCP transport | `POST /mcp` before any tool runs | HTTP status plus JSON-RPC `error` object (`id: null`) |
+| MCP tools | Inside a tool result | HTTP `200` with `isError: true` and `{ error: { code, message, retryable, side_effects, next_step?, docs } }` |
+| Provider handshake | Relying party's `POST endpoints.agent_signup` | HTTP status plus `{ error, error_description?, retryable? }` |
+| Broker APIs and OAuth | `/api/broker/*`, `/api/provider/v1/*`, `/api/oauth/*` | HTTP status plus `{ error, error_description, code? }` |
 
-The tool error envelope, returned as text content with `isError: true`:
+## MCP tool error envelope
+
+Every MCP tool failure returns `isError: true` with this JSON string in
+`content[0].text` (never `structuredContent`):
 
 ```json
 {
@@ -44,220 +47,196 @@ The tool error envelope, returned as text content with `isError: true`:
 }
 ```
 
-`side_effects` reports what the failed call actually did. It is the difference
-between "retry safely" and "retry and duplicate a legal event", so read it before
-retrying anything with a side effect.
+Always read `side_effects` before retrying: it reports exactly what the failed
+call wrote so you know whether retrying can duplicate a side effect.
 
-## Discovery and verification
+## Discovery validation exit codes
 
-The validator is a producer tool, not an agent-facing error surface. It reports
-two verdicts and an exit code:
+The conformance validator is a producer audit tool, not an agent-facing error
+envelope:
 
 | Exit | Meaning | Next action |
 | :--- | :--- | :--- |
-| `0` | The document was fetched, parsed, and is conformant; no required verification failed. Warnings do not change the code. | Publish. `attestation.status` may still be `unverified`, `expired`, or `invalid` without `--require-attestation`. |
-| `1` | A conformance error (including unparseable JSON, a malformed `attestation` object, a failed host binding, or a present `rp_attestation`), or a failed attestation under `--require-attestation`. | Read `errors` and fix the document or credential. |
-| `2` | The run could not obtain what it needed: document read/fetch failure, or the attestation source or JWKS unavailable under `--require-attestation`. `conformance` is not evaluated. | Fix hosting, the URL, the timeout, or the source, then re-run. |
+| `0` | Document fetched, parsed, and conformant; no required verification failed. Warnings do not fail exit `0`. | Publish. `attestation.status` may still be `unverified`, `expired`, or `invalid` unless `--require-attestation` is set. |
+| `1` | Conformance error (unparseable JSON, malformed `attestation`, failed host binding, forbidden vendor field, or removed `rp_attestation`), or failed attestation under `--require-attestation`. | Fix every entry in `errors` and re-run. |
+| `2` | Transport or availability error: document read/fetch failed, or attestation source / JWKS unreachable under `--require-attestation`. | Fix hosting, URL, timeout, or network availability and re-run. |
 
-A malformed `attestation` object is a conformance error with
-`attestation.status: "not_checked"`, never `invalid`. The stable reasons are
+Stable validator conformance reasons for `attestation` are
 `attestation_mode_invalid`, `attestation_uri_invalid`,
-`attestation_uri_host_untrusted` (broker), `attestation_uri_host_unbound`
-(provider), and `rp_attestation_removed` for the removed discovery field. An
-absent `attestation` object is `unverified`, never invalid. A typed broker
-failure such as `403`, `404`, `410`, `429`, or `503` is a verification result,
-not a conformance error. See the [validator guide](/protocol/validator/).
+`attestation_uri_host_untrusted` (broker mode), `attestation_uri_host_unbound`
+(provider mode), and `rp_attestation_removed`. See [Conformance
+validator](/protocol/validator/).
 
 ## MCP transport and gate errors
 
-These arrive with a non-`200` HTTP status from `POST /mcp`, before any tool runs.
-The JSON-RPC `id` is `null`.
+Returned with a non-`200` HTTP status from `POST /mcp`, before any tool runs
+(`id: null`):
 
-| Code | HTTP | Retryable | Meaning | Next action |
+| JSON-RPC code | HTTP | Retryable | Meaning | Next action |
 | :--- | :-: | :-: | :--- | :--- |
-| `-32001` | `401` | no | Bearer token missing, invalid, expired or revoked. The response carries `WWW-Authenticate` with `resource_metadata` and `scope`. | Re-run the harness OAuth step, then retry. Do not retry the same token. |
-| `-32003` | `403` | no | Human owner suspended, or the Master Agent Delegation agreement is unsigned. | The human fixes the account in the portal. Retrying cannot succeed. |
-| `-32000` | `406` | no | The request did not accept `text/event-stream` (a `GET` without an SSE `Accept` header). | Use `POST` with `Accept: application/json, text/event-stream`. |
+| `-32001` | `401` | no | Bearer token missing, invalid, expired, or revoked. Response includes `WWW-Authenticate` with `resource_metadata` and `scope`. | Re-run the client's OAuth flow. Do not retry the same token. |
+| `-32003` | `403` | no | Human owner account is suspended, email is unverified, or current Master Agent Delegation Agreement is unsigned. | Human resolves the account gate in the Developer Portal. |
+| `-32000` | `406` | no | Request did not accept an allowed media type (for example `GET /mcp` without `Accept: text/event-stream`). | Send `POST /mcp` with `Accept: application/json, text/event-stream`. |
 
-The three codes are broker implementation details, not part of
-`agent-identity-protocol`. The stable part is the HTTP status and the
-`WWW-Authenticate` challenge.
+## MCP tool errors (28 stable codes)
 
-## MCP tool errors
-
-A tool failure is a successful JSON-RPC call: HTTP `200`, a result object with
-`isError: true`, and the envelope above. Every tool uses the same code set.
-`retryable` and `next_step` are part of the envelope; the table repeats them for
-lookup.
+All 28 codes defined by the broker's MCP error schema:
 
 | Code | Tools | Retryable | Meaning | Next action |
 | :--- | :--- | :-: | :--- | :--- |
-| `human_suspended` | identity tools | no | Human owner account is suspended. | The human reactivates the account in the portal. |
-| `human_email_unverified` | identity tools | no | Human owner email is not verified. | The human verifies the email, then retry. |
-| `master_tos_unsigned` | identity tools | no | The Master Agent Delegation agreement is unsigned. | The human completes onboarding and signs it. |
-| `agent_revoked` | all tools | no | The agent is revoked or operator-suspended. `identity_record_signup` still records historical proofs for a revoked agent. | The human reviews a revocation in the portal. An operator suspension is operator-only to restore. Do not retry or create a replacement silently. |
-| `scope_not_granted` | identity and inbox tools | no | The agent lacks `tos:accept`, `inbox:read`, `inbox:send`, or one entry of `requested_scopes`. | Check `identity_whoami`; request only delegated scopes. |
-| `tos_text_hash_mismatch` | `identity_prove` | no | Only on the no-discovery manual path: `accepted_tos_text` does not hash to `accept_tos_hash`. No side effect occurred. | Re-fetch `terms.url` and send the exact bytes, or omit the manual text/hash pair and use discovery. |
-| `tos_hash_mismatch` | `identity_signup`, `identity_prove` | no | The accepted terms URL or hash is stale for the current document. | Hard stop: re-discover, re-accept the current terms. |
-| `discovery_unreachable` | `identity_signup`, `identity_prove` | yes | The discovery document could not be fetched. Nothing was minted. | Retry the same call; the broker refetches. |
-| `discovery_invalid` | `identity_signup`, `identity_prove` | no | The discovery document failed validation or its signup endpoint is not fetchable. | Ask the provider to fix discovery. |
-| `protocol_unsupported` | `identity_signup`, `identity_prove` | no | `protocol` is not `agent-identity-protocol`. | Stop; the service is not supported. |
-| `issuer_not_allowed` | `identity_signup`, `identity_prove` | no | The broker is not in the provider's `issuer_allowlist`. | Stop; this broker is not accepted by the provider. |
-| `discovery_source_not_allowed` | `identity_signup`, `identity_prove`, `identity_record_signup` | no | A forbidden or mixed discovery/attestation source was supplied, or a `strict` policy rejected `agent_supplied_discovery`. | Use `identity_signup` with `service`, or supply exactly one allowed source. |
-| `rp_unverified` | `identity_signup`, `identity_prove` | no | No attestation source, and policy is `verify` or `strict`. | Ask the human owner to change policy or use a verified provider. |
-| `rp_attestation_invalid` | `identity_signup`, `identity_prove`, `identity_record_signup` | no | The attestation failed parse, signature, claims, origin, audience, or key binding, or the exact historical attestation is unavailable. | Use the exact attestation; never substitute a newer one. |
-| `rp_attestation_expired` | `identity_signup`, `identity_prove` | no | The attestation is past `exp` plus 60 seconds. | Use a current attestation or a non-gated policy. |
-| `rp_attestation_mode_not_allowed` | `identity_signup`, `identity_prove` | no | A `strict` policy requires a broker-managed attestation and the source is provider-managed. | Ask the human to change policy, or the provider to publish broker-managed mode. |
-| `rp_attestation_revoked` | `identity_signup`, `identity_prove` | no | The broker-managed lookup answered `410 attestation_revoked`. The summary keeps `status: "invalid"` with `reason: "attestation_revoked"`. | Stop; the provider or attestation is revoked. |
-| `rp_broker_untrusted` | `identity_signup`, `identity_prove`, `identity_record_signup` | no | The attestation `iss` is outside the effective trust list. No JWKS fetch was made. | Ask the human owner to review the broker trust list. |
-| `rp_broker_unavailable` | `identity_signup`, `identity_prove`, `identity_record_signup` | yes | A transient broker metadata/JWKS outage, typed `429`, or typed `5xx`. Nothing was written. | Retry later. Do not downgrade to unverified. |
-| `rp_suspended` | `identity_signup`, `identity_prove` | no | The attestation or local provider status is suspended, including a typed `403 provider_suspended`. | Stop; the provider is suspended. |
-| `rp_blocked` | `identity_signup`, `identity_prove` | no | The human set `blocked` for this relying party. It is a separate action, not a verification mode. | The human clears the block if intended. |
-| `ledger_email_failed` | `identity_signup`, `identity_prove` | yes | The acceptance is recorded; the ledger email dispatch did not finish. | Retry the same call. Only mail is retried; no new acceptance. |
-| `signup_token_invalid` | `identity_record_signup` | no | The receipt failed signature, `typ`, audience, claim, historical-window, or conflict checks, or it is a legacy broker-signed token. | Obtain an RP-signed v1.2 receipt and the exact historical attestation. Do not retry the rejected token. |
-| `signup_token_not_linked` | `identity_record_signup` | no | The receipt references an acceptance this broker has not recorded for that agent/audience. | Call `identity_signup` or `identity_prove` first. |
-| `signup_token_ownership_mismatch` | `identity_record_signup` | no | The receipt belongs to another agent or human owner. | Stop. Use the receipt issued for this authenticated agent. |
-| `message_not_found` | `inbox_read` | no | No message with that id for this agent. | Use an id from `inbox_list`/`inbox_wait_for_email`. |
-| `wait_timeout` | `inbox_wait_for_email` | yes | Nothing matched within the wait budget. | Widen the lookback or wait again with a longer budget. Do not poll tightly. |
-| `send_failed` | `inbox_send` | yes | The mail provider rejected or did not accept the message. Nothing was sent or recorded. | Retry; nothing left the broker. |
-| `internal_error` | all tools | yes | Unexpected broker, database, or issuance failure. | Retry with the same inputs after reading `side_effects`. |
+| `human_suspended` | `identity_signup` | no | Human owner account is suspended. | Human reinstates the account in the Developer Portal; do not retry. |
+| `human_email_unverified` | `identity_signup` | no | Human owner email address is not verified. | Human verifies their email; do not retry. |
+| `master_tos_unsigned` | `identity_signup` | no | Current Master Agent Delegation Agreement is unsigned. | Human accepts the current agreement in the Developer Portal; do not retry. |
+| `agent_revoked` | all 4 tools | no | Bound agent sub-identity is revoked, operator-suspended, or missing from the session. | For revocation, the human reviews the agent in the Developer Portal. Operator suspension is operator-restored only; do not retry or silently create a replacement. |
+| `scope_not_granted` | `identity_signup`, `inbox_read` | no | Agent lacks `tos:accept`, `inbox:read`, or a scope in `requested_scopes`, or `requested_scopes` was passed as `[]`. | Call `identity_whoami` to inspect granted scopes; omit `requested_scopes` to default to discovery `required_scopes`. |
+| `tos_version_mismatch` | `identity_signup` | no | Caller-pinned `terms_version` does not match `terms.version` in the fetched discovery document. | Re-read `terms.url` and retry with the current `terms_version`, or omit `terms_version`. |
+| `ledger_email_failed` | `identity_signup` | yes | Delegated acceptance was recorded, but the terms ledger email dispatch failed. | Retry `identity_signup` with the same inputs; the acceptance is reused and only the email is retried. |
+| `signup_token_invalid` | `identity_record_signup` | no | `signup_token` is missing, malformed, legacy broker-signed, outside the historical attestation window, or conflicts with an existing receipt. | Obtain an RP-signed Contract E receipt and retry; do not retry the rejected token. |
+| `signup_token_not_linked` | `identity_record_signup` | no | Receipt references an acceptance not recorded by this broker for this agent and audience. | Call `identity_signup` for this service first, then record the receipt. |
+| `signup_token_ownership_mismatch` | `identity_record_signup` | no | Receipt belongs to a different agent or human owner. | Stop. Use only receipts issued for this authenticated agent. |
+| `message_not_found` | `inbox_read` | no | No message with that `message_id` exists for this agent. | Call `inbox_read` without `message_id` to list current message ids. |
+| `wait_timeout` | `inbox_read` | yes | No matching inbound email arrived within `wait_seconds` (max `25`). | Retry with a larger `wait_seconds` or `since_seconds_ago`, or list recent messages without `wait_seconds`. |
+| `internal_error` | all 4 tools | yes | Unexpected broker, database, or issuance error. | Check `side_effects` and retry; if it persists, report it. |
+| `discovery_unreachable` | `identity_signup` | yes | Relying party discovery document or `terms.url` could not be reached. Nothing was minted. | Retry later when the origin is reachable; never fabricate a document. |
+| `discovery_invalid` | `identity_signup` | no | Discovery document failed schema/rule validation, `terms.url` is unreadable, or `endpoints.agent_signup` is not fetchable. | Ask the provider to fix discovery or `terms.url`. |
+| `protocol_unsupported` | `identity_signup` | no | Service advertises an unsupported `protocol` or `protocol_version`. | Stop; the service does not support `agent-identity-protocol` `2.0`. |
+| `issuer_not_allowed` | `identity_signup` | no | This broker is not listed in the provider's `issuer_allowlist`. | Stop; this provider does not accept assertions from this broker. |
+| `tos_hash_mismatch` | `identity_signup` | no | Accepted terms URL or hash no longer matches the provider's current terms. | Re-read `terms.url` and retry with a fresh acceptance, or report the mismatch to the provider. |
+| `rp_unverified` | `identity_signup` | no | Human policy (`verify` or `strict`) requires a verified provider and this service has no valid attestation. | Choose a verified provider or ask the human owner to change the verification policy. |
+| `rp_attestation_invalid` | `identity_signup`, `identity_record_signup` | no | Provider attestation source was malformed, rejected, failed signature/origin/audience/key binding, or the exact historical attestation is unavailable. | Ask the provider to publish a valid attestation, or supply the exact historical `rp_attestation` for a receipt. |
+| `rp_attestation_expired` | `identity_signup` | no | Provider attestation passed `exp` plus 60 seconds of skew. Expired means expired or unverified, never unsafe. | Ask the provider to renew its attestation before retrying. |
+| `rp_broker_untrusted` | `identity_signup`, `identity_record_signup` | no | Attestation issuer is outside the human's and broker's trusted RP-broker list. No JWKS fetch was made. | Ask the human owner to review the broker trust list in `/trust`. |
+| `rp_broker_unavailable` | `identity_signup`, `identity_record_signup` | yes | Attestation source or trusted broker metadata/JWKS was temporarily unavailable or rate limited. | Retry later, honoring any retry hint; never downgrade trust. |
+| `rp_suspended` | `identity_signup` | no | Provider is suspended by its broker (`403 provider_suspended`) or local provider record. | Stop; choose another provider. |
+| `rp_blocked` | `identity_signup` | no | Human owner explicitly blocked this relying party. Checked before any verification mode. | Stop unless the human removes the block in `/trust`. |
+| `discovery_source_not_allowed` | `identity_signup`, `identity_record_signup` | no | Caller passed forbidden `rp_discovery`, `rp_discovery_url`, or `rp_attestation` to `identity_signup`, or passed `rp_attestation` without `signup_token` to `identity_record_signup`. | Pass only `service` (and optional `terms_version`/`requested_scopes`/`force_new`) to `identity_signup`, or pass `signup_token` with optional `rp_attestation` to `identity_record_signup`. |
+| `rp_attestation_mode_not_allowed` | `identity_signup` | no | Human `strict` mode requires a broker-managed attestation, but the provider publishes a provider-managed source. | Ask the human to switch to `verify` or the provider to use broker-managed mode. |
+| `rp_attestation_revoked` | `identity_signup` | no | Broker-managed attestation lookup returned `410 attestation_revoked`. | Stop; the provider must obtain a new attestation before retrying. |
 
-`unverified` is not `invalid`. Absence of the optional `attestation` object is a
-complete, honest verification result; only `verify` and `strict` refuse it. A
-suspended agent returns `agent_revoked` with a suspension-specific message and
-next step; there is no `agent_suspended` code.
+`unverified` is not `invalid`. Absence of `attestation` in discovery is
+conformant; only `verify` and `strict` policies refuse it. An operator-suspended
+agent returns `agent_revoked` with a suspension-specific message and `next_step`.
 
 ### Reading `side_effects`
 
-| Tool | Keys |
+| Tool | Keys in `side_effects` |
 | :--- | :--- |
-| `identity_signup`, `identity_prove` | `acceptance_recorded`, `acceptance_created`, `ledger_email_sent_to_agent`, `ledger_email_forwarded_to_human`, `rp_verification_recorded`, `rp_verification_reused`, `assertion_minted` (seven keys; `assertion_minted` appears on errors) |
-| `identity_register`, `identity_whoami` | `{}` (nothing happened) |
+| `identity_whoami` | `{}` |
+| `identity_signup` | `acceptance_recorded`, `acceptance_created`, `ledger_email_sent_to_agent`, `ledger_email_forwarded_to_human`, `rp_verification_recorded`, `rp_verification_reused`, plus `assertion_minted` on errors |
 | `identity_record_signup` | `signup_recorded`, `signup_upgraded`, `rp_verification_recorded`, `conflict_flagged` |
-| `inbox_read`, `inbox_list`, `inbox_wait_for_email` | `{}` |
-| `inbox_send` | `email_sent`, `message_recorded` |
+| `inbox_read` | `{}` |
 
-`identity_signup`/`identity_prove` report all seven keys on gate, discovery,
-policy, and issuance failures, so an all-false block is positive evidence that no
-acceptance was written. An unexpected catch-all `internal_error` may report `{}`.
-
-## Inbox errors
-
-The three inbox-specific codes are in the tool table above; this section adds the
-operational detail.
-
-| Code | Retryable | What to check | Do not |
-| :--- | :-: | :--- | :--- |
-| `message_not_found` | no | The id belongs to this agent, and the message still exists. | Reuse an id from another agent's inbox. |
-| `wait_timeout` | yes | `from_contains`, `subject_contains`, `since_seconds_ago`, and whether the sender used the agent address. | Poll in a tight loop, or assume the mail will never arrive. |
-| `send_failed` | yes | The mail provider status in `message`. Nothing was sent. | Resend blindly after a success response; `inbox_send` is not idempotent. |
-
-`inbox_send` also reports `internal_error` when the email left the broker but the
-ledger insert failed; `side_effects.email_sent` is `true` there. Check
-`inbox_list` before sending again.
+An all-`false` `side_effects` object on `identity_signup` or
+`identity_record_signup` is positive evidence that nothing was written or
+emailed.
 
 ## Provider handshake errors
 
-The provider returns these from `POST endpoints.agent_signup`. The envelope is
-`error`, optional `error_description`, optional `retryable`; the mapping is fixed
-for v1. When `retryable` is absent, infer it from the code.
+Returned by the relying party from `POST endpoints.agent_signup` using the
+envelope `{ "error": "<code>", "error_description": "...", "retryable": false }`.
+When `retryable` is omitted, infer it from the table below. Normative source:
+[spec section 7.2](/protocol/specification/#72-error-envelope-and-stable-codes).
 
 | Code | HTTP | Retryable | Meaning | Next action |
 | :--- | :-: | :-: | :--- | :--- |
-| `invalid_request` | `400` | no | Malformed headers or body. | Fix the request. |
-| `invalid_assertion` | `401` | no | Signature or shape verification failed. | Mint a new assertion. |
-| `issuer_not_allowed` | `403` | no | `iss` is not in the provider's `issuer_allowlist`. | Stop. This broker is not accepted by that provider. |
-| `audience_mismatch` | `403` | no | `aud` does not equal the provider's `audience`. | Re-discover and mint for the correct audience. |
-| `assertion_expired` | `401` | no | `exp` passed beyond the allowed clock skew. | Mint a new assertion. |
-| `assertion_replayed` | `409` | no | The `jti` was used in a conflicting context. | Mint a new assertion. |
-| `tos_hash_mismatch` | `409` | no | The accepted terms hash is stale or wrong. | Re-discover, re-read, re-accept, re-prove. |
-| `insufficient_scope` | `403` | no | `delegation.scopes` misses a `required_scopes` entry. | Ask the human to re-delegate. |
-| `human_unverified` | `403` | no | `human.verified` is not `true`. | Complete human verification. |
-| `rate_limited` | `429` | yes | The caller is throttled. | Back off, then retry. |
+| `invalid_request` | `400` | no | Malformed headers or JSON body. | Send `signup_request` verbatim. |
+| `invalid_assertion` | `401` | no | Signature, header, or claim structure verification failed. | Mint a fresh assertion with `identity_signup`. |
+| `assertion_expired` | `401` | no | `exp` passed beyond the 60-second clock-skew allowance. | Call `identity_signup` for a fresh 5-minute assertion. |
+| `issuer_not_allowed` | `403` | no | `iss` is not in the provider's `issuer_allowlist`. | Stop; this broker is not accepted by that provider. |
+| `audience_mismatch` | `403` | no | `aud` does not equal the provider's published `audience`. | Call `identity_signup` against the canonical service origin. |
+| `insufficient_scope` | `403` | no | `delegation.scopes` misses a `required_scopes` entry. | Check `identity_whoami` and ensure the agent holds all required scopes. |
+| `human_unverified` | `403` | no | `human.verified` is not `true`. | Human verifies their email in the Developer Portal. |
+| `assertion_replayed` | `409` | no | `jti` was already used in a conflicting context (different agent, account, or service). | Call `identity_signup` for a fresh assertion. |
+| `tos_hash_mismatch` | `409` | no | `accepted_rp_tos_url` or `accepted_rp_tos_hash` does not match the provider's current terms. | Re-read `terms.url` and call `identity_signup` again so the broker hashes the updated bytes. |
+| `rate_limited` | `429` | yes | Caller exceeded the provider's rate limit. | Back off, then retry. |
 
-A `jti` repeated for the **same** agent, account and service is not a replay. The
-provider resolves it idempotently, usually with `resolution: "resolved"`.
-`assertion_replayed` is reserved for a conflicting context. The normative table
-is [spec section
-7.2](/protocol/specification/#72-error-envelope-and-stable-codes).
+A `jti` repeated for the **same** agent, account, and service is not a replay; a
+conformant provider resolves it idempotently (typically `resolution: "resolved"`).
+
+## Broker provider-verification HTTP codes
+
+Returned by `GET /api/broker/provider-verification` using `{ error,
+error_description, code }` (every error sets `Cache-Control: no-store`):
+
+| HTTP | `error` / `code` | Meaning |
+| :--- | :--- | :--- |
+| `400` | `invalid_request` | Missing, extra, duplicate, or non-canonical `origin` or `audience`. |
+| `403` | `provider_suspended` | Provider or origin is suspended. |
+| `404` | `attestation_not_found` | Unknown pair, wrong publication mode, unverified origin, or no attestation. Maps to `unverified`. |
+| `410` | `attestation_revoked` | Provider or latest attestation is revoked. Maps to `invalid` (`attestation_revoked`). |
+| `429` | `rate_limited` | Per-IP rate limit exceeded; honor `Retry-After`. |
+| `503` | `broker_unavailable` | Transient database or signing failure. |
 
 ## Provider API and Contract F/D.2 errors
 
-Provider-facing routes and the authenticated RP routes use
-`{error, error_description, code}`.
+Returned by `/api/provider/v1/*`, `POST /api/broker/signup-receipt` (Contract F),
+and `POST /api/broker/report-abuse` (Contract D.2) using
+`{ error, error_description, code }`:
 
-| Code | HTTP | Route | Meaning |
+| Code | HTTP | Surface | Meaning |
 | :--- | :-: | :--- | :--- |
 | `invalid_api_key` | `401` | `/api/provider/v1/*` | Missing, malformed, revoked, or unknown provider API key. |
-| `insufficient_provider_scope` | `403` | provider API | The key lacks the required scope (`account:read`, `keys:write`, `attestation:read`, `attestation:write`). |
-| `provider_suspended` | `403` | provider mutations, broker verification endpoint | The provider account is suspended or revoked. |
-| `provider_not_eligible` | `403` | provider mutations | The provider is not `active` or the origin is not `verified`. It is not a plan signal: attestation issuance is not plan-gated. |
-| `broker_unavailable` | `503` | broker verification endpoint | Database or signing failure while serving the attestation source. Retry later. |
-| `audience_conflict` / `origin_conflict` | `409` | origin registration | The origin or audience is already registered. Goes to operator review. |
-| `key_exists` / `key_limit_reached` / `last_active_key` / `key_not_active` / `no_active_key` | `409` | key routes | Frozen key-lifecycle errors. At most 8 active+retiring keys. |
-| `challenge_expired` / `challenge_consumed` | `410` | challenge routes | The challenge TTL passed or it was already used. |
-| `challenge_failed` / `pop_invalid` | `422` | origin/key proof | The challenge proof failed, or the key PoP is invalid. |
-| `invalid_jwk` / `purpose_mismatch` | `400` | key registration | The public JWK is invalid, or purposes are not exactly `["receipt","abuse"]`. |
-| `attestation_not_found` | `404` | status/GET attestation, broker verification endpoint | Unknown attestation `jti`, no current attestation, or an unknown/mismatched origin and audience pair. |
-| `attestation_revoked` | `410` | broker verification endpoint | The provider or the latest attestation is revoked. The verification summary maps it to `invalid` with reason `attestation_revoked`. |
-| `invalid_attestation` | `401` | Contract F/D.2 | The attestation failed parse/signature/claims/binding. |
-| `rp_broker_untrusted` | `401` | Contract F/D.2 | The attestation `iss` is outside the effective trust list. Checked before JWKS. |
-| `attestation_not_valid_at_signing` | `401` | Contract F | The receipt `iat`/`signed_up_at` is outside the named attestation window. |
-| `attestation_unavailable` | `401` | Contract F | The exact historical attestation is not retrievable and no snapshot exists. |
-| `invalid_signup_token` | `401` | Contract F | The receipt parse/signature/claims failed. The legacy sanitized body is preserved. |
-| `signup_conflict` | `409` | Contract F | Same receipt `jti` with a different body. |
-| `unauthenticated_report` | `401` | D.2 | A legacy unsigned abuse body. Use the signed `{rp_attestation, report}` form. |
-| `rate_limited` | `429` | Contract F/D.2/provider | Bounded ingestion or request rate exceeded. |
-| `rp_broker_unavailable` | `503` | Contract F/D.2 | Transient trusted-broker metadata/JWKS outage; retryable, no write. |
+| `insufficient_provider_scope` | `403` | `/api/provider/v1/*` | Key lacks the required scope (`account:read`, `keys:write`, `attestation:read`, `attestation:write`). |
+| `provider_suspended` | `403` | Provider mutations | Provider account is suspended or revoked. |
+| `provider_not_eligible` | `403` | Provider mutations | Provider is not `active` or origin is not `verified`. |
+| `audience_conflict` / `origin_conflict` | `409` | Service/origin registration | Origin or audience is already registered; goes to operator review. |
+| `key_exists` / `key_limit_reached` / `last_active_key` / `key_not_active` / `no_active_key` | `409` | Key routes | Key lifecycle constraint (at most 8 active plus retiring keys). |
+| `challenge_expired` / `challenge_consumed` | `410` | Challenge routes | Verification challenge TTL expired or was already consumed. |
+| `challenge_failed` / `pop_invalid` | `422` | Origin/key proof | Domain challenge verification or key proof-of-possession failed. |
+| `invalid_jwk` / `purpose_mismatch` | `400` | Key registration | Invalid public Ed25519 JWK or purposes are not `["receipt","abuse"]`. |
+| `attestation_not_found` | `404` | Attestation routes | Unknown attestation `jti` or no current attestation. |
+| `invalid_attestation` | `401` | Contract F / D.2 | Attestation failed parse, signature, claims, or origin/audience binding. |
+| `rp_broker_untrusted` | `401` | Contract F / D.2 | Attestation `iss` is outside the effective trust list (checked before JWKS fetch). |
+| `attestation_not_valid_at_signing` | `401` | Contract F | Receipt `iat` or `signed_up_at` falls outside the named attestation window. |
+| `attestation_unavailable` | `401` | Contract F | Exact historical attestation cannot be retrieved and no snapshot exists. |
+| `invalid_signup_token` | `401` | Contract F | Receipt failed parse, signature, or claim checks. |
+| `signup_conflict` | `409` | Contract F / D.2 | Same receipt or report `jti` submitted with a different JWS body. |
+| `unauthenticated_report` | `401` | Contract D.2 | Unsigned legacy abuse body; use signed `{ rp_attestation, report }`. |
+| `rate_limited` | `429` | Contract F / D.2 / Provider API | Bounded ingestion or request rate exceeded. |
+| `rp_broker_unavailable` | `503` | Contract F / D.2 | Transient trusted-broker metadata or JWKS outage; retryable with no write. |
 
-## OAuth, DCR and broker API errors
+## OAuth 2.1 and registration errors
 
-These use the RFC 6749 `error` field or a broker-specific one. They are
-HTTP-level failures, not tool results.
+Returned by `/oauth/authorize`, `/api/oauth/*`, and operator webhooks using RFC
+6749 `{ error, error_description }`:
 
 | Code | HTTP | Endpoint | Meaning | Next action |
 | :--- | :-: | :--- | :--- | :--- |
-| `invalid_client_metadata` | `400` | `/api/oauth/register` | Invalid JSON or client metadata. | Fix the registration body. |
-| `invalid_redirect_uri` | `400` | `/api/oauth/register`, authorize decision | A redirect URI is not loopback HTTP or HTTPS, or does not match the client. | Register the exact URI you use. |
-| `invalid_client` | `400` | `/oauth/authorize`, decision | The `client_id` cannot be resolved. | Register the client or fix the id. |
-| `unsupported_response_type` | `400` | authorize | `response_type` is not `code`. | Use `response_type=code`. |
-| `invalid_request` | `400` | authorize, token, broker APIs, webhook | Malformed request or schema failure. | Fix the request. |
-| `unauthorized` | `401` | authorize decision | No human session. | Sign in, then approve. |
-| `access_denied` | `403` | authorize decision | Human suspended, or the human denied the request. | Do not retry; the human decides. |
-| `email_verification_required` | `403` | authorize decision | `accept_master_tos` was set but the email is unverified. | Verify the email first. |
-| `master_tos_required` | `400` | authorize decision | The Master ToS is unsigned and was not accepted in the decision. | Sign it in onboarding or the consent card. |
-| `invalid_grant` | `400` | `/api/oauth/token` | Code unknown/expired/used, PKCE mismatch, refresh token unknown/revoked, human inactive/unsigned. | Restart the authorization flow. |
-| `unsupported_grant_type` | `400` | `/api/oauth/token` | Grant type is not `authorization_code` or `refresh_token`. | Fix the request. |
-| `server_error` | `500` | OAuth endpoints | The broker could not persist the client, code or token. | Retry later; do not loop. |
-| `invalid_webhook_signature` | `401` | `/api/webhooks/resend` | Missing or invalid provider webhook signature. | Operator only; fix the webhook secret. |
+| `invalid_client_metadata` | `400` | `/api/oauth/register` | Invalid JSON or client metadata schema failure. | Fix the registration payload. |
+| `invalid_redirect_uri` | `400` | `/api/oauth/register`, consent decision | Redirect URI is not loopback HTTP or HTTPS, or does not match the client. | Register and send the exact URI. |
+| `invalid_client` | `400` | `/oauth/authorize`, consent decision | `client_id` cannot be resolved. | Register the client or fix the CIMD URL. |
+| `unsupported_response_type` | `400` | `/oauth/authorize` | `response_type` is not `code`. | Use `response_type=code`. |
+| `invalid_request` | `400` | Authorize, consent decision, token, broker APIs | Malformed payload, missing PKCE/code/token, or inactive/unknown `agent_id`. | Fix the request parameters. |
+| `master_tos_required` | `400` | Consent decision | Current Master Agent Delegation Agreement is unsigned and `accept_master_tos` was not `true`. | Accept the agreement in the consent card or Developer Portal. |
+| `invalid_grant` | `400` | `/api/oauth/token` | Code unknown/expired/used, PKCE mismatch, refresh token unknown/revoked, inactive/unverified/unsigned human, or inactive bound agent. | Restart the OAuth authorization flow. |
+| `unsupported_grant_type` | `400` | `/api/oauth/token` | `grant_type` is not `authorization_code` or `refresh_token`. | Use `authorization_code` or `refresh_token`. |
+| `unauthorized` | `401` | Consent decision | No authenticated human session. | Sign in and approve again. |
+| `access_denied` | `403` | Consent decision | Human account suspended, an agent on the account is operator-suspended, or human clicked Deny. | Resolve any suspension in the Developer Portal or contact support. |
+| `email_verification_required` | `403` | Consent decision | Human email address is not verified. | Verify email before approving an MCP client. |
+| `agent_limit_reached` | `403` | Consent decision | Active agent count reached `max_active_agents` (default `2`). | Bind an existing active agent or revoke an unused agent in `/agents`. |
+| `server_error` | `500` | `/api/oauth/*` | Broker failed to persist the client, agent, code, or token pair. | Retry later without tight looping. |
+| `invalid_webhook_signature` | `401` | `/api/webhooks/resend` | Missing or invalid mail webhook signature. | Operator only; verify webhook secret. |
 
-## Decision table
+## Quick decision table
 
 | Situation | Do not | Do |
 | :--- | :--- | :--- |
-| `tos_hash_mismatch` or `tos_text_hash_mismatch` | Retry the same assertion or text | Re-discover, re-accept `terms.url`, re-prove |
-| `rp_unverified` under `verify` or `strict` | Treat the provider as invalid | Ask the human to change policy or use a verified provider |
-| `rp_attestation_expired` | Reuse the expired attestation | Renew/publish a current attestation, or use a non-gated policy |
-| `rp_attestation_mode_not_allowed` | Force `strict` on a provider-managed source | Switch the RP to broker-managed mode, or let the human choose `verify` |
-| `rp_attestation_revoked` | Retry or fall back to a cached token | Stop; the provider or attestation is revoked |
-| `rp_broker_unavailable` | Downgrade to unverified or retry tightly | Retry later; the gate fails closed |
-| `rp_suspended` / `rp_blocked` | Retry | Stop; the provider or policy is blocking |
-| `discovery_source_not_allowed` | Pass a discovery document to `identity_signup` | Call `identity_signup` with `service`; or `identity_prove` with exactly one allowed source |
-| `assertion_expired` | Reuse the JWT | Mint a new assertion |
-| `assertion_replayed` | Retry blindly | Confirm the same-context idempotent path; otherwise mint new |
-| `ledger_email_failed` | Assume the acceptance was lost | Retry; the acceptance is recorded and only mail re-sends |
-| `signup_token_invalid` | Substitute a newer attestation or a legacy token | Use the RP-signed v1.2 receipt with the exact historical attestation |
-| Inbox `wait_timeout` | Poll in a tight loop | Use a longer timeout or narrower filter |
-| Lost provider credential | Re-run signup | Use the provider recovery path in the context guide |
-| `agent_revoked` | Retry or register a replacement silently | Tell the human; they review the agent in the portal |
-| `-32001` on `/mcp` | Retry the same token | Re-run the harness OAuth step |
+| `tos_version_mismatch` or `tos_hash_mismatch` | Retry the same pinned version or assertion | Re-read `terms.url` and call `identity_signup` with the current version (or omit `terms_version`) |
+| `rp_unverified` under `verify` or `strict` | Treat the provider as invalid or unsafe | Ask the human to adjust `/trust` policy or choose a verified provider |
+| `rp_attestation_mode_not_allowed` | Force `strict` on a provider-managed source | Ask the human to switch to `verify` or the provider to use broker-managed mode |
+| `rp_attestation_revoked` / `rp_suspended` / `rp_blocked` | Retry or fall back to cached state | Stop; policy or provider status blocks signup |
+| `rp_broker_unavailable` | Downgrade trust to unverified | Retry later; the gate fails closed |
+| `discovery_source_not_allowed` | Pass discovery or attestation objects to `identity_signup` | Call `identity_signup` with `{ service }` only |
+| `ledger_email_failed` | Assume acceptance was lost | Retry `identity_signup` with identical inputs; only the email retries |
+| `signup_token_invalid` | Substitute a newer attestation or retry unchanged | Obtain a fresh Contract E receipt (and exact historical attestation if needed) |
+| `wait_timeout` on `inbox_read` | Poll in a tight loop | Retry with a larger `wait_seconds` (up to `25`) or call `inbox_read` without `wait_seconds` to list recent mail |
+| Lost provider credential | Re-run signup | Use the provider's documented recovery path in its `context.url` guide |
+| `agent_revoked` | Retry or silently create another agent | Report to the human owner to check `/agents` (or operator if suspended) |
+| `-32001` on `/mcp` | Retry the expired or revoked token | Re-run the MCP client's OAuth sign-in flow |
 
-## Verification record
+## Related
 
-The current code names and retryability were checked against the shared
-`McpToolErrorCodeSchema`, the RP verification mapping, the Contract F/D.2
-handlers, and the provider route errors against `agent-identity-protocol` `v2.1.0` on
-2026-11-21. The live policy outcomes were exercised against the post-cutover
-broker on 2026-11-14: `verify` with a valid broker-managed and provider-managed
-attestation, `strict` with both, `blocked`, and an absent source under `verify`
-and `no_verify`. The remaining error cases are release-acceptance checks.
+- [MCP tools](/reference/mcp-tools/)
+- [Broker HTTP and OAuth](/reference/broker-http/)
+- [Agent troubleshooting](/agents/troubleshooting/)
+- [Provider troubleshooting](/providers/troubleshooting/)

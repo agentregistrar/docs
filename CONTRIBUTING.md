@@ -4,30 +4,33 @@ This repository is the public documentation site for Agent Registrar and the
 `agent-identity-protocol` protocol, live at <https://docs.agentregistrar.dev>. It is
 Apache-2.0. Anyone can open a pull request.
 
-The site owns explanation, onboarding and lookup. It never owns the protocol
+The site owns explanation, onboarding, and lookup. It never owns the protocol
 contract. Normative text lives in [`agentregistrar/spec`](https://github.com/agentregistrar/spec)
 and is rendered here from a pinned release tag.
 
 Read this file before you write. For the operating rules that apply to agent
 editors, read [`AGENT.md`](./AGENT.md). For the visual system and component
 recipes, read [`THEME.md`](./THEME.md); this file does not repeat those rules.
-For releases, sync, redirects and incidents, read [`MAINTENANCE.md`](./MAINTENANCE.md).
+For releases, sync, redirects, and incidents, read [`MAINTENANCE.md`](./MAINTENANCE.md).
 
 ## 1. Before you write
 
-1. Find the canonical source for the claim you want to make:
+1. Pick **one primary persona** (Providers, Developers running agents, Protocol
+   implementers/security reviewers, or AI coding agents), **one job to be
+   done**, and **one technical depth tier** (section 5).
+2. Find the canonical source for the claim you want to make:
    - Protocol fields and rules: [`agentregistrar/spec`](https://github.com/agentregistrar/spec)
      at the pinned tag.
-   - Broker behavior, MCP tools and portal behavior: the deployed service and
+   - Broker behavior, MCP tools, and portal behavior: the deployed service and
      the shared tool schemas.
    - Provider examples: the fixtures and the reference implementation.
-2. Decide whether the change is docs or a contract. A docs PR must not change
-   the protocol, product behavior or legal text. If the contract is wrong, fix
+3. Decide whether the change is docs or a contract. A docs PR must not change
+   the protocol, product behavior, or legal text. If the contract is wrong, fix
    it in the owning repository and let the docs sync follow.
-3. Choose the page type (section 3) and check that a similar page does not
+4. Choose the page type (section 3) and check that a similar page does not
    already exist. Link the canonical page instead of restating it.
-4. Check the public contribution pages for the shortened workflow:
-   <https://docs.agentregistrar.dev/contribute/docs/>.
+5. Check the public contribution guide for the shortened workflow:
+   <https://docs.agentregistrar.dev/contribute/>.
 
 ## 2. Repository shape
 
@@ -83,7 +86,7 @@ Provenance fields, validated by `src/content.config.ts`:
 | :--- | :--- | :--- |
 | `audience` | `human` \| `agent` \| `both` | Who the page is written for. Default `both`. |
 | `aiGenerated` | boolean | `true` while an agent drafted the page and no human has reviewed it. The page actions row shows "awaiting review". |
-| `verifiedAgainst` | string | Behavior pages only: the exact artifact checked, for example `broker e7b53b4, 2026-10-21` or `Nimbus 0.18.1`. |
+| `verifiedAgainst` | string | Behavior pages only: the exact artifact checked, for example `spec v2.1.0, 2026-11-22` or `Nimbus 0.18.1`. |
 | `lastReviewed` | date | The date a human last checked the page against its source. Never guess or backfill. |
 | `source` | string | Generated pages only: the pinned source, for example `spec:v2.1.0#agent-identity-protocol.md`. |
 
@@ -95,18 +98,18 @@ Rules:
   reviewer checks the page against its canonical source, runs the verification
   steps the page contains, and records the review in the pull request.
 - `verifiedAgainst` is evidence, not a promise. If you cannot name the commit,
-  release or version you checked, leave it unset and say what is unverified in
+  release, or version you checked, leave it unset and say what is unverified in
   the pull request.
 - Frontmatter is the only provenance mechanism. Do not add a second one in
   comments or a JSON file.
-- Generated protocol pages carry `source`, `specTag`, `generated: true` and a
+- Generated protocol pages carry `source`, `specTag`, `generated: true`, and a
   generated-content banner. Never edit them by hand and never set `generated` by
   hand.
 
 ### 4.1 SEO metadata
 
 The build derives the canonical URL, Open Graph and Twitter tags, one `WebPage`
-JSON-LD block, the sitemap entry and the agent-readable endpoints from the
+JSON-LD block, the sitemap entry, and the agent-readable endpoints from the
 frontmatter and the route. The author owns these fields and the page outline:
 
 - `title` is unique, sentence case, at most 40 characters, and has no site
@@ -124,9 +127,9 @@ frontmatter and the route. The author owns these fields and the page outline:
 - Internal links are root-relative, end with a slash, and use descriptive anchor
   text. Link the destination, not a redirect. Link the page from its section
   index and from at least one related page.
-- Do not hand-write `rel=canonical`, `robots`, Open Graph, Twitter or JSON-LD in
+- Do not hand-write `rel=canonical`, `robots`, Open Graph, Twitter, or JSON-LD in
   MDX. Use `noindex: true` or `draft: true` only when the page must stay out of
-  search, the sitemap and the agent surface.
+  search, the sitemap, and the agent surface.
 - Image alt text describes the mechanism, not the mood. Do not put a claim only
   in an image.
 - One template shape and one intent per page. If a new page would answer the
@@ -136,18 +139,39 @@ frontmatter and the route. The author owns these fields and the page outline:
 `pnpm check:seo` enforces the metadata and heading rules. It is a review gate,
 not a test; a green result does not replace the reviewer's query-intent check.
 
-## 5. Voice and claims
+## 5. Voice, depth tiers, and claims
 
-- Rendered text is ASCII: no smart quotes, em dashes, arrows, icons or emoji.
+Match the technical vocabulary to the section's tier (full map in `AGENT.md`
+section 7):
+
+- **Tier 1 (Plain & Outcome-First):** Docs home, `/start/` overview pages,
+  `/agents/` quickstart/install/portal, and `/providers/` landing. Plain
+  English; say signed identity token, audit trail, emailed copy of the terms,
+  provider/service, and kill switch. Link down a tier instead of leading with
+  cryptographic or contract jargon.
+- **Tier 2 (Guided Implementation):** `/demo/`, `/agents/` operational guides,
+  `/providers/` quickstart/portal/guides/hosting/troubleshooting, and
+  `/contribute/`. Concrete steps, copy-paste code, and exact tool or field
+  names explained in context.
+- **Tier 3 (Protocol, Reference & Trust):** `/start/trust-and-limits/`,
+  `/protocol/*`, and `/reference/*`. Full normative terminology, exact wire
+  identifiers, complete error catalogs, and explicit threat models.
+- **Tier 4 (Machine-Readable Agent Instructions):** `skills/*/SKILL.md` and
+  generated Markdown/llms endpoints. Terse, deterministic checklists with exact
+  tool names and verification commands.
+
+Core style rules across every tier:
+
+- Rendered text is ASCII: no smart quotes, em dashes, arrows, icons, or emoji.
   Use `-`, `->`, `...`. The lint and theme gates flag offenders.
-- Sentence case, short declarative sentences, no marketing and no exclamation
-  marks. Second person for instructions, third person for behavior.
+- Sentence case, short declarative sentences, no marketing hype, and no
+  exclamation marks. Second person for instructions, third person for behavior.
 - Every behavior claim links to the specification, a deployed endpoint, a
   fixture, or a dated verification record. State known gaps where they matter.
 - Do not overclaim. Do not describe an SDK, hosted API, SLA, uptime, customer
-  count or compliance certification that does not exist.
+  count, KYC check, or compliance certification that does not exist.
 - Do not paraphrase legal text. Link the Master Agreement and the terms pages.
-- Visual rules, tokens and component choices are in [`THEME.md`](./THEME.md).
+- Visual rules, tokens, and component choices are in [`THEME.md`](./THEME.md).
   Do not restate them in content pages.
 
 ## 6. Code samples
@@ -155,7 +179,7 @@ not a test; a green result does not replace the reviewer's query-intent check.
 - Every sample is copy-paste runnable against the deployed demo, `localhost`, or
   a public URL, with the expected output shown. Say when output is illustrative.
 - Pin a version where a dependency matters. Keep samples synthetic: no secrets,
-  tokens, real credentials or private URLs.
+  tokens, real credentials, or private URLs.
 - Code fences declare a language. Shell blocks contain the command only, with no
   `$ ` prompt, so the reader can copy them; comments start with `#`.
 - Provider samples must pass the conformance validator before they are
@@ -169,26 +193,26 @@ not a test; a green result does not replace the reviewer's query-intent check.
 - Link the destination, not a redirect. `nimbus/redirected-link` is an error.
 - External links use descriptive text, not a bare URL. A bare URL is a warning
   from `nimbus/bare-url`.
-- Do not link a private path, an internal issue tracker, a staging host or a
+- Do not link a private path, an internal issue tracker, a staging host, or a
   customer detail.
 - Moving or renaming a page changes a public URL. Add a permanent redirect in
   `astro.config.ts` in the same change for both the slashless and the
-  trailing-slash form, and only to a route that exists in the same build. A
-  versioned collection may use `previousSlug` instead. The redirect and
-  deprecation policy is in [`MAINTENANCE.md`](./MAINTENANCE.md) runbook C.
+  trailing-slash form, and only to a route that exists in the same build. The
+  redirect and deprecation policy is in [`MAINTENANCE.md`](./MAINTENANCE.md)
+  runbook C.
 
 ## 8. Adding a page
 
 1. Create `src/content/docs/<section>/<page>.mdx` (use `.md` only for generated
    normative text).
-2. Add `title`, `description` and the provenance fields. Follow the metadata
+2. Add `title`, `description`, and the provenance fields. Follow the metadata
    quality bar in section 4.1.
 3. Set `sidebar.order` to sort it inside its group; use `sidebar.label` to
    shorten the rail title.
 4. Link the page from its section landing page and from any related page that
    should lead there.
 5. Run `pnpm check:seo`, then build and confirm the URL is `/<section>/<page>/`.
-   Check that the page appears in its section's `/llms.txt` and the sitemap.
+   Check that the page appears in `/llms.txt` and the sitemap.
 6. Add a redirect only when the page replaces an existing URL. Record it in the
    pull request.
 
@@ -200,35 +224,38 @@ including the rename-and-redirect check.
 A reviewer ticks every item. The author may pre-fill it, but a human clears the
 review state.
 
-- [ ] The claim matches the canonical source at the named tag, commit or date.
+- [ ] The page matches one primary persona, one job to be done, and its
+  section's voice tier.
+- [ ] The claim matches the canonical source at the named tag, commit, or date.
 - [ ] `verifiedAgainst` names a real artifact; `lastReviewed` is set only after
-   the review, and `aiGenerated` is cleared by the reviewer.
+  the review, and `aiGenerated` is cleared by the reviewer.
 - [ ] The page uses one template shape and its required sections.
 - [ ] `title` and `description` are unique, within the length limits, and
-   describe the page's one intent. `pnpm check:seo` passes.
+  describe the page's one intent. `pnpm check:seo` passes.
 - [ ] The page has one H1, no skipped heading levels, and descriptive internal
-   links from the section index and at least one related page.
-- [ ] Rendered text is ASCII, sentence case and free of hype, emoji and
-   exclamation marks.
-- [ ] Every behavior claim links to the spec, a deployed endpoint, a fixture or a
-   dated verification record.
+  links from the section index and at least one related page.
+- [ ] Rendered text is ASCII, sentence case, and free of hype, emoji, and
+  exclamation marks.
+- [ ] Every behavior claim links to the spec, a deployed endpoint, a fixture, or
+  a dated verification record.
 - [ ] Known gaps and non-goals are stated.
-- [ ] Samples are runnable, pinned where needed, synthetic and show expected
-   output. No secrets or private paths.
+- [ ] Samples are runnable, pinned where needed, synthetic, and show expected
+  output. No secrets or private paths.
 - [ ] Internal links resolve and point at the destination, not a redirect.
-- [ ] `pnpm build`, `pnpm check`, `pnpm lint`, `pnpm typecheck`,
-   `pnpm check:theme`, `pnpm check:links` and `git diff --check` pass.
-   Warnings are explained, not ignored.
+- [ ] `pnpm sync:spec:check`, `pnpm check:seo`, `pnpm build`, `pnpm check`,
+  `pnpm lint`, `pnpm typecheck`, `pnpm check:theme`, `pnpm check:links`,
+  `pnpm check:sitemap`, and `git diff --check` pass. Warnings are explained,
+  not ignored.
 - [ ] A rename ships a redirect (both URL shapes), and the old URL returns one
   permanent hop.
-- [ ] The page appears in its section `/llms.txt` and `/<slug>/index.md` when it is meant to
-   be discoverable.
-- [ ] The page appears in `sitemap-0.xml` with a valid `lastmod`; `pnpm
-   check:sitemap` passes.
-- [ ] No private path, issue number, secret or personal data appears in the
-   page, a skill or an example.
+- [ ] The page appears in `/llms.txt` and `/<slug>/index.md` when it is meant
+  to be discoverable.
+- [ ] The page appears in `sitemap-0.xml` with a valid `lastmod`;
+  `pnpm check:sitemap` passes.
+- [ ] No private path, internal deliverable code, issue number, secret, or
+  personal data appears in the page, a skill, or an example.
 - [ ] Theme or component changes follow `THEME.md` and were reviewed against the
-   public site.
+  public site.
 
 There are no tests. This checklist plus the commands in section 10 is the
 verification, and the pull request records both.
@@ -240,6 +267,7 @@ Run in this order. Lint needs a prior build because the link rules read
 
 ```bash
 pnpm install --frozen-lockfile   # cold checkout only
+pnpm sync:spec:check             # offline spec drift check
 pnpm check:seo                   # title, description and heading metadata gate
 pnpm build                       # dist/, routes, postbuild link gate
 pnpm check                       # nimbus-docs check: env, structure, authoring, types
@@ -248,7 +276,6 @@ pnpm typecheck                   # astro check
 pnpm check:theme                 # Terminal QA gate
 pnpm check:links                 # internal links and anchors in dist/
 pnpm check:sitemap               # sitemap index, URLs, lastmod and robots pointer
-pnpm sync:spec:check             # offline spec drift check
 git diff --check                 # whitespace errors
 ```
 
@@ -267,17 +294,17 @@ the agent endpoints as shown in `AGENT.md` section 12.
 - One issue or one logical page group per pull request. Keep unrelated cleanups
   out.
 - Do not include product code, protocol edits, legal text, analytics, a test
-  suite, a deploy workflow or a new dependency unless the change is impossible
+  suite, a deploy workflow, or a new dependency unless the change is impossible
   without it. Record why in the description.
-- Do not include secrets, private paths, internal issue numbers, customer data or
-  internal hostnames.
+- Do not include secrets, private paths, internal issue numbers, customer data,
+  or internal hostnames.
 - The description states what changed, the evidence, the commands run with their
   results, the live or preview URL if useful, and any remaining warning. Paste
   the review checklist result rather than saying "done".
 - A spec-sync pull request contains the lock, the generated pages, the
-  hand-authored changes and the evidence together. Do not split a half-synced
+  hand-authored changes, and the evidence together. Do not split a half-synced
   state across pull requests.
-- A rename contains the page move, the redirect and the updated links in one
+- A rename contains the page move, the redirect, and the updated links in one
   pull request.
 - A page stays `aiGenerated: true` until a human reviews it; the reviewer may be
   the operator or a named reviewer in the description.

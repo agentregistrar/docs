@@ -1,0 +1,130 @@
+---
+title: Provider Portal
+description: Set up services with the 3-step wizard, inspect signups and CSV exports, manage keys, invite teammates, and review plan limits.
+audience: human
+aiGenerated: true
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+sidebar:
+  order: 3
+---
+
+The Provider Portal at [agentregistrar.dev/provider/new](https://agentregistrar.dev/provider/new) guides you through verifying your domain, generating your discovery document, testing your signup endpoint, viewing recorded signups, and managing optional signing keys and teammates.
+
+You do not need a provider account to verify assertions against public JWKS, but completing the portal setup makes your service a verified provider for clients running the default `verify` policy and `strict` policy. Every onboarding step works on the free plan.
+
+## Create a provider organization
+
+1. Sign in with your verified human account and open [agentregistrar.dev/provider/new](https://agentregistrar.dev/provider/new).
+2. Enter your organization display name, permanent URL slug, and contact email.
+3. Verify your organization contact email via the link sent to that address (you can also re-send or update it later under **Settings**). An unverified contact email does not block setup, but it blocks marking a service live.
+
+Once created, your workspace lives at `/provider/[slug]` with five tabs: **Services**, **Signups**, **Credentials**, **Team**, and **Settings**.
+
+## Services tab
+
+Route: `/provider/[slug]` and `/provider/[slug]/services/[id]`
+
+The **Services** tab lists every service in your organization and walks each new service through a linear 3-step setup wizard.
+
+### Add a service
+
+Click **Add service** and enter three fields:
+
+- **Display name:** Human-readable product name shown to users.
+- **Origin:** Your canonical HTTPS origin (no path, query, fragment, or wildcard).
+- **Audience:** A stable lowercase protocol identifier (3 to 63 characters: letters, numbers, and hyphens). The form suggests one from your origin domain.
+
+Pending claims expire after 7 days and do not reserve an audience until you verify your domain. Once an agent mints a first assertion for a service, its audience cannot be changed.
+
+### 3-step setup wizard
+
+Opening a service at `/provider/[slug]/services/[id]` displays three steps in order:
+
+1. **Verify domain:** Choose **HTTPS file** or **DNS TXT**, click **Create challenge**, publish the one-time proof token, and click **Verify**.
+   - **HTTPS file:** Serve the exact token (optionally with one trailing newline) as `text/plain` with HTTP `200` at the shown well-known URL, with no cross-origin redirects.
+   - **DNS TXT:** Publish exactly one `agent-signup-verify` TXT value at the shown record name.
+   - Challenge tokens are shown once at creation and allow up to 5 verification attempts before expiry. Verifying your first origin activates the provider organization.
+2. **Publish discovery:** Customize `terms.version`, `terms.url`, and `endpoints.agent_signup` in the browser-side generator, then copy the generated JSON and serve it at `GET /.well-known/agent-signup.json` with `Content-Type: application/json`.
+   - The generated document includes your **broker-managed** `attestation` URL (`mode: "broker"`). No signing key is required (`keys: []` is supported by default), and the broker renews the attestation on demand.
+3. **Test setup:** Click **Test my setup** to run a synchronous dry-run. The broker fetches your live `/.well-known/agent-signup.json`, checks the attestation and `terms.url`, probes `endpoints.agent_signup` with an unsigned request (requiring a stable JSON error envelope rather than HTML, a redirect, or `200`), and displays the exact placeholder assertion claims it would mint.
+   - The dry-run creates no account and mints no assertion. When all checks pass and your organization contact email is verified, the service is marked live automatically.
+
+### Operations and optional settings
+
+Below the wizard, each service page exposes operational controls:
+
+- **Health checks:** Daily scheduled checks start once a service is live. Owners and admins can also queue a manual **Check now** run (up to 24 manual runs per service in 24 hours). Health checks are informational and notify-only: they never alter trust status, never remove live status, and are not an uptime guarantee.
+- **Optional signing keys:** Links to the **Credentials** tab if you want to add an Ed25519 key for signed receipts or Contract D.2 abuse reporting.
+- **Edit metadata:** Update display name or non-frozen metadata.
+- **Discard draft or retire service:** Discarding a pending draft or retiring a live service frees its plan slot and retires its origins in the same transaction. Confirm by typing the service `audience`. Existing keys and historical attestations stay intact so past receipts remain verifiable, and any audience that already minted an assertion remains claimed.
+
+## Signups tab
+
+Route: `/provider/[slug]/signups`
+
+The **Signups** tab displays one row per logical signup recorded for your organization, scoped strictly to your own services. Unconverted assertion handoffs and raw JWTs are never shown.
+
+Each row includes the service and origin, agent ID and inbox address, shared human name and email, accepted terms (`version`, `url`, `sha256`), your opaque `account_id`, signup-time verification status alongside current attestation status, and any account conflict flag.
+
+Proof strength is labeled explicitly on every row:
+
+| Proof label | Wire `proof_source` | Meaning |
+| :--- | :--- | :--- |
+| **Provider-reported** | `rp_callback` | Strongest: your server delivered an RP-signed receipt directly via Contract F. |
+| **Provider-signed** | `rp_signed` | Verified: the agent recorded an RP-signed receipt via `identity_record_signup`. |
+| **Self-report** | `agent_self_reported` | Weaker historical or unverified claim with no provider signature. |
+
+If a stronger receipt arrives for the same agent, audience, and account, the ledger displays the strongest proof and folds weaker entries into an expandable history row without double-counting the signup.
+
+Click **Export CSV** to download `<slug>-signups.csv` directly in your browser. The export uses RFC 4180 quoting over the rendered rows and makes no additional network request.
+
+## Credentials tab
+
+Route: `/provider/[slug]/credentials`
+
+The **Credentials** tab manages two separate credential types. Only owners and admins can create, retire, or revoke credentials.
+
+### Optional RP signing keys
+
+You do not need an RP signing key to accept agent signups. Generate and register an Ed25519 key pair here only if you want to issue RP-signed signup receipts (Contract E and F) or submit authenticated abuse reports (Contract D.2).
+
+- Private key generation happens in your browser; the broker stores only your public key and `kid`.
+- Keys support `active`, `retired`, and `revoked` states. Rotating keys with overlap keeps historical receipts verifiable while removing retired keys from new attestations.
+- Even if a provider account is suspended, owners and admins can still revoke a compromised key.
+
+### CI and automation API keys
+
+Create scoped bearer API keys for CI pipelines or backend automation calling the provider HTTP API (such as renewing a provider-managed attestation via `POST /api/provider/v1/attestation`).
+
+| Scope | Permission |
+| :--- | :--- |
+| `account:read` | Read provider account, status, plan, and entitlements. |
+| `keys:write` | Request key challenges and register, retire, or revoke RP keys. |
+| `attestation:read` | Read the current provider attestation. |
+| `attestation:write` | Issue or renew a provider attestation. |
+
+The full API key secret is shown **once** at creation and cannot be recovered. Store it in your secret manager and revoke unused keys immediately.
+
+## Team tab
+
+Route: `/provider/[slug]/members`
+
+Manage organization membership across three roles: `owner`, `admin`, and `member`.
+
+- **Email invitations:** Membership starts only when the invited person accepts an emailed link. Owners can invite `admin` or `member`; admins can invite `member`. Invitations expire after 7 days (to resend, revoke the pending invite and create a new one).
+- **Roles and offboarding:** Owners can change member roles and remove admins or members; admins can remove members; non-owners can leave at any time. Removing a member ends portal access immediately but does not automatically revoke API keys: review and rotate any keys that person created under **Credentials**.
+- **Ownership transfer:** Two-party transfer initiated by the current owner (confirmed by typing the organization slug). The target member accepts or declines on the **Team** page; accepting promotes them to sole `owner` and demotes the previous owner to `admin`.
+
+## Settings tab
+
+Route: `/provider/[slug]/settings`
+
+- **Organization details:** Owners and admins can rename the organization display name. The organization slug is permanent.
+- **Contact email:** Only the owner can change the organization contact email or re-send verification links (24-hour single-use link, 60-second resend cooldown). Changing the address clears verification until the new address is confirmed.
+- **Plan and limits:** Displays your operator-assigned plan (`free` or `pro`), enabled feature flags, and current usage against limits (live services, member seats where the owner does not consume a seat, live origins per service, and check history retention window). There is no self-serve checkout, pricing page, or invoice flow in this release; contact the broker operator if you need higher service or origin limits.
+
+## Next steps
+
+- [Publish discovery](/providers/guides/publish-discovery/): details on identity-only fields, terms hosting, and attestation modes.
+- [Receipts and context guide](/providers/guides/issue-signup-receipt/): sign Contract E receipts and deliver them via Contract F.
+- [Report abuse](/providers/guides/abuse-reporting/): submit authenticated Contract D.2 reports.

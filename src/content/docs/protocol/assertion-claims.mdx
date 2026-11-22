@@ -3,18 +3,17 @@ title: Assertion claims
 description: The Contract A claim set, a worked example, the provider checks, and why the assertion carries no provider claim.
 audience: both
 aiGenerated: true
-lastReviewed: 2026-10-24
-verifiedAgainst: "spec v2.1.0 (563525e), broker main, jose 6.2.13, 2026-11-21"
+verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
 ---
 
 An agent obtains a signed Agent Identity assertion from its broker with
-`identity_signup` (default) or `identity_prove` (advanced). The assertion is a
+[`identity_signup`](/reference/mcp-tools/#identity_signup). The assertion is a
 compact Ed25519-signed JWT. It is the proof the agent presents at
 `endpoints.agent_signup`; the discovery document and the assertion are separate
 artifacts.
 
-This page is a reference for the claims and the relying-party checks. The
-normative handshake is [spec section
+This page is a reference for the Contract A claim set and the relying-party
+verification checks. The normative handshake is [spec section
 7](/protocol/specification/#7-assertion--agent_signup-handshake); the
 assertion format itself is Contract A and is referenced, not redefined, by the
 discovery specification.
@@ -40,25 +39,21 @@ discovery specification.
 | `delegation.master_tos_version` | string | The Master Terms of Service version the human accepted. |
 | `delegation.master_tos_hash` | string (`sha256:...`), optional | Content hash of the Master Terms of Service. |
 | `delegation.accepted_rp_tos_url` | string (URL) | URL of the relying party terms accepted through the agent. It must equal the provider's current `terms.url`. |
-| `delegation.accepted_rp_tos_hash` | string (`sha256:...`) | The Broker-computed hash of the exact bytes it fetched at `accepted_rp_tos_url`. |
+| `delegation.accepted_rp_tos_hash` | string (`sha256:...`) | The broker-computed hash of the exact bytes it fetched at `accepted_rp_tos_url`. |
 | `delegation.accepted_at` | integer | Acceptance time, Unix seconds. |
 | `delegation.scopes` | array of strings | Scopes delegated for this signup. |
 
-The claim names and types are validated by `AgentAssertionClaimsSchema` in the
-shared broker package. `identity_prove` returns the exact signed payload as
-`assertion.claims` for inspection. `identity_signup` returns the assertion
-(jwt, `jti`, `kid`, `typ`, expiry) without a claims block and returns the
-verification summary separately. The full result contracts are on [MCP
-tools](/reference/mcp-tools/).
+`identity_signup` returns `assertion` with `{ jwt, jti, kid, typ, expires_at, expires_at_unix }` and a prepared `signup_request` carrying `Authorization: Bearer <jwt>`. It does not return a separate decoded claims block; verification results live in the separate `rp_verification` summary. The full result contract is in [MCP tools](/reference/mcp-tools/#identity_signup).
 
-**No relying-party claim is added in v1.2.** Verification status, policy,
-attestation `jti`, and the assurance level live in `rp_verifications` and the
-tool result, not in the assertion. The assertion stays about the agent, the
-human, and the accepted terms. `identity_signup` returns no claims block at all.
+**No relying-party claim is added to the assertion.** Verification status, policy,
+attestation `jti`, and assurance level live in the broker's verification log and
+the tool result, not inside the signed JWT. The assertion stays strictly about
+the agent, the verified human owner, and the accepted terms.
 
 ## Worked example
 
-Ids are truncated and the audience is a placeholder. The issuer is the broker origin; `identity_prove` returns the real values in `assertion.claims`.
+Ids are truncated and the audience is a placeholder. The payload below shows the
+exact signed claim set verified by the relying party after signature validation.
 
 ```json
 {
@@ -91,13 +86,15 @@ Ids are truncated and the audience is a placeholder. The issuer is the broker or
 }
 ```
 
-The hashes in the example are illustrative. Discovery no longer carries a terms text or digest; the Broker computes `accepted_rp_tos_hash` from the bytes it fetches at `terms.url`.
+The hashes in the example are illustrative. Discovery does not carry terms text
+or a digest; the broker computes `accepted_rp_tos_hash` over the exact UTF-8
+bytes it fetches from `terms.url`.
 
 ## Verify the assertion
 
 A relying party verifies at least these checks before creating or resolving an account:
 
-1. **Fetch the issuer keys.** Use the `verification.jwks_url` returned by `identity_prove`, which is `GET <iss>/.well-known/jwks.json` for the broker. Do not accept a `jku` or `x5u` header that points at another host.
+1. **Fetch the issuer keys.** Resolve the issuer's JWKS from `GET <iss>/.well-known/jwks.json` using an origin from `issuer_allowlist`. Do not accept a `jku` or `x5u` header that points at another host.
 2. **Check the JOSE header.** Require `alg` to be `EdDSA`. Select the key whose `kid` matches the header from the issuer's current JWKS; the configured `kid` changes across deployments, so never hard-code one. The broker sets `typ` to `agent-id+jwt`.
 3. **Verify the signature.** Verify the compact JWT against the selected issuer key.
 4. **Check the issuer.** `iss` must match one `issuer_allowlist` entry exactly.
@@ -109,11 +106,13 @@ A relying party verifies at least these checks before creating or resolving an a
 10. **Check the terms URL.** `delegation.accepted_rp_tos_url` must equal the currently advertised `terms.url` after normalizing trailing slashes. Optionally, when `terms.url` serves deterministic bytes, compare `delegation.accepted_rp_tos_hash` with the digest of those bytes. A mismatch is `tos_hash_mismatch` and a hard stop for the agent.
 11. **Record the proof.** Keep the assertion `jti`, the accepted terms URL, version and hash, and the attribution for audit.
 
-The stable error codes and their HTTP statuses are in [spec section 7.2](/protocol/specification/#72-error-envelope-and-stable-codes).
+The stable error codes and their HTTP statuses are in [spec section 7.2](/protocol/specification/#72-error-envelope-and-stable-codes) and [Error codes](/reference/error-codes/#provider-handshake-errors).
 
-## Inspection-only rule
+## Do not modify the JWT
 
-Never decode, re-encode or modify the compact JWT to guess fields. Send `assertion.jwt` verbatim to `endpoints.agent_signup`. Use `assertion.claims` only to inspect what was signed; the JWT is the proof.
+An agent must never decode, re-encode, or modify the compact JWT returned by
+`identity_signup`. Send the prepared `signup_request` verbatim to
+`endpoints.agent_signup` and nowhere else.
 
 ## Known limits
 
@@ -121,11 +120,10 @@ Never decode, re-encode or modify the compact JWT to guess fields. Send `asserti
 - Revocation is enforced by the broker when an assertion is minted. A relying
   party that only verifies signatures learns about revocation when it next asks
   for an assertion or through an out-of-band feed it chooses to support.
-- The instruction "no relying-party allowlist" is a v1.1 statement. In v1.2 the
-  provider may publish an optional verification credential and the human applies
-  a trust list and policy before minting, but a conformant provider without a
-  credential still exists and is unverified. That is policy, not an assertion
-  claim.
+- A provider may publish an optional verification credential (`attestation`) and
+  the human owner applies a trust list and policy before minting, but a
+  conformant provider without a credential still exists and is unverified. That
+  check is policy, not an assertion claim.
 - An assertion proves identity, delegation and terms acceptance for its audience.
   It does not prove that the service is trustworthy or that its guide is safe.
 
@@ -134,4 +132,4 @@ Never decode, re-encode or modify the compact JWT to guess fields. Send `asserti
 - [Assertion and agent_signup handshake](/protocol/specification/#7-assertion--agent_signup-handshake)
 - [Issuer and JWKS assumptions](/protocol/specification/#10-issuer--jwks-assumptions)
 - [Receipt and context](/protocol/receipt-and-context/)
-- [Reference](/reference/) for the broker's MCP tools and endpoints.
+- [MCP tools](/reference/mcp-tools/)

@@ -4,13 +4,10 @@ This file is the operating guide for coding agents editing
 `agentregistrar/docs`. `CLAUDE.md` and `AGENTS.md` point here; do not fork the
 rules into them.
 
-Read it before you edit, audit, or verify a page. If a rule here conflicts with
-`docs/12-docs-push/` in the monorepo, the monorepo record wins for scope, and
-this file is corrected in the same change.
-
-The human contribution contract is in [`CONTRIBUTING.md`](./CONTRIBUTING.md):
-page templates, provenance, the review checklist and pull request rules. The
-release, sync, redirect, freshness and incident runbooks are in
+Read it before you edit, audit, or verify a page. The human contribution
+contract is in [`CONTRIBUTING.md`](./CONTRIBUTING.md): page templates,
+provenance, the review checklist, and pull request rules. The release, sync,
+redirect, freshness, and incident runbooks are in
 [`MAINTENANCE.md`](./MAINTENANCE.md). This file adds the agent-specific
 operating detail; where the two overlap, the stricter rule wins. Do not copy
 `THEME.md` rules into a content page or this file.
@@ -18,8 +15,8 @@ operating detail; where the two overlap, the stricter rule wins. Do not copy
 ## 1. What this repo is
 
 The public documentation site for Agent Registrar and the Agent Identity
-Protocol (`agent-identity-protocol`). Static Astro build via Cloudflare Nimbus, live at
-<https://docs.agentregistrar.dev> on the Cloudflare Worker
+Protocol (`agent-identity-protocol`). Static Astro build via Cloudflare Nimbus,
+live at <https://docs.agentregistrar.dev> on the Cloudflare Worker
 `agentregistrar-docs` (static assets; section 15). Apache-2.0.
 
 Canonical sources live outside this repo. Do not restate normative text here.
@@ -28,11 +25,10 @@ Canonical sources live outside this repo. Do not restate normative text here.
 | :--- | :--- |
 | Agent Identity Protocol (`agent-identity-protocol`) | `agentregistrar/spec` at tag `v2.1.0` |
 | Discovery JSON Schema | `agentregistrar/spec/agent-signup.schema.json` at the pinned revision; served byte-for-byte at `/protocol/agent-signup.schema.json` |
-| Broker behavior, MCP tools, portal | the monorepo (`apps/broker-portal`, `packages/shared`) |
-| Product definitions and IA | `docs/12-docs-push/01-docs-ia-audit-and-decisions.md` |
-| Visual system | `THEME.md` and `docs/08-visual-identity/` |
+| Broker behavior, MCP tools, portal | Deployed service at `https://agentregistrar.dev` and shared protocol/MCP schemas |
+| Visual system | [`THEME.md`](./THEME.md) |
 
-The docs own explanation, onboarding and lookup. They never own the contract.
+The docs own explanation, onboarding, and lookup. They never own the contract.
 
 ## 2. Non-negotiables
 
@@ -40,8 +36,8 @@ The docs own explanation, onboarding and lookup. They never own the contract.
   test job. Verification is the build plus the commands in section 10, run by a
   human or an agent and pasted into the PR.
 - **No analytics beyond the site-wide Ahrefs snippet.** The loader is declared
-  once in `astro.config.ts` (`head`); do not add tracking pixels, cookies, or
-  third-party search. Nimbus's Pagefind index is the search.
+  once in `astro.config.ts` (`head`); do not add tracking pixels, cookies, UTM
+  parameters, or third-party search. Nimbus's Pagefind index is the search.
 - **ASCII rendered text.** No smart quotes, em dashes, arrows, icons, or
   emoji in content or labels. Use `-`, `->`, `...`. Lint and
   `pnpm check:theme` both flag offenders.
@@ -49,8 +45,9 @@ The docs own explanation, onboarding and lookup. They never own the contract.
   why in the PR.
 - **No product code, no broker behavior, no protocol edits.** A docs bug that
   needs a broker change is reported, not fixed here.
-- **No secrets, private paths, internal issue numbers, customer data, or
-  internal hostnames** in pages, skills, or examples.
+- **No secrets, private paths, internal issue numbers, internal deliverable
+  codes, customer data, or internal hostnames** in public pages, skills, or
+  examples.
 
 ## 3. Layout
 
@@ -64,7 +61,7 @@ skills/<name>/SKILL.md     published Agent Skills (section 9)
 spec.lock.json             pinned spec tag/ref/commit, source/output hashes
 scripts/sync-spec.mjs      spec sync and offline drift check (section 11)
 public/_headers            host headers for paths Nimbus does not own
-public/protocol/  JSON Schema served at its canonical $id
+public/protocol/           JSON Schema served at its canonical $id
 src/
   components.ts            components usable in MDX without an import
   components/              layout chrome and the Nimbus UI components
@@ -113,7 +110,7 @@ Provenance fields, validated by `src/content.config.ts`:
 | :--- | :--- | :--- |
 | `audience` | `human` \| `agent` \| `both` (default `both`) | Who the page is written for. `human` marks a page written first for people; the page actions row then shows "for humans". |
 | `aiGenerated` | boolean | `true` while an agent drafted the page and no human has reviewed it. Shows "awaiting review" in the page actions row. |
-| `verifiedAgainst` | string | Behavior pages only: the exact artifact the page was checked against, e.g. `broker e7b53b4, 2026-10-21` or `Nimbus 0.18.1`. |
+| `verifiedAgainst` | string | Behavior pages only: the exact artifact the page was checked against, e.g. `spec v2.1.0, 2026-11-22` or `Nimbus 0.18.1`. |
 | `lastReviewed` | date | The date a human last reviewed the page against its source. Set it when the review happens; never backfill or guess. |
 | `source` | string | Generated pages only: the pinned source, e.g. `spec:v2.1.0#agent-identity-protocol.md`. |
 
@@ -142,7 +139,7 @@ title: Publish discovery
 description: Serve an identity-only discovery document that the validator accepts.
 audience: both
 aiGenerated: true
-verifiedAgainst: "spec v2.1.0, validator 2.1.0, 2026-11-21"
+verifiedAgainst: "spec v2.1.0, validator 2.1.0, 2026-11-22"
 ---
 ```
 
@@ -150,7 +147,7 @@ verifiedAgainst: "spec v2.1.0, validator 2.1.0, 2026-11-21"
 
 Every page is the landing page for one task or query. Nimbus derives the
 canonical URL, the Open Graph and Twitter tags, one `WebPage` JSON-LD block,
-the sitemap entry and the agent-readable endpoints from the frontmatter and the
+the sitemap entry, and the agent-readable endpoints from the frontmatter and the
 route. The author owns the metadata and the page outline:
 
 | Item | Rule |
@@ -161,19 +158,19 @@ route. The author owns the metadata and the page outline:
 | Section headings | H2 for top-level sections, H3 below them, no skipped levels. A heading labels the section; do not use it as a sentence or an announcer. |
 | Opening | The first paragraph answers the page's question or states the outcome. Do not open with a definition of the site or a table of contents. |
 | Internal links | Root-relative, trailing slash, descriptive anchor text. Link the destination, not a redirect. The page must be linked from its section index and at least one related page. |
-| Canonical and robots | Do not hand-write `rel=canonical`, `robots`, Open Graph, Twitter or JSON-LD in MDX. Set `noindex: true` or `draft: true` only when the page must stay out of search, the sitemap and the agent surface. |
+| Canonical and robots | Do not hand-write `rel=canonical`, `robots`, Open Graph, Twitter, or JSON-LD in MDX. Set `noindex: true` or `draft: true` only when the page must stay out of search, the sitemap, and the agent surface. |
 | Images | Alt text describes the mechanism, not the mood. Do not put a claim only in an image. |
 | Scope | One template shape and one intent. If a new page would answer the same query as an existing page, extend or consolidate the existing page and link it instead. |
 
 The automated gate is `pnpm check:seo`. It fails on a missing, duplicate,
-overlong or malformed title or description, a body H1 on a hand-authored page,
+overlong, or malformed title or description, a body H1 on a hand-authored page,
 and a skipped heading level. The Nimbus lint rules still cover links, code
-fences and the rest of the structure. A green gate is not a substitute for the
+fences, and the rest of the structure. A green gate is not a substitute for the
 reviewer's query-intent check.
 
 ## 6. Page templates
 
-Pick one shape; do not invent a seventh. `CONTRIBUTING.md` section 3 is the
+Pick one shape; do not invent an eighth. `CONTRIBUTING.md` section 3 is the
 human-facing copy of this table; keep the two in step.
 
 1. **Concept** - what and why, mental model, diagram, non-goals, next links.
@@ -187,16 +184,48 @@ human-facing copy of this table; keep the two in step.
 Every page needs a "verify" or "next step" ending. A page that cannot be
 verified against something is a concept page, not a how-to.
 
-## 7. Voice, ASCII and claims
+## 7. Personas, voice tiers, ASCII, and claims
 
-- Terminal voice: short declarative sentences, sentence case, no marketing.
+Every page picks **one primary persona**, **one job to be done**, and **one
+voice tier**. Never dump Tier 3 wire jargon onto a Tier 1 front-door page, and
+never dilute Tier 3 protocol specs into vague prose.
+
+### 7.1 Four core personas
+
+1. **Providers (co-primary):** Founders, product/backend/growth engineers who
+   want agents to sign up directly on their own domain with accountable humans,
+   auditable terms acceptance, and standard JWT verification.
+2. **Developers running agents (co-primary):** Software engineers and builders
+   running MCP coding tools (Claude Code, Cursor, OpenCode, Codex CLI, Gemini
+   CLI, Antigravity CLI, VS Code, Claude Desktop) who want 60-second setup,
+   emailed terms copies, a per-agent kill switch, and no third-party credential
+   vault.
+3. **Protocol implementers and security reviewers (secondary):** Spec readers,
+   second-broker builders, and security/legal reviewers auditing exact wire
+   contracts, error tables, and threat models.
+4. **AI coding agents (secondary):** LLMs consuming `/llms.txt`, per-page
+   Markdown, Agent Skills, and MCP resources to connect MCP or implement and
+   validate discovery endpoints.
+
+### 7.2 Four-tier voice and jargon model
+
+| Tier | Vocabulary and depth | Docs surfaces |
+| :--- | :--- | :--- |
+| **Tier 1: Plain & Outcome-First** | Plain English. Lead with the problem, outcome, and ease of use. Say *signed identity token*, *audit trail*, *emailed copy of the terms*, *provider* / *service*, *kill switch*. Avoid `Ed25519`, `JWS`, `Contract A-I`, `relying party`, `attestation`. | Docs home (`/`), `/start/` (`what-is-agent-registrar`, `how-it-works`), `/agents/` (`index`, `quickstart`, `install`, `portal`), `/providers/` (`index`) |
+| **Tier 2: Guided Implementation** | Practical developer steps, copy-paste code, exact config keys, CLI commands, and portal workflows. Introduce protocol identifiers (`JWKS`, `aud`, `accepted_rp_tos_hash`, `verify`/`strict`) only when the step requires them. | `/demo/`, `/agents/` (`inbox-and-verification`, `credentials-and-recovery`, `troubleshooting`), `/providers/` (`quickstart`, `portal`, `hosting`, `guides/*`, `troubleshooting`), `/contribute/` |
+| **Tier 3: Protocol, Reference & Trust** | Terse, unambiguous specification and lookup prose. Full normative terms (`agent-identity-protocol`, `protocol_version: "2.0"`, `Ed25519`, `JWS`, `Contract A-I`, `relying party (RP)`), complete error tables, explicit threat models and known limits. | `/start/trust-and-limits/`, `/protocol/*`, `/reference/*` |
+| **Tier 4: Machine-Readable Agent Instructions** | Terse, deterministic checklists, exact MCP tool names, exact schemas, explicit do/do-not rules, and verification commands. Zero narrative fluff. | `skills/*/SKILL.md`, `/llms.txt`, `/<slug>/index.md` |
+
+### 7.3 Style, ASCII, and claims
+
+- Clear, grounded voice: short declarative sentences, sentence case, no
+  marketing hype, no exclamation marks, no emoji.
 - Second person for instructions ("run", "check"), third person for behavior.
-- Rendered text is ASCII. The source may use `-` for ranges and `->` for
-  arrows; never `--`, smart quotes, or a Unicode arrow.
+- Rendered text is ASCII. Use `-` for ranges and `->` for arrows; never em
+  dashes, smart quotes, or Unicode arrows.
 - Code fences declare a language. Shell blocks contain the command only, with
   no `$ ` prompt, so a reader can copy-paste them; the
-  `nimbus/code-block-prompt-prefix` rule, a warning, flags a prefix. Comments
-  start with `#`.
+  `nimbus/code-block-prompt-prefix` rule flags a prefix. Comments start with `#`.
 - Every sample must be copy-paste runnable against the deployed demo,
   `localhost`, or a public URL, with the expected output shown. If the output
   is illustrative, say so.
@@ -206,8 +235,8 @@ verified against something is a concept page, not a how-to.
 - Never claim support without a verification tier and date on the page. Tiers:
   1 = recorded end-to-end transcript; 2 = configuration verified; 3 = generic
   protocol-level instructions.
-- No overclaims: do not describe an SDK, hosted API, SLA, or capability that
-  does not exist.
+- No overclaims: do not describe an SDK, hosted API, SLA, KYC check, safety
+  endorsement, or capability that does not exist.
 
 ## 8. Agent surface
 
@@ -215,10 +244,10 @@ The build emits, for every discoverable page:
 
 - `/llms.txt` - site index with one hop to each section.
 - `/llms-full.txt` - all discoverable pages in one document.
-- `/<section>/llms.txt` - per-section index, nested one level at a time. Emitted
-  only when a section has more than one page. The current sections are `agents`,
-  `contribute`, `portal`, `protocol`, `providers`, `reference` and `start`;
-  `demo` has one page and therefore no per-section index.
+- `/<section>/llms.txt` - per-section index, emitted when a section has more
+  than one page. Multi-page sections are `agents`, `protocol`, `providers`,
+  `reference`, and `start`; single-page sections (`demo`, `contribute`) have no
+  per-section index.
 - `/<slug>/index.md` - clean Markdown of the page, components flattened.
 - `/<slug>/index.mdx` - authored source, including imports and JSX.
 - JSON-LD in every page `<head>`, plus `sitemap.xml`, `robots.txt`.
@@ -284,6 +313,7 @@ rules, are in `CONTRIBUTING.md` section 10; the release gate set is in
 
 ```bash
 pnpm install --frozen-lockfile   # cold checkout only
+pnpm sync:spec:check             # offline spec drift check
 pnpm check:seo                   # title, description and heading metadata gate
 pnpm build                       # dist/, routes; prebuild history/SEO, postbuild link/sitemap gates
 pnpm check                       # nimbus-docs check: env, structure, authoring, types
@@ -297,11 +327,12 @@ git diff --check                 # whitespace errors
 
 `pnpm build` runs `postbuild`, which runs the same link gate. The gate scans
 the built HTML, including the generated `.md` protocol pages that
-`nimbus-docs lint` does not see, and fails on a missing route, file or heading
+`nimbus-docs lint` does not see, and fails on a missing route, file, or heading
 anchor.
 
 Pass/fail:
 
+- `pnpm sync:spec:check` must exit `0`.
 - `pnpm check:seo` must exit `0`; `prebuild` runs it on every build.
 - `pnpm build` must succeed with no new warnings. Existing warnings are listed
   in section 14. `prebuild` also runs `fetch-history`, and `postbuild` runs
@@ -370,7 +401,7 @@ nimbusDisableRules: ["nimbus/bare-url"]
 Normative protocol pages are generated from a pinned `agentregistrar/spec`
 revision, never hand-edited. The normal pin is a release tag. A docs-only
 refresh that landed after the tag can be pinned by commit: the lock keeps the
-protocol release in `tag`, records `ref`, `commit` and a `note`, and each page
+protocol release in `tag`, records `ref`, `commit`, and a `note`, and each page
 names the exact source commit.
 
 - `spec.lock.json` records `tag`, `ref` (commit pins only), `commit`, `note`
@@ -378,7 +409,7 @@ names the exact source commit.
   each generated output's SHA-256. `outputs` is what makes the offline build
   guard possible.
 - `pnpm sync:spec` fetches the lock's pin, verifies the commit through the
-  GitHub API, verifies every source hash, transforms the pages and writes them
+  GitHub API, verifies every source hash, transforms the pages, and writes them
   with the lock. A tag pin fetches the tag tarball; a commit pin fetches
   `codeload` by commit SHA, so a moving branch cannot change the bytes. It is
   the only step that uses the network.
@@ -389,13 +420,13 @@ names the exact source commit.
   nothing. `node scripts/sync-spec.mjs --commit <sha> --ref main --tag <tag>`
   previews a commit pin. Add `--write` to update the lock and the pages.
 - Generated pages carry `source`, `specTag`, optional `sourceRef`/`sourceNote`,
-  `generated: true` and `lastReviewed` in frontmatter and a generated-content
+  `generated: true`, and `lastReviewed` in frontmatter and a generated-content
   banner. The banner names the exact source commit. `lastReviewed` is the spec
   release date the page was generated from, not a human review of the rendered
   page.
 - The only allowed transforms are frontmatter, relative-to-absolute link
   rewriting, and the banner. Rewritten spec-repo links point at the pinned
-  commit, not the tag name. The changelog combines the two release-notes files
+  commit, not the tag name. The changelog combines the release-notes files
   newest-first and demotes their headings one level; its frontmatter disables
   the duplicate-heading rule because the canonical release notes share section
   titles.
@@ -403,27 +434,31 @@ names the exact source commit.
   H1 from the layout. `src/pages/[...slug].astro` passes `bodyHasH1` and
   `src/layouts/DocsLayout.astro` suppresses the title heading in that case.
   Never remove the source H1.
-- Updating the pin is its own PR: bump `tag` (or `commit`/`ref`) in
-  `spec.lock.json`, run `pnpm sync:spec`, review the normative diff, update the
-  hand-authored pages and cross-links, update the changelog and any
-  current-version strings, run the gates, and commit the lock with the
-  generated pages.
 
-Version bump runbook:
+Version bump runbook (matches `MAINTENANCE.md` section 2):
 
 1. Confirm the spec tag and release notes exist; read the diff against the
    previous tag.
-2. Update `tag` in `spec.lock.json` (leave `commit`, `files` and `outputs` to
-   the sync). For a post-tag docs refresh, use
-   `node scripts/sync-spec.mjs --write --commit <sha> --ref main --tag <tag>`.
-3. Run `pnpm sync:spec`; review the generated diff for normative changes.
-4. Update the hand-authored pages if fields, errors or claims changed.
-5. Update the generated changelog (the sync does it) and any "current version"
-   strings on hand-authored pages.
-6. Run `pnpm build`, `pnpm check`, `pnpm lint`, `pnpm typecheck`,
-   `pnpm check:theme`, `pnpm check:links` and `git diff --check`; verify the
-   schema `$id`.
-7. Commit the lock, the generated pages and the hand-authored changes in one
+2. Bump the pin on the command line (never edit `tag` alone in `spec.lock.json`
+   and run `pnpm sync:spec`, which re-fetches the old commit under the new
+   label):
+
+   ```bash
+   node scripts/sync-spec.mjs --write --tag <new-tag>
+   ```
+
+   For a post-tag docs-only refresh on `main`, pin the commit instead:
+
+   ```bash
+   node scripts/sync-spec.mjs --write --commit <sha> --ref main --tag <tag>
+   ```
+
+3. Confirm `spec.lock.json` moved, run `pnpm sync:spec:check`, and review the
+   generated diff for normative changes.
+4. Update the hand-authored pages where fields, errors, or claims changed.
+5. Update any current-version strings on hand-authored pages.
+6. Run the full gate set in section 10 and verify the schema `$id`.
+7. Commit the lock, the generated pages, and the hand-authored changes in one
    PR.
 8. Update the spec repo's "Read online" links if a page path changed.
 
@@ -436,7 +471,7 @@ Two servers, two purposes:
   `charset` parameter and the CORS and cache headers.
 - `pnpm exec wrangler dev --port 8787` emulates Cloudflare Workers static assets
   in `wrangler.jsonc` and applies `_headers`. This is the host contract: use it
-  for status, content type, CORS and cache checks.
+  for status, content type, CORS, and cache checks.
 
 ```bash
 pnpm build
@@ -505,21 +540,22 @@ Severities: `error` blocks merge, `warn` needs a decision, `info` is context.
 
 Run, in order:
 
-1. `pnpm check:seo` - metadata and heading findings.
-2. `pnpm build` then `pnpm lint --format=json` - structural, link and sitemap
+1. `pnpm sync:spec:check` - offline spec drift check.
+2. `pnpm check:seo` - metadata and heading findings.
+3. `pnpm build` then `pnpm lint --format=json` - structural, link, and sitemap
    findings; the postbuild gates cover links and sitemap dates.
-3. `pnpm check --json` - environment, structure, authoring, types.
-4. `pnpm typecheck`, `pnpm check:theme`, `git diff --check`.
-5. Provenance sweep: list every page with `aiGenerated: true` and no
+4. `pnpm check --json` - environment, structure, authoring, types.
+5. `pnpm typecheck`, `pnpm check:theme`, `git diff --check`.
+6. Provenance sweep: list every page with `aiGenerated: true` and no
    `lastReviewed`. Those are awaiting review; do not clear them yourself.
-6. Stale verification sweep: compare each `verifiedAgainst` against the current
-   broker commit, spec tag, or Nimbus version. A mismatch is a warning, not an
+7. Stale verification sweep: compare each `verifiedAgainst` against the current
+   broker release, spec tag, or Nimbus version. A mismatch is a warning, not an
    edit - the page needs re-verification, not a new date.
-7. Agent-surface sweep: for every page in the sitemap, assert
+8. Agent-surface sweep: for every page in the sitemap, assert
    `/<slug>/index.md` exists, the page appears in `/llms.txt`, and the
    Markdown body matches the rendered page. Report the missing path, not just a
    count.
-8. Skill sweep: every folder under `skills/` appears in
+9. Skill sweep: every folder under `skills/` appears in
    `dist/.well-known/agent-skills/index.json`, and each advertised digest
    matches the file.
 
@@ -538,14 +574,11 @@ launch, and record the date and findings.
 - `WARN [vite] MODULE_LEVEL_DIRECTIVE "use astro:head-inject"` - emitted by
   Astro for MDX pages that render Nimbus head injection. Harmless upstream
   noise.
-- The redirect stubs are not pages, so the build reports "4 pages found without
-  an <html> element" (`/docs/`, `/spec/`, `/specification/`,
-  `/protocol/agent-signup/`). Harmless. `/docs` is a 308 to `/`;
-  `/spec`, `/specification` and `/protocol/agent-signup` are 308s to
-  the protocol pages. The redirect map registers both the slashless and the
-  trailing-slash key, so both URL shapes are one permanent hop. The remaining
-  staged redirects stay commented in `astro.config.ts` until their destination
-  page exists. Do not activate a redirect before its destination exists.
+- Redirect stubs emitted from `astro.config.ts` are not full HTML pages, so
+  Pagefind logs "N pages found without an `<html>` element" for the active
+  redirect routes. Harmless. Every redirect in `astro.config.ts` registers both
+  the slashless and trailing-slash keys and points only at a live destination
+  in the same build.
 - `pnpm check:theme` exempts generated pages (`generated: true` in
   frontmatter) and the canonical JSON Schema asset
   (`public/protocol/agent-signup.schema.json`) from the non-ASCII rule.
@@ -575,20 +608,15 @@ The site is live at `https://docs.agentregistrar.dev`, served by the
 static-assets Cloudflare Worker `agentregistrar-docs` (custom domain attached;
 no Worker script). Workers Builds is connected to `agentregistrar/docs` and
 builds the production branch `main` on push, so the live site tracks `main` and
-not an unmerged branch. The build connection's first production build ran from
-`main` (commit `57974ba`) and succeeded; the Issue 04 cutover was a manual
-`pnpm run deploy` from the unmerged branch, and the next `main` push rebuilds the
-merged config. `wrangler.jsonc` sets the assets directory (`./dist`), `404-page`
-handling, `auto-trailing-slash`, the custom-domain route, `preview_urls` and
-observability. `public/_headers` supplies the agent-endpoint content types,
-cache policy, CORS and baseline security headers.
+not an unmerged branch. `wrangler.jsonc` sets the assets directory (`./dist`),
+`404-page` handling, `auto-trailing-slash`, the custom-domain route,
+`preview_urls`, and observability. `public/_headers` supplies the
+agent-endpoint content types, cache policy, CORS, and baseline security headers.
 
-There is no deploy workflow in GitHub Actions. The former Pages project
-`agentregistrar-docs` is a frozen rollback snapshot with no custom domain and no
-Git source (monorepo `docs/deployment.md` section 8); `wrangler dev` locally (section 12)
-is the host contract to test against. Cloudflare's `_headers` support consumes
-`public/_headers` plus the generated Nimbus block. Do not change DNS from a
-content change.
+There is no deploy workflow in GitHub Actions. `wrangler dev` locally (section
+12) is the host contract to test against. Cloudflare's `_headers` support
+consumes `public/_headers` plus the generated Nimbus block. Do not change DNS
+from a content change.
 
 ## 16. Upgrading Nimbus
 
@@ -616,6 +644,6 @@ for the installed version rather than the public site.
   rejects them.
 - Do not remove `<AgentDirective />` or `<WebMCP />` from `BaseLayout.astro`.
 - Do not publish a page or skill that contains a private path, token, customer
-  detail, or internal issue number.
+  detail, internal deliverable code, or internal issue number.
 - Do not clear `aiGenerated` or set `lastReviewed` unless a human actually
   reviewed the page.

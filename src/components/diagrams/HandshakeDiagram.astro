@@ -1,6 +1,6 @@
 ---
 /**
- * Hand-authored diagram of the brokered signup handshake.
+ * Hand-authored diagram of the six-step brokered signup flow.
  *
  * Terminal rules: ASCII labels, 1px geometry, no icons, no gradients, no
  * shadows, no radius, tokens only. The vertical stack keeps the labels legible
@@ -15,31 +15,27 @@
 
 <figure class="my-6 border border-line bg-surface px-3 py-4">
   <svg
-    viewBox="0 0 318 520"
+    viewBox="0 0 318 408"
     role="img"
     aria-labelledby="handshake-diagram-title"
     aria-describedby="handshake-diagram-desc"
     class="mx-auto block h-auto w-full"
     style="max-width: 24rem;"
   >
-    <title id="handshake-diagram-title">Brokered signup handshake between the human owner, the agent, the broker and the provider</title>
+    <title id="handshake-diagram-title">Brokered signup flow between the human owner, the agent, the broker, and the provider</title>
     <desc id="handshake-diagram-desc">
-      Numbered eight-step flow. Step 1, human: sign in with GitHub, verify the
-      email address and sign the master delegation agreement. Step 2, agent:
-      connect the harness to the broker MCP endpoint and complete OAuth in the
-      browser. Step 3, broker: identity_register returns the agent sub-identity,
-      the inbox address and the delegated scopes. Step 4, agent: read the
-      provider discovery document and accept the terms at terms.url. Step 5,
-      broker: identity_prove fetches terms.url, records the ToS acceptance,
-      mints the assertion (a JWT plus the same claims for inspection) and sends
-      the ledger receipt to the agent inbox and to the human owner. Step 6, agent: POST assertion.jwt to
-      the provider agent_signup endpoint as an Authorization Bearer token. Step
-      7, provider: verify the assertion, create or resolve the account, return
-      the signed receipt and the context pointer. Step 8, broker:
-      identity_record_signup records the signup proof in the human owner's
-      ledger. Three trust boundaries are marked:
-      human consent after step 1, broker minting after step 5, and provider
-      verification after step 7.
+      Numbered six-step flow. Step 1, human: sign in with GitHub, verify your
+      email address, and sign the master delegation agreement. Step 2, agent:
+      connect to the broker MCP endpoint and pick or create an agent during
+      browser OAuth consent. Step 3, broker: identity_signup fetches provider
+      discovery and terms, hashes exact bytes, emails a copy to the human owner,
+      and mints a five-minute signed JWT. Step 4, agent: POST the prepared
+      signup_request to the provider with Authorization Bearer. Step 5,
+      provider: verify the JWT against JWKS, create or resolve the account, and
+      return a signed receipt plus an optional guide link. Step 6, broker:
+      identity_record_signup records the receipt in the human owner's /activity
+      audit trail. Three trust boundaries are marked: human consent after step
+      1, broker minting after step 3, and provider verification after step 5.
     </desc>
 
     <g fill="var(--color-foreground)">
@@ -47,8 +43,8 @@
       <rect x="2" y="8" width="314" height="48" fill="none" stroke="var(--color-line)" />
       <text x="6" y="17" font-size="11" letter-spacing="0.5" fill="var(--color-muted)">HUMAN</text>
       <text x="6" y="44" font-size="11" fill="var(--color-accent)">1</text>
-      <text x="52" y="26" font-size="11">sign in with GitHub, verify your email,</text>
-      <text x="52" y="42" font-size="11">sign the master agreement</text>
+      <text x="52" y="26" font-size="11">sign in with GitHub, verify email and</text>
+      <text x="52" y="42" font-size="11">sign the master delegation agreement</text>
 
       <!-- boundary: human consent -->
       <text x="2" y="70" font-size="11" letter-spacing="0.5" fill="var(--color-warn)">TRUST BOUNDARY - HUMAN CONSENT</text>
@@ -58,58 +54,44 @@
       <rect x="2" y="80" width="314" height="48" fill="none" stroke="var(--color-line)" />
       <text x="6" y="89" font-size="11" letter-spacing="0.5" fill="var(--color-muted)">AGENT</text>
       <text x="6" y="116" font-size="11" fill="var(--color-accent)">2</text>
-      <text x="52" y="98" font-size="11">connect the harness to the MCP endpoint</text>
-      <text x="52" y="114" font-size="11">and complete OAuth in the browser</text>
+      <text x="52" y="98" font-size="11">connect /mcp and bind or create an</text>
+      <text x="52" y="114" font-size="11">agent in browser OAuth consent</text>
 
       <!-- 3 -->
       <rect x="2" y="136" width="314" height="48" fill="none" stroke="var(--color-line)" />
       <text x="6" y="145" font-size="11" letter-spacing="0.5" fill="var(--color-muted)">BROKER</text>
       <text x="6" y="172" font-size="11" fill="var(--color-accent)">3</text>
-      <text x="52" y="154" font-size="11">identity_register: sub-identity, inbox</text>
-      <text x="52" y="170" font-size="11">address and delegated scopes</text>
-
-      <!-- 4 -->
-      <rect x="2" y="192" width="314" height="48" fill="none" stroke="var(--color-line)" />
-      <text x="6" y="201" font-size="11" letter-spacing="0.5" fill="var(--color-muted)">AGENT</text>
-      <text x="6" y="228" font-size="11" fill="var(--color-accent)">4</text>
-      <text x="52" y="210" font-size="11">read the provider discovery document</text>
-      <text x="52" y="226" font-size="11">and accept the terms at terms.url</text>
-
-      <!-- 5 -->
-      <rect x="2" y="248" width="314" height="48" fill="none" stroke="var(--color-line)" />
-      <text x="6" y="257" font-size="11" letter-spacing="0.5" fill="var(--color-muted)">BROKER</text>
-      <text x="6" y="284" font-size="11" fill="var(--color-accent)">5</text>
-      <text x="52" y="266" font-size="11">identity_prove fetches terms.url and</text>
-      <text x="52" y="282" font-size="11">records acceptance, mints, sends mail</text>
+      <text x="52" y="154" font-size="11">identity_signup: fetch terms, hash</text>
+      <text x="52" y="170" font-size="11">bytes, email copy, mint 5-min JWT</text>
 
       <!-- boundary: broker minting -->
-      <text x="2" y="318" font-size="11" letter-spacing="0.5" fill="var(--color-warn)">TRUST BOUNDARY - BROKER MINTING</text>
-      <line x1="2" y1="324" x2="316" y2="324" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
+      <text x="2" y="206" font-size="11" letter-spacing="0.5" fill="var(--color-warn)">TRUST BOUNDARY - BROKER MINTING</text>
+      <line x1="2" y1="212" x2="316" y2="212" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
 
-      <!-- 6 -->
-      <rect x="2" y="328" width="314" height="48" fill="none" stroke="var(--color-line)" />
-      <text x="6" y="337" font-size="11" letter-spacing="0.5" fill="var(--color-muted)">AGENT</text>
-      <text x="6" y="364" font-size="11" fill="var(--color-accent)">6</text>
-      <text x="52" y="346" font-size="11">POST assertion.jwt to agent_signup</text>
-      <text x="52" y="362" font-size="11">as Authorization: Bearer</text>
+      <!-- 4 -->
+      <rect x="2" y="216" width="314" height="48" fill="none" stroke="var(--color-line)" />
+      <text x="6" y="225" font-size="11" letter-spacing="0.5" fill="var(--color-muted)">AGENT</text>
+      <text x="6" y="252" font-size="11" fill="var(--color-accent)">4</text>
+      <text x="52" y="234" font-size="11">POST prepared signup_request to the</text>
+      <text x="52" y="250" font-size="11">provider with Authorization: Bearer</text>
 
-      <!-- 7 -->
-      <rect x="2" y="384" width="314" height="48" fill="none" stroke="var(--color-line)" />
-      <text x="6" y="393" font-size="11" letter-spacing="0.5" fill="var(--color-muted)">PROVIDER</text>
-      <text x="6" y="420" font-size="11" fill="var(--color-accent)">7</text>
-      <text x="52" y="402" font-size="11">verify the assertion, create or resolve</text>
-      <text x="52" y="418" font-size="11">the account, return receipt + context</text>
+      <!-- 5 -->
+      <rect x="2" y="272" width="314" height="48" fill="none" stroke="var(--color-line)" />
+      <text x="6" y="281" font-size="11" letter-spacing="0.5" fill="var(--color-muted)">PROVIDER</text>
+      <text x="6" y="308" font-size="11" fill="var(--color-accent)">5</text>
+      <text x="52" y="290" font-size="11">verify JWT via JWKS, create or resolve</text>
+      <text x="52" y="306" font-size="11">account, return receipt + guide link</text>
 
       <!-- boundary: provider verification -->
-      <text x="2" y="454" font-size="11" letter-spacing="0.5" fill="var(--color-warn)">TRUST BOUNDARY - PROVIDER VERIFICATION</text>
-      <line x1="2" y1="460" x2="316" y2="460" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
+      <text x="2" y="342" font-size="11" letter-spacing="0.5" fill="var(--color-warn)">TRUST BOUNDARY - PROVIDER VERIFICATION</text>
+      <line x1="2" y1="348" x2="316" y2="348" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
 
-      <!-- 8 -->
-      <rect x="2" y="464" width="314" height="48" fill="none" stroke="var(--color-line)" />
-      <text x="6" y="473" font-size="11" letter-spacing="0.5" fill="var(--color-muted)">BROKER</text>
-      <text x="6" y="500" font-size="11" fill="var(--color-accent)">8</text>
-      <text x="52" y="482" font-size="11">identity_record_signup records the</text>
-      <text x="52" y="498" font-size="11">proof in the human owner's ledger</text>
+      <!-- 6 -->
+      <rect x="2" y="352" width="314" height="48" fill="none" stroke="var(--color-line)" />
+      <text x="6" y="361" font-size="11" letter-spacing="0.5" fill="var(--color-muted)">BROKER</text>
+      <text x="6" y="388" font-size="11" fill="var(--color-accent)">6</text>
+      <text x="52" y="370" font-size="11">identity_record_signup records the</text>
+      <text x="52" y="386" font-size="11">receipt in your /activity audit trail</text>
     </g>
   </svg>
   <figcaption class="mt-3 text-xs text-faint">
