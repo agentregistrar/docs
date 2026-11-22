@@ -249,11 +249,12 @@ acceptance.
 **Errors:** `human_suspended`, `human_email_unverified`, `master_tos_unsigned`,
 `agent_revoked`, `scope_not_granted`, `tos_version_mismatch`,
 `tos_hash_mismatch`, `ledger_email_failed` (retryable), `discovery_unreachable`
-(retryable), `discovery_invalid`, `protocol_unsupported`, `issuer_not_allowed`,
-`discovery_source_not_allowed`, `rp_unverified`, `rp_attestation_invalid`,
-`rp_attestation_expired`, `rp_attestation_mode_not_allowed`,
-`rp_attestation_revoked`, `rp_broker_untrusted`, `rp_broker_unavailable`
-(retryable), `rp_suspended`, `rp_blocked`, `internal_error` (retryable).
+(retryable), `discovery_missing`, `discovery_invalid`, `protocol_unsupported`,
+`issuer_not_allowed`, `discovery_source_not_allowed`, `rp_unverified`,
+`rp_attestation_invalid`, `rp_attestation_expired`,
+`rp_attestation_mode_not_allowed`, `rp_attestation_revoked`,
+`rp_broker_untrusted`, `rp_broker_unavailable` (retryable), `rp_suspended`,
+`rp_blocked`, `internal_error` (retryable).
 
 ### `identity_signup` example
 
@@ -384,5 +385,5 @@ List the 5 most recent messages:
 ## Related
 
 - [Broker HTTP and OAuth](/reference/broker-http/) for OAuth 2.1 consent, agent binding, and `/mcp` transport behavior.
-- [Error codes](/reference/error-codes/) for all 28 MCP error codes and recovery rules.
+- [Error codes](/reference/error-codes/) for all 29 MCP error codes and recovery rules.
 - [Inbox and verification](/agents/inbox-and-verification/) for practical inbox and forwarding guidance.

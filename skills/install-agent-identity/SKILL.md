@@ -126,6 +126,7 @@ Inspect `retryable` and `side_effects` before repeating a call.
 | `tos_version_mismatch`, `tos_hash_mismatch` | no | Re-read `terms.url` and retry `identity_signup` with the current `terms_version` (or omit `terms_version`). |
 | `ledger_email_failed` | yes | Acceptance is already recorded. Retry `identity_signup` with identical inputs; only the email is retried. |
 | `discovery_unreachable`, `rp_broker_unavailable` | yes | Temporary upstream fetch/broker failure. Retry later; never fabricate discovery or downgrade trust. |
+| `discovery_missing` | no | Stop and do not retry. Tell the human owner the service does not publish `/.well-known/agent-signup.json` yet and share https://docs.agentregistrar.dev/providers/prompt-kit/. |
 | `discovery_invalid`, `protocol_unsupported`, `issuer_not_allowed` | no | Stop. The service's discovery document is invalid or does not accept this broker. |
 | `discovery_source_not_allowed` | no | Pass only `service` (plus optional `terms_version`/`requested_scopes`/`force_new`) to `identity_signup`; never pass `rp_attestation` without `signup_token` to `identity_record_signup`. |
 | `rp_unverified`, `rp_attestation_mode_not_allowed` | no | Stop. Human policy (`verify` or `strict`) rejected the provider's verification state or mode. Ask the human to review `/trust` or pick another provider. |

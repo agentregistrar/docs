@@ -1,6 +1,6 @@
 ---
 title: Error codes
-description: Canonical error reference across discovery validation, MCP transport, all 28 MCP tool codes, provider signup HTTP, broker APIs, and OAuth.
+description: Canonical error reference across discovery validation, MCP transport, all 29 MCP tool codes, provider signup HTTP, broker APIs, and OAuth.
 audience: both
 aiGenerated: true
 verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
@@ -78,9 +78,9 @@ Returned with a non-`200` HTTP status from `POST /mcp`, before any tool runs
 | `-32003` | `403` | no | Human owner account is suspended, email is unverified, or current Master Agent Delegation Agreement is unsigned. | Human resolves the account gate in the Developer Portal. |
 | `-32000` | `406` | no | Request did not accept an allowed media type (for example `GET /mcp` without `Accept: text/event-stream`). | Send `POST /mcp` with `Accept: application/json, text/event-stream`. |
 
-## MCP tool errors (28 stable codes)
+## MCP tool errors (29 stable codes)
 
-All 28 codes defined by the broker's MCP error schema:
+All 29 codes defined by the broker's MCP error schema:
 
 | Code | Tools | Retryable | Meaning | Next action |
 | :--- | :--- | :-: | :--- | :--- |
@@ -97,7 +97,8 @@ All 28 codes defined by the broker's MCP error schema:
 | `message_not_found` | `inbox_read` | no | No message with that `message_id` exists for this agent. | Call `inbox_read` without `message_id` to list current message ids. |
 | `wait_timeout` | `inbox_read` | yes | No matching inbound email arrived within `wait_seconds` (max `25`). | Retry with a larger `wait_seconds` or `since_seconds_ago`, or list recent messages without `wait_seconds`. |
 | `internal_error` | all 4 tools | yes | Unexpected broker, database, or issuance error. | Check `side_effects` and retry; if it persists, report it. |
-| `discovery_unreachable` | `identity_signup` | yes | Relying party discovery document or `terms.url` could not be reached. Nothing was minted. | Retry later when the origin is reachable; never fabricate a document. |
+| `discovery_unreachable` | `identity_signup` | yes | Relying party discovery document or `terms.url` timed out, returned 5xx, or could not be reached. Nothing was minted. | Retry later when the origin is reachable; never fabricate a document. |
+| `discovery_missing` | `identity_signup` | no | The relying party returned HTTP 404 or 410 for `/.well-known/agent-signup.json` and does not support `agent-identity-protocol` yet. Nothing was minted. | Do not retry. Tell the human owner the service is not yet supported and share the provider prompt kit (`/providers/prompt-kit/`). |
 | `discovery_invalid` | `identity_signup` | no | Discovery document failed schema/rule validation, `terms.url` is unreadable, or `endpoints.agent_signup` is not fetchable. | Ask the provider to fix discovery or `terms.url`. |
 | `protocol_unsupported` | `identity_signup` | no | Service advertises an unsupported `protocol` or `protocol_version`. | Stop; the service does not support `agent-identity-protocol` `2.0`. |
 | `issuer_not_allowed` | `identity_signup` | no | This broker is not listed in the provider's `issuer_allowlist`. | Stop; this provider does not accept assertions from this broker. |
