@@ -2,13 +2,13 @@
 title: "Scope boundaries"
 description: "What the identity protocol owns, what the vendor owns, and the checklist for future protocol changes."
 audience: both
-source: "spec:v2.1.0#scope-boundaries.md"
-specTag: "v2.1.0"
+source: "spec:v2.1.1#scope-boundaries.md"
+specTag: "v2.1.1"
 generated: true
-lastReviewed: 2026-11-21
+lastReviewed: 2026-11-22
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/scope-boundaries.md) at `v2.1.0` (tag `v2.1.0`).
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/scope-boundaries.md) at `v2.1.1` (tag `v2.1.1`).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Identity vs Vendor Scope Boundaries

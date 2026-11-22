@@ -2,13 +2,13 @@
 title: "Implementation guide"
 description: "A relying-party checklist for publishing discovery, verifying assertions and returning a receipt."
 audience: both
-source: "spec:v2.1.0#implementing-agent-identity-protocol.md"
-specTag: "v2.1.0"
+source: "spec:v2.1.1#implementing-agent-identity-protocol.md"
+specTag: "v2.1.1"
 generated: true
-lastReviewed: 2026-11-21
+lastReviewed: 2026-11-22
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/implementing-agent-identity-protocol.md) at `v2.1.0` (tag `v2.1.0`).
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/implementing-agent-identity-protocol.md) at `v2.1.1` (tag `v2.1.1`).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Implementing the Agent Identity Protocol (Relying Party Guide)
@@ -193,8 +193,9 @@ account idempotently and signal the outcome:
   mail. You **may** mint a fresh `signup_token` so a dropped-response retry can still record the
   receipt.
 
-The wire protocol id stays `agent-identity-protocol`; the `resolution` field is additive and `v1.0.0`
-implementors remain conformant. See `agent-identity-protocol.md` §7.2, §7.3, §9.1, and §12.5.
+The `resolution` field was added while the wire protocol id was `agent-identity-v1`; it is additive
+and `v1.0.0` implementors remain conformant. `v2.1.0` renamed the id to `agent-identity-protocol`
+(see `agent-identity-protocol.md` §1.2). See `agent-identity-protocol.md` §7.2, §7.3, §9.1, and §12.5.
 
 ---
 
@@ -249,10 +250,18 @@ the conformance verdict still passes; with it, anything but `verified` fails (an
 `2`). A typed broker `403`/`404`/`410` is a verification result, not a conformance failure: a
 suspended, unknown, or revoked state does not make your discovery document non-conformant.
 
-The validator is the source-first package `@agentregistrar/discovery` (`2.0.0`, **Apache-2.0**). Run it
-from a clone of this specification repository, or use the pinned git dependency
-(`github:agentregistrar/spec#v2.0.0`) once the tag exists. There is no `bin` entry — always invoke it
-with `pnpm validate:discovery`.
+The validator is published as the compiled package `@agentregistrar/discovery` (**Apache-2.0**) with a
+CLI `bin`. Run it without cloning this repository:
+
+```bash
+npx @agentregistrar/discovery validate https://your-service.example/.well-known/agent-signup.json
+npx @agentregistrar/discovery validate path/to/agent-signup.json --json
+npx @agentregistrar/discovery --version
+```
+
+The package version comes from `package.json`; `--version` prints it and `--json` reports it as
+`validatorVersion`. Do not pin a patch version in your own documentation. From a clone of this
+specification repository, use `pnpm validate:discovery` with the same arguments.
 
 To test both modes without a live broker, use the checked-in fixtures and the fixture-only
 `--source-response` flag (it injects a local `{ status, body, contentType? }` instead of fetching):
@@ -288,19 +297,14 @@ under `--verify-attestation`.
 
 ## 8. Adoption / registry conventions
 
-The current specification release is **`v2.0.0`** (2026-11-21), the URL-hosted-terms and keyless-RP
-attestation release — see [`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v2.0.0.md). It follows
-**`v1.3.2`** (documentation-correction patch), **`v1.3.1`** (contract-text corrections), and
-**`v1.3.0`** (the breaking discovery-carrier release) — see
-[`release-notes-v1.3.2.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.3.2.md),
-[`release-notes-v1.3.1.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.3.1.md), and
-[`release-notes-v1.3.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.3.0.md). Earlier releases: **`v1.2.0`** (2026-10-24,
-[`release-notes-v1.2.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.2.0.md)), **`v1.1.0`**
-(2026-10-18, [`release-notes-v1.1.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.1.0.md)) and the initial **`v1.0.0`**
-(2026-10-17, [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/release-notes-v1.0.0.md)). The adoption surface is
-published in
-[`registry/README.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/registry/README.md) with the machine-readable registry in
-[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/registry/implementations.json).
+The current specification release is recorded in the changelog at
+[`agent-identity-protocol.md`](https://docs.agentregistrar.dev/protocol/specification/) §1.2, with matching release notes in
+`release-notes-v*.md`. `v2.1.0` renamed the protocol to the Agent Identity Protocol and split the wire
+version into `protocol_version: "2.0"`; see [`release-notes-v2.1.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v2.1.0.md).
+`v2.0.0` introduced URL-hosted terms and keyless RP attestations, with migration notes in
+[`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v2.0.0.md); the `v1.x` release notes record earlier
+releases. The adoption surface is published in [`registry/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/README.md) with the
+machine-readable registry in [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/implementations.json).
 
 - The implementation registry lists only implementations whose discovery document passes the
   validator. Entry criteria: the validator passes, you publish a stable discovery URL, your
@@ -311,7 +315,7 @@ published in
 - Record your `discovery_url` and read `audience` / `protocol` from the validator's `--json` output
   (`validator.md` §12).
 - To submit an entry, open a pull request against `registry/implementations.json` with your
-  validator evidence; see [`registry/README.md`](https://github.com/agentregistrar/spec/blob/563525ef688a6f114cbe39509255adc81b61ecfc/registry/README.md) §4. The conformance
+  validator evidence; see [`registry/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/README.md) §4. The conformance
   badge snippet and its usage terms are in §5 of the same document.
 
 ---
@@ -521,7 +525,7 @@ unauthenticated_report`.
 
 If you are an RP broker (or the human broker), serve `/.well-known/agent-broker.json` with `issuer`
 equal to the document origin, a same-origin `jwks_uri`, `attestation_status_uri`, `abuse_endpoint`,
-`protocol_versions` containing `agent-identity-protocol`, and a contact. Cache metadata for at most an hour
+`protocol_versions` containing `"2.0"`, and a contact. Cache metadata for at most an hour
 and status responses for at most five minutes. Keep retired attestation-signing keys in the JWKS for
 at least 30 days after the last attestation they signed expires.
 

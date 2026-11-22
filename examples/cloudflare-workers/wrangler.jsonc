@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agent-signup-example-cloudflare-workers",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-11-22",
+  "observability": {
+    "enabled": false
+  }
+}

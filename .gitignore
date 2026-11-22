@@ -4,6 +4,10 @@ dist/
 .wrangler/
 .nimbus/
 
+examples/*/node_modules/
+examples/*/.next/
+examples/*/.wrangler/
+
 .env
 .env.local
 .env.*.local
