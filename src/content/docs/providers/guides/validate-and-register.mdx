@@ -22,6 +22,8 @@ npx @agentregistrar/discovery@2.1.1 validate https://example.com/.well-known/age
 
 Add opt-in non-destructive probes to verify that every issuer in `issuer_allowlist` publishes a valid JWKS and that `endpoints.agent_signup` is reachable (`HEAD`/`OPTIONS`, never `POST`):
 
+<ValidatorPersonalizer includeProbes />
+
 ```bash
 npx @agentregistrar/discovery@2.1.1 validate https://example.com/.well-known/agent-signup.json \
   --probe-jwks --probe-endpoints --json
@@ -32,6 +34,8 @@ If you are working from a clone of `agentregistrar/spec`, run `pnpm --silent val
 ### Check your attestation (opt-in)
 
 To fetch `attestation.uri` and verify the provider verification credential against a trusted broker:
+
+<ValidatorPersonalizer forceVerifyAttestation />
 
 ```bash
 npx @agentregistrar/discovery@2.1.1 validate https://example.com/.well-known/agent-signup.json \

@@ -81,12 +81,15 @@ const isActive = (href: string): boolean => {
           github
         </a>
       )}
-      <a
-        href="https://agentregistrar.dev"
-        class="hidden min-h-11 items-center px-2 text-sm text-muted no-underline transition-colors duration-100 hover:text-foreground md:inline-flex"
-      >
-        agentregistrar.dev
-      </a>
+      <span data-docs-account-slot class="hidden md:inline-flex">
+        <a
+          href="https://agentregistrar.dev"
+          data-docs-account-link
+          class="inline-flex min-h-11 items-center gap-1.5 px-2 text-sm text-muted no-underline transition-colors duration-100 hover:text-foreground"
+        >
+          agentregistrar.dev
+        </a>
+      </span>
       {showSidebar && (
         <button
           type="button"
@@ -100,3 +103,49 @@ const isActive = (href: string): boolean => {
     </div>
   </div>
 </header>
+
+<script>
+  import { mount } from "@cloudflare/nimbus-docs/client";
+  import {
+    getDocsContext,
+    subscribeDocsContextRefresh,
+    type DocsContext,
+  } from "@/lib/docs-session";
+
+  mount("[data-docs-account-link]", (el) => {
+    if (!(el instanceof HTMLAnchorElement)) return () => {};
+    let active = true;
+
+    const applyContext = (ctx: DocsContext) => {
+      if (!active) return;
+      if (ctx.signed_in) {
+        const targetUrl =
+          ctx.provider.services.length > 0
+            ? ctx.provider.portal_url
+            : ctx.developer.dashboard_url;
+        el.href = targetUrl;
+        el.title = `Signed in as ${ctx.human.display_name} - Open Agent Registrar Portal`;
+        el.classList.remove("text-muted");
+        el.classList.add("text-accent");
+        el.textContent = "portal";
+      } else {
+        el.href = "https://agentregistrar.dev";
+        el.removeAttribute("title");
+        el.classList.remove("text-accent");
+        el.classList.add("text-muted");
+        el.textContent = "agentregistrar.dev";
+      }
+    };
+
+    const unsubscribe = subscribeDocsContextRefresh(applyContext);
+
+    void getDocsContext().then((ctx) => {
+      applyContext(ctx);
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  });
+</script>

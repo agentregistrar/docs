@@ -17,8 +17,10 @@ import { FileTree } from "./components/ui/file-tree";
 import { LinkCard } from "./components/ui/link-card";
 import { PackageManagers } from "./components/ui/package-managers";
 import { Step, Steps } from "./components/ui/steps";
-import { Tabs, TabItem } from "./components/ui/tabs";
+import { TabItem, Tabs } from "./components/ui/tabs";
+import PromptPersonalizer from "./components/PromptPersonalizer.astro";
 import Render from "./components/Render.astro";
+import ValidatorPersonalizer from "./components/ValidatorPersonalizer.astro";
 
 export const components = {
   Aside,
@@ -31,9 +33,11 @@ export const components = {
   FileTree,
   LinkCard,
   PackageManagers,
+  PromptPersonalizer,
   Render,
   Step,
   Steps,
   TabItem,
   Tabs,
+  ValidatorPersonalizer,
 };

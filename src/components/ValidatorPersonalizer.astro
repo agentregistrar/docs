@@ -1,0 +1,197 @@
+---
+/**
+ * ValidatorPersonalizer - unobtrusive Terminal bar placed above a validator CLI
+ * code block. Stays hidden for logged-out visitors and when no service has a
+ * primary_origin; when signed in with an eligible service, pre-fills the CLI
+ * command and stays synchronized with PromptPersonalizer.
+ */
+interface Props {
+  includeProbes?: boolean;
+  forceVerifyAttestation?: boolean;
+}
+
+const { includeProbes = false, forceVerifyAttestation = false } = Astro.props;
+---
+
+<div
+  data-validator-personalizer
+  data-include-probes={includeProbes ? "true" : "false"}
+  data-force-verify={forceVerifyAttestation ? "true" : "false"}
+  hidden
+  class="mb-2 flex flex-wrap items-center justify-between gap-2 border border-line bg-surface px-3 py-1.5 text-xs text-muted"
+></div>
+
+<script>
+  import { mount } from "@cloudflare/nimbus-docs/client";
+  import {
+    getDocsContext,
+    getSelectedServiceId,
+    subscribeDocsContextRefresh,
+    type DocsContext,
+    type DocsContextService,
+  } from "@/lib/docs-session";
+  import { buildValidatorCommand } from "@/lib/prompt-builder";
+
+  const GENERIC_VALUE = "__generic__";
+  const SERVICE_CHANGE_EVENT = "ar-docs-service-change";
+  const genericCommandCache = new WeakMap<HTMLElement, string>();
+
+  function findNextCodeElement(root: HTMLElement): HTMLElement | null {
+    let sib: Element | null = root.nextElementSibling;
+    while (sib) {
+      if (sib.matches(".nb-code-figure")) {
+        const codeEl = sib.querySelector<HTMLElement>("pre.astro-code code");
+        if (codeEl) return codeEl;
+      }
+      if (sib.matches("pre.astro-code")) {
+        const codeEl = sib.querySelector<HTMLElement>("code");
+        if (codeEl) return codeEl;
+      }
+      const nestedCode = sib.querySelector<HTMLElement>("pre.astro-code code");
+      if (nestedCode) return nestedCode;
+      sib = sib.nextElementSibling;
+    }
+
+    const parent = root.parentElement;
+    if (parent) {
+      const candidates = parent.querySelectorAll<HTMLElement>("pre.astro-code code");
+      for (const candidate of candidates) {
+        if (
+          root.compareDocumentPosition(candidate) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+        ) {
+          return candidate;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function pickEligibleService(
+    services: DocsContextService[],
+    selectedId: string | null,
+  ): DocsContextService | null {
+    if (selectedId && selectedId !== GENERIC_VALUE) {
+      const matched = services.find((s) => s.service_id === selectedId);
+      if (matched) {
+        return matched.primary_origin ? matched : null;
+      }
+    }
+    return services.find((s) => Boolean(s.primary_origin)) ?? null;
+  }
+
+  mount("[data-validator-personalizer]", (root) => {
+    const codeEl = findNextCodeElement(root);
+    if (codeEl && !genericCommandCache.has(codeEl)) {
+      genericCommandCache.set(codeEl, codeEl.textContent ?? "");
+    }
+
+    const includeProbes = root.dataset.includeProbes === "true";
+    const forceVerifyAttestation = root.dataset.forceVerify === "true";
+
+    let currentCtx: DocsContext = { signed_in: false };
+    let showingGeneric = getSelectedServiceId() === GENERIC_VALUE;
+    let toggleBtn: HTMLButtonElement | null = null;
+    let active = true;
+
+    const restoreGeneric = () => {
+      if (codeEl) {
+        codeEl.textContent = genericCommandCache.get(codeEl) ?? "";
+      }
+    };
+
+    const handleToggleClick = () => {
+      showingGeneric = !showingGeneric;
+      render(currentCtx);
+    };
+
+    const render = (ctx: DocsContext) => {
+      if (!active) return;
+      currentCtx = ctx;
+
+      if (toggleBtn) {
+        toggleBtn.removeEventListener("click", handleToggleClick);
+        toggleBtn = null;
+      }
+
+      if (!ctx.signed_in) {
+        root.hidden = true;
+        root.replaceChildren();
+        restoreGeneric();
+        return;
+      }
+
+      const service = pickEligibleService(
+        ctx.provider.services,
+        getSelectedServiceId(),
+      );
+      if (!service || !service.primary_origin) {
+        root.hidden = true;
+        root.replaceChildren();
+        restoreGeneric();
+        return;
+      }
+
+      const cmd = buildValidatorCommand(service, ctx.broker_issuer, {
+        includeProbes,
+        forceVerifyAttestation,
+      });
+      if (!cmd) {
+        root.hidden = true;
+        root.replaceChildren();
+        restoreGeneric();
+        return;
+      }
+
+      root.hidden = false;
+
+      const label = document.createElement("span");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className =
+        "cursor-pointer border border-line-strong bg-well px-2 py-0.5 text-xs text-foreground transition-colors duration-100 hover:border-accent";
+
+      if (showingGeneric) {
+        label.textContent = `Using generic command (${service.audience} available).`;
+        btn.textContent = `use ${service.audience}`;
+        restoreGeneric();
+      } else {
+        label.textContent = `Pre-filled for ${service.display_name} (${service.primary_origin})`;
+        btn.textContent = "use generic";
+        if (codeEl) {
+          codeEl.textContent = cmd;
+        }
+      }
+
+      btn.addEventListener("click", handleToggleClick);
+      toggleBtn = btn;
+      root.replaceChildren(label, btn);
+    };
+
+    const handleServiceChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ serviceId?: string }>;
+      const nextId = customEvent.detail?.serviceId;
+      showingGeneric = nextId === GENERIC_VALUE;
+      render(currentCtx);
+    };
+
+    window.addEventListener(SERVICE_CHANGE_EVENT, handleServiceChange);
+    const unsubscribeRefresh = subscribeDocsContextRefresh(render);
+
+    void getDocsContext().then((ctx) => {
+      if (!active) return;
+      showingGeneric = getSelectedServiceId() === GENERIC_VALUE;
+      render(ctx);
+    });
+
+    return () => {
+      active = false;
+      if (toggleBtn) {
+        toggleBtn.removeEventListener("click", handleToggleClick);
+      }
+      window.removeEventListener(SERVICE_CHANGE_EVENT, handleServiceChange);
+      unsubscribeRefresh();
+    };
+  });
+</script>

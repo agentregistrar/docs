@@ -1,0 +1,354 @@
+---
+/**
+ * PromptPersonalizer - Terminal bar rendered above the prompt code block in
+ * providers/prompt-kit.mdx. Static HTML shows the logged-out prompt bar; when
+ * signed in, lets the provider pick a service and pre-fills the adjacent code
+ * block in-place so the standard Copy button copies the personalized prompt.
+ */
+---
+
+<div
+  data-prompt-personalizer
+  class="mb-2 border border-line bg-surface px-3 py-2 text-sm text-muted"
+>
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <span>Using generic prompt (your coding agent will ask for your service details).</span>
+    <a
+      data-prompt-signin
+      href="https://agentregistrar.dev/login?next=https%3A%2F%2Fdocs.agentregistrar.dev%2Fproviders%2Fprompt-kit%2F"
+      class="text-accent no-underline hover:underline"
+    >
+      Sign in to pre-fill -&gt;
+    </a>
+  </div>
+</div>
+
+<script>
+  import { mount } from "@cloudflare/nimbus-docs/client";
+  import {
+    getDocsContext,
+    getSelectedServiceId,
+    getSignInUrl,
+    setSelectedServiceId,
+    subscribeDocsContextRefresh,
+    type DocsContext,
+    type DocsContextService,
+  } from "@/lib/docs-session";
+  import { buildServicePrompt } from "@/lib/prompt-builder";
+
+  const GENERIC_VALUE = "__generic__";
+  const SERVICE_CHANGE_EVENT = "ar-docs-service-change";
+
+  const genericPromptCache = new WeakMap<HTMLElement, string>();
+  const genericLabelCache = new WeakMap<HTMLElement, string>();
+  let selectCounter = 0;
+
+  function findTargetCodeElements(root: HTMLElement): {
+    figure: HTMLElement | null;
+    codeEl: HTMLElement | null;
+  } {
+    let sib: Element | null = root.nextElementSibling;
+    while (sib) {
+      if (sib.matches(".nb-code-figure")) {
+        const codeEl = sib.querySelector<HTMLElement>("pre.astro-code code");
+        if (codeEl) return { figure: sib as HTMLElement, codeEl };
+      }
+      if (sib.matches("pre.astro-code")) {
+        const codeEl = sib.querySelector<HTMLElement>("code");
+        if (codeEl) {
+          return {
+            figure: sib.closest<HTMLElement>(".nb-code-figure"),
+            codeEl,
+          };
+        }
+      }
+      const nestedCode = sib.querySelector<HTMLElement>("pre.astro-code code");
+      if (nestedCode) {
+        return {
+          figure: nestedCode.closest<HTMLElement>(".nb-code-figure"),
+          codeEl: nestedCode,
+        };
+      }
+      sib = sib.nextElementSibling;
+    }
+
+    const parent = root.parentElement;
+    if (parent) {
+      const candidates = parent.querySelectorAll<HTMLElement>("pre.astro-code code");
+      for (const candidate of candidates) {
+        if (
+          root.compareDocumentPosition(candidate) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+        ) {
+          return {
+            figure: candidate.closest<HTMLElement>(".nb-code-figure"),
+            codeEl: candidate,
+          };
+        }
+      }
+    }
+
+    return { figure: null, codeEl: null };
+  }
+
+  function setCodeBarLabel(
+    figure: HTMLElement | null,
+    nextText: string | null,
+  ): void {
+    if (!figure) return;
+    const label = figure.querySelector<HTMLElement>(".nb-code-bar-label");
+    if (!label) return;
+    if (!genericLabelCache.has(label)) {
+      genericLabelCache.set(label, label.textContent ?? "markdown");
+    }
+    label.textContent = nextText ?? genericLabelCache.get(label) ?? "markdown";
+  }
+
+  function renderSignedOut(root: HTMLElement): void {
+    const row = document.createElement("div");
+    row.className = "flex flex-wrap items-center justify-between gap-2";
+
+    const status = document.createElement("span");
+    status.textContent =
+      "Using generic prompt (your coding agent will ask for your service details).";
+
+    const link = document.createElement("a");
+    link.setAttribute("data-prompt-signin", "");
+    link.href = getSignInUrl(window.location.href);
+    link.className = "text-accent no-underline hover:underline";
+    link.textContent = "Sign in to pre-fill ->";
+
+    row.appendChild(status);
+    row.appendChild(link);
+    root.replaceChildren(row);
+  }
+
+  function renderNoServices(
+    root: HTMLElement,
+    displayName: string,
+    newServiceUrl: string,
+  ): void {
+    const row = document.createElement("div");
+    row.className = "flex flex-wrap items-center justify-between gap-2";
+
+    const status = document.createElement("span");
+    status.textContent = `Signed in as ${displayName} - no provider services yet.`;
+
+    const link = document.createElement("a");
+    link.href = newServiceUrl;
+    link.className = "text-accent no-underline hover:underline";
+    link.textContent = "Create a service ->";
+
+    row.appendChild(status);
+    row.appendChild(link);
+    root.replaceChildren(row);
+  }
+
+  mount("[data-prompt-personalizer]", (root) => {
+    const { figure, codeEl } = findTargetCodeElements(root);
+    if (codeEl && !genericPromptCache.has(codeEl)) {
+      genericPromptCache.set(codeEl, codeEl.textContent ?? "");
+    }
+
+    const selectId = `ar-prompt-service-${++selectCounter}`;
+    let currentCtx: DocsContext = { signed_in: false };
+    let selectEl: HTMLSelectElement | null = null;
+    let statusSlot: HTMLElement | null = null;
+    let pendingLabelRaf: number | undefined;
+    let active = true;
+
+    const scheduleLabelSync = (nextLabel: string | null) => {
+      setCodeBarLabel(figure, nextLabel);
+      if (pendingLabelRaf) {
+        window.cancelAnimationFrame(pendingLabelRaf);
+      }
+      pendingLabelRaf = window.requestAnimationFrame(() => {
+        pendingLabelRaf = undefined;
+        if (!active) return;
+        setCodeBarLabel(figure, nextLabel);
+      });
+    };
+
+    const applySelectedService = (
+      services: DocsContextService[],
+      brokerIssuer: string,
+      selectedValue: string,
+    ) => {
+      const selectedService =
+        selectedValue === GENERIC_VALUE
+          ? null
+          : (services.find((s) => s.service_id === selectedValue) ?? null);
+
+      if (codeEl) {
+        const genericText = genericPromptCache.get(codeEl) ?? "";
+        codeEl.textContent = selectedService
+          ? buildServicePrompt(selectedService, brokerIssuer)
+          : genericText;
+      }
+
+      scheduleLabelSync(
+        selectedService ? `markdown (pre-filled: ${selectedService.audience})` : null,
+      );
+
+      if (!statusSlot) return;
+      if (!selectedService) {
+        const genericNote = document.createElement("span");
+        genericNote.className = "text-muted";
+        genericNote.textContent = "Using generic prompt";
+        statusSlot.replaceChildren(genericNote);
+        return;
+      }
+
+      const badge = document.createElement("span");
+      if (selectedService.origin_verified) {
+        badge.className = "text-accent";
+        badge.textContent = "[verified]";
+      } else {
+        badge.className = "text-warn";
+        badge.textContent = "[pending domain]";
+      }
+
+      const portalLink = document.createElement("a");
+      portalLink.href = selectedService.portal_url;
+      portalLink.className = "text-accent no-underline hover:underline";
+      portalLink.textContent = "open in portal ->";
+
+      statusSlot.replaceChildren(badge, portalLink);
+    };
+
+    const handleSelectChange = () => {
+      if (!selectEl || currentCtx.signed_in !== true) return;
+      const value = selectEl.value;
+      setSelectedServiceId(value);
+      applySelectedService(
+        currentCtx.provider.services,
+        currentCtx.broker_issuer,
+        value,
+      );
+    };
+
+    const renderContext = (ctx: DocsContext) => {
+      if (!active) return;
+      currentCtx = ctx;
+
+      if (selectEl) {
+        selectEl.removeEventListener("change", handleSelectChange);
+        selectEl = null;
+        statusSlot = null;
+      }
+
+      if (!ctx.signed_in) {
+        renderSignedOut(root);
+        if (codeEl) {
+          codeEl.textContent = genericPromptCache.get(codeEl) ?? "";
+        }
+        scheduleLabelSync(null);
+        return;
+      }
+
+      const services = ctx.provider.services;
+      if (services.length === 0) {
+        renderNoServices(
+          root,
+          ctx.human.display_name,
+          ctx.provider.new_service_url,
+        );
+        if (codeEl) {
+          codeEl.textContent = genericPromptCache.get(codeEl) ?? "";
+        }
+        scheduleLabelSync(null);
+        return;
+      }
+
+      const storedId = getSelectedServiceId();
+      const resolvedValue =
+        storedId === GENERIC_VALUE
+          ? GENERIC_VALUE
+          : storedId && services.some((s) => s.service_id === storedId)
+            ? storedId
+            : services[0].service_id;
+
+      const row = document.createElement("div");
+      row.className = "flex flex-wrap items-center justify-between gap-2";
+
+      const left = document.createElement("div");
+      left.className = "flex flex-wrap items-center gap-2";
+
+      const label = document.createElement("label");
+      label.htmlFor = selectId;
+      label.className = "text-xs uppercase tracking-wider text-faint";
+      label.textContent = "Service:";
+
+      const select = document.createElement("select");
+      select.id = selectId;
+      select.className =
+        "border border-line-strong bg-well px-2 py-1 text-xs text-foreground";
+
+      for (const svc of services) {
+        const option = document.createElement("option");
+        option.value = svc.service_id;
+        option.textContent = `${svc.display_name} (${svc.audience}) [${svc.status}]`;
+        select.appendChild(option);
+      }
+
+      const genericOption = document.createElement("option");
+      genericOption.value = GENERIC_VALUE;
+      genericOption.textContent = "Generic prompt (ask me)";
+      select.appendChild(genericOption);
+
+      select.value = resolvedValue;
+      select.addEventListener("change", handleSelectChange);
+
+      left.appendChild(label);
+      left.appendChild(select);
+
+      const right = document.createElement("div");
+      right.className = "flex flex-wrap items-center gap-3 text-xs";
+
+      row.appendChild(left);
+      row.appendChild(right);
+      root.replaceChildren(row);
+
+      selectEl = select;
+      statusSlot = right;
+
+      applySelectedService(services, ctx.broker_issuer, resolvedValue);
+    };
+
+    const handleServiceChangeEvent = (event: Event) => {
+      if (!active || currentCtx.signed_in !== true || !selectEl) return;
+      const customEvent = event as CustomEvent<{ serviceId?: string }>;
+      const nextId = customEvent.detail?.serviceId;
+      if (!nextId) return;
+      const valid =
+        nextId === GENERIC_VALUE ||
+        currentCtx.provider.services.some((s) => s.service_id === nextId);
+      if (!valid || selectEl.value === nextId) return;
+      selectEl.value = nextId;
+      applySelectedService(
+        currentCtx.provider.services,
+        currentCtx.broker_issuer,
+        nextId,
+      );
+    };
+
+    window.addEventListener(SERVICE_CHANGE_EVENT, handleServiceChangeEvent);
+    const unsubscribeRefresh = subscribeDocsContextRefresh(renderContext);
+
+    void getDocsContext().then((ctx) => {
+      renderContext(ctx);
+    });
+
+    return () => {
+      active = false;
+      if (pendingLabelRaf) {
+        window.cancelAnimationFrame(pendingLabelRaf);
+      }
+      if (selectEl) {
+        selectEl.removeEventListener("change", handleSelectChange);
+      }
+      window.removeEventListener(SERVICE_CHANGE_EVENT, handleServiceChangeEvent);
+      unsubscribeRefresh();
+    };
+  });
+</script>
