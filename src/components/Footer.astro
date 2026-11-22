@@ -4,7 +4,7 @@
  *
  * Mirrors the public-site footer (Deliverable 11): 1px top border, lowercase
  * links, no social icons, no columns. Year is fixed so static output is
- * deterministic.
+ * deterministic. Social profiles are text links like every other footer item.
  */
 import Wordmark from "./Wordmark.astro";
 
@@ -17,6 +17,7 @@ const FOOTER_LINKS = [
   { label: "security", href: "mailto:security@agentregistrar.dev" },
   { label: "license", href: "https://github.com/agentregistrar/docs/blob/main/LICENSE" },
   { label: "agentregistrar.dev", href: "https://agentregistrar.dev" },
+  { label: "linkedin", href: "https://www.linkedin.com/company/agent-registrar" },
 ] as const;
 ---
 
