@@ -136,8 +136,8 @@ Enforcement, verbatim from D8:
   article (the line box narrows to 529px / 63 characters at the 1024 floor)
   instead of dropping the on-page map.
 - Footer: 1px top border, one wrapping link row (`spec`, `registry`, `validator`,
-  `security`, `license`, `agentregistrar.dev`, `linkedin`), copyright
-  `(c) 2026 Agent Registrar`.
+  `security`, `license`, `agentregistrar.dev`, `linkedin`, `x`, `bluesky`),
+  copyright `(c) 2026 Agent Registrar`.
 - Every container is a 1px rectangle. No cards float on shadows.
 
 ### Tablet (768-1023px)
@@ -227,10 +227,11 @@ Each is intentional. None changes a D8 value.
    Reason: D8 reserves `text-3xl` for landing only; docs pages are working
    surfaces, not marketing pages.
 7. **Docs footer resources** (`spec`, `registry`, `validator`, `security`,
-   `license`, `agentregistrar.dev`) plus `linkedin` rather than the public
-   footer's `tos`/`dpa`/`blog`/`docs`/`login`. Reason: D12 section 4.4 locks the
-   docs footer to the documentation resources; legal pages stay on the public
-   site, while the company social profile is shared across both surfaces.
+   `license`, `agentregistrar.dev`) plus `linkedin`, `x`, and `bluesky` rather
+   than the public footer's `tos`/`dpa`/`blog`/`docs`/`login`. Reason: D12
+   section 4.4 locks the docs footer to the documentation resources; legal
+   pages stay on the public site, while the company social profiles are shared
+   across both surfaces.
 8. **Docs header adds section nav and `github`**; the public header has
    `docs`/`login`. Reason: docs navigation is task navigation; login stays on
    the product site.
