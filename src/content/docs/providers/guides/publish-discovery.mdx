@@ -3,7 +3,7 @@ title: Publish discovery
 description: Author an identity-only agent-signup.json document, host stable UTF-8 terms bytes, and configure optional attestation modes.
 audience: human
 aiGenerated: true
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.1.1, broker D22, 2026-11-22"
 sidebar:
   order: 5
 ---
@@ -14,7 +14,7 @@ If you use the [Provider Portal](/providers/portal/), Step 2 of the setup wizard
 
 ## Identity-only discovery document
 
-This document passes the `v2.1.0` conformance validator with zero errors and zero warnings (`example.com` and `example-provider` are synthetic values):
+This document passes the `v2.1.1` conformance validator with zero errors and zero warnings (`example.com` and `example-provider` are synthetic values):
 
 ```json
 {
@@ -114,11 +114,11 @@ Verification proves domain control (or legal-entity evidence where reviewed), no
 Check the live document before taking traffic:
 
 ```bash
-npx @agentregistrar/discovery@2.1.0 validate https://example.com/.well-known/agent-signup.json --probe-jwks --json
+npx @agentregistrar/discovery@2.1.1 validate https://example.com/.well-known/agent-signup.json --probe-jwks --json
 ```
 
 ## Next steps
 
-- [Framework examples](/providers/hosting/): serve discovery and verify assertions in Next.js, Workers, or Node HTTP.
+- [Framework examples](/providers/hosting/): serve discovery and verify assertions in Next.js, Hono, Express, or Cloudflare Workers.
 - [Verify assertions](/providers/guides/verify-assertions/): enforce all claim, terms, and replay checks.
 - [Validate and register](/providers/guides/validate-and-register/): verify attestations and submit to the registry.

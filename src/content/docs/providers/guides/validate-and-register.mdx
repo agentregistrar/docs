@@ -1,9 +1,9 @@
 ---
 title: Validate and register
-description: Validate agent-signup.json with @agentregistrar/discovery@2.1.0, check optional attestations, and submit to the registry.
+description: Validate agent-signup.json with @agentregistrar/discovery@2.1.1, check optional attestations, and submit to the registry.
 audience: human
 aiGenerated: true
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.1.1, broker D22, 2026-11-22"
 sidebar:
   order: 8
 ---
@@ -14,16 +14,16 @@ Conformance and verification are **two independent verdicts**: a document can be
 
 ## Run the conformance validator
 
-Validate a live HTTPS discovery URL (or a local JSON file during development) using `@agentregistrar/discovery@2.1.0`:
+Validate a live HTTPS discovery URL (or a local JSON file during development) using `@agentregistrar/discovery@2.1.1`:
 
 ```bash
-npx @agentregistrar/discovery@2.1.0 validate https://example.com/.well-known/agent-signup.json --json
+npx @agentregistrar/discovery@2.1.1 validate https://example.com/.well-known/agent-signup.json --json
 ```
 
 Add opt-in non-destructive probes to verify that every issuer in `issuer_allowlist` publishes a valid JWKS and that `endpoints.agent_signup` is reachable (`HEAD`/`OPTIONS`, never `POST`):
 
 ```bash
-npx @agentregistrar/discovery@2.1.0 validate https://example.com/.well-known/agent-signup.json \
+npx @agentregistrar/discovery@2.1.1 validate https://example.com/.well-known/agent-signup.json \
   --probe-jwks --probe-endpoints --json
 ```
 
@@ -34,7 +34,7 @@ If you are working from a clone of `agentregistrar/spec`, run `pnpm --silent val
 To fetch `attestation.uri` and verify the provider verification credential against a trusted broker:
 
 ```bash
-npx @agentregistrar/discovery@2.1.0 validate https://example.com/.well-known/agent-signup.json \
+npx @agentregistrar/discovery@2.1.1 validate https://example.com/.well-known/agent-signup.json \
   --verify-attestation \
   --trusted-rp-broker https://agentregistrar.dev \
   --json
@@ -87,7 +87,7 @@ To include verified status in your registry entry, add all five fields from a li
 
 ### Pull request steps
 
-1. Run `@agentregistrar/discovery@2.1.0 validate` against your public HTTPS URL with `--json` and save the output.
+1. Run `@agentregistrar/discovery@2.1.1 validate` against your public HTTPS URL with `--json` and save the output.
 2. Open a pull request against `agentregistrar/spec` adding one object to `implementations` in `registry/implementations.json` with `name`, `url`, `discovery_url`, `audience`, `protocol`, `capabilities`, `contact`, `validated_at`, `validator_version`, `validator_evidence`, and optional `verification`.
 3. Update the table in `registry/README.md` to stay in lockstep.
 4. Run `pnpm --silent validate:registry registry/implementations.json --json` and confirm it exits `0` with `"valid": true`.
