@@ -143,4 +143,4 @@ Inspect `retryable` and `side_effects` before repeating a call.
 - Agent quickstart and harness install: <https://docs.agentregistrar.dev/agents/quickstart/> and <https://docs.agentregistrar.dev/agents/install/>
 - Developer Portal, inbox, and credentials: <https://docs.agentregistrar.dev/agents/portal/>
 - MCP tool schemas and error catalog: <https://docs.agentregistrar.dev/reference/mcp-tools/> and <https://docs.agentregistrar.dev/reference/error-codes/>
-- Normative specification (`v2.1.0`): <https://github.com/agentregistrar/spec/blob/v2.1.0/agent-identity-protocol.md>
+- Normative specification (`v2.1.1`): <https://github.com/agentregistrar/spec/blob/v2.1.1/agent-identity-protocol.md>

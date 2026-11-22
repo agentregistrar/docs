@@ -19,7 +19,7 @@ Use the pre-launch checklist before taking live traffic and after changing keys,
 - [ ] Discovery body is under 1 MiB, contains no forbidden capability fields at any depth, and is exempt from CDN bot challenges.
 - [ ] Unsupported deployments return `404` or `410` rather than `401` or `403`.
 - [ ] `issuer_allowlist` contains exact broker origins with no path, query, or wildcard.
-- [ ] `npx @agentregistrar/discovery@2.1.0 validate` exits `0` in CI or release checks.
+- [ ] `npx @agentregistrar/discovery@2.1.1 validate https://<origin>/.well-known/agent-signup.json --json` exits `0` in CI or release checks.
 
 ### Terms lifecycle
 
@@ -31,7 +31,7 @@ Use the pre-launch checklist before taking live traffic and after changing keys,
 ### Assertion verification and replay
 
 - [ ] Signature verifies `alg: "EdDSA"`, `typ: "agent-id+jwt"`, and `kid` against `<iss>/.well-known/jwks.json`; `jku` and `x5u` headers are rejected.
-- [ ] `iss`, `aud`, `exp` (at most 60s skew), lifetime (`exp - iat <= 300`), `delegation.scopes`, and `human.verified === true` are enforced strictly from the verified JWT payload.
+- [ ] `iss`, `aud`, `exp` (at most 60s skew), `iat` (no more than 60s in the future), lifetime (`0 < exp - iat <= 300`), `delegation.scopes`, and `human.verified === true` are enforced strictly from the verified JWT payload.
 - [ ] Account uniqueness `(iss, human.id)` (or `(iss, agent.id)`) and `jti` replay protection are backed by durable database constraints.
 - [ ] `resolution: "resolved"` returns `200` with no credential and sends no duplicate welcome or legal emails.
 - [ ] `POST` signup responses send `Cache-Control: no-store` and enforce rate limits (`429 rate_limited`).
@@ -80,7 +80,7 @@ Use the pre-launch checklist before taking live traffic and after changing keys,
 
 | Symptom | Cause | Fix |
 | :--- | :--- | :--- |
-| `401 invalid_assertion` on every call | Wrong JWKS URL, local test override left in prod, wrong `alg`/`typ`, or proxy modifying header | Fetch `<iss>/.well-known/jwks.json`, remove `BROKER_JWKS_URL` overrides, and require `EdDSA` plus `typ: "agent-id+jwt"`. |
+| `401 invalid_assertion` on every call | Wrong JWKS URL, local test override left in prod, wrong `alg`/`typ`, or proxy modifying header | Fetch `<iss>/.well-known/jwks.json`, remove `JWKS_URL_OVERRIDE` overrides, and require `EdDSA` plus `typ: "agent-id+jwt"`. |
 | `401 invalid_assertion` after broker key rotation | JWKS cached without refresh | Refresh JWKS once on unknown `kid`; never hard-code `broker-key-1`. |
 | `401 assertion_expired` immediately | Server clock skew over 60 seconds | Sync host clocks with NTP and allow up to 60 seconds of skew. |
 | `403 issuer_not_allowed` or `audience_mismatch` | Trailing slash, path, or mismatched `audience` string | Match exact origin in `issuer_allowlist` and exact `audience` string. |
@@ -104,7 +104,7 @@ When debugging a broken provider setup, run these six checks in order:
 
 1. `curl -sS -D - https://<origin>/.well-known/agent-signup.json` to confirm `200`, `application/json`, and no redirects.
 2. Fetch `terms.url` twice and compare `sha256sum` to confirm deterministic bytes.
-3. Run `npx @agentregistrar/discovery@2.1.0 validate https://<origin>/.well-known/agent-signup.json --probe-jwks --json` and inspect `errors`.
+3. Run `npx @agentregistrar/discovery@2.1.1 validate https://<origin>/.well-known/agent-signup.json --probe-jwks --json` and inspect `errors`.
 4. Run **Test my setup** in the [Provider Portal](/providers/portal/#3-step-setup-wizard) to inspect the unsigned signup probe and assertion preview.
 5. Verify `<iss>/.well-known/jwks.json` is reachable from your backend and matches `kid`/`EdDSA`.
 6. Replay a local fixture assertion from [Verify assertions](/providers/guides/verify-assertions/) and confirm exact status and error codes against [Error codes](/reference/error-codes/).

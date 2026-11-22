@@ -21,7 +21,8 @@ Map each failed check to its fixed error code in `{ "error": "<code>", "error_de
 | Bearer header | `Authorization: Bearer <jwt>` is present. | `400 invalid_request` |
 | JOSE header and signature | `alg` is `EdDSA`, `typ` is `agent-id+jwt`, key selected by `kid` from `<iss>/.well-known/jwks.json`. Reject `jku` and `x5u` headers. | `401 invalid_assertion` |
 | Expiry | `exp` has not passed (at most 60 seconds of clock skew). | `401 assertion_expired` |
-| Lifetime | `exp - iat` is at most 300 seconds (5 minutes). | `401 invalid_assertion` |
+| Lifetime | `exp - iat` is positive and at most 300 seconds (5 minutes). | `401 invalid_assertion` |
+| Issued at | `iat` is not more than 60 seconds in the future. | `401 invalid_assertion` |
 | Issuer | `iss` matches an exact entry in your `issuer_allowlist`. | `403 issuer_not_allowed` |
 | Audience | `aud` matches your published `audience` exactly. | `403 audience_mismatch` |
 | Scopes | `delegation.scopes` includes every entry in `required_scopes` (at minimum `tos:accept`). | `403 insufficient_scope` |
@@ -87,7 +88,17 @@ export async function verifyAssertion(jwt, config) {
   if (payload.aud !== config.audience) {
     fail("audience_mismatch", "Assertion audience does not match");
   }
-  if (typeof payload.iat !== "number" || typeof payload.exp !== "number" || payload.exp - payload.iat > MAX_LIFETIME_SECONDS) {
+  const now = Math.floor(Date.now() / 1000);
+  if (typeof payload.iat !== "number" || typeof payload.exp !== "number") {
+    fail("invalid_assertion", "Assertion must carry numeric iat and exp claims");
+  }
+  if (payload.exp <= payload.iat) {
+    fail("invalid_assertion", "Assertion lifetime must be positive");
+  }
+  if (payload.iat > now + CLOCK_TOLERANCE_SECONDS) {
+    fail("invalid_assertion", "Assertion was issued too far in the future");
+  }
+  if (payload.exp - payload.iat > MAX_LIFETIME_SECONDS) {
     fail("invalid_assertion", "Assertion lifetime exceeds 300 seconds");
   }
 
@@ -237,7 +248,7 @@ Expected output:
 {"attempt":2,"outcome":"ok","resolution":"resolved"}
 ```
 
-You can also point any handler in [Framework examples](/providers/hosting/) at `http://127.0.0.1:3015/.well-known/jwks.json` using `BROKER_JWKS_URL` to test create and resolve over HTTP.
+You can also point any handler in [Framework examples](/providers/hosting/) at the local fixture `http://127.0.0.1:3015/.well-known/jwks.json` using `JWKS_URL_OVERRIDE` to test create and resolve over HTTP.
 
 ## JWKS caching and key rotation
 

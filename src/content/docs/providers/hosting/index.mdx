@@ -186,11 +186,18 @@ export async function verifyAssertion(
 
   const iat = payload.iat;
   const exp = payload.exp;
-  if (typeof iat !== "number" || typeof exp !== "number" || exp - iat > 300) {
+  const now = Math.floor(Date.now() / 1000);
+  if (
+    typeof iat !== "number" ||
+    typeof exp !== "number" ||
+    exp <= iat ||
+    iat > now + 60 ||
+    exp - iat > 300
+  ) {
     return fail(
       401,
       "invalid_assertion",
-      "Assertion must carry numeric iat and exp with a lifetime of at most 300 seconds",
+      "Assertion must carry numeric iat and exp with a positive lifetime of at most 300 seconds, and iat no more than 60 seconds in the future",
     );
   }
 
@@ -293,10 +300,11 @@ function providerAudience() {
 }
 
 function issuerAllowlist() {
-  return (process.env.ISSUER_ALLOWLIST ?? "https://agentregistrar.dev")
+  const configured = (process.env.ISSUER_ALLOWLIST ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
+  return configured.length > 0 ? configured : ["https://agentregistrar.dev"];
 }
 
 function discoveryDocument() {
@@ -368,10 +376,11 @@ function providerAudience() {
 }
 
 function issuerAllowlist() {
-  return (process.env.ISSUER_ALLOWLIST ?? "https://agentregistrar.dev")
+  const configured = (process.env.ISSUER_ALLOWLIST ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
+  return configured.length > 0 ? configured : ["https://agentregistrar.dev"];
 }
 
 function errorResponse(status: number, error: string, description: string) {
@@ -490,10 +499,11 @@ function providerAudience() {
 }
 
 function issuerAllowlist() {
-  return (process.env.ISSUER_ALLOWLIST ?? "https://agentregistrar.dev")
+  const configured = (process.env.ISSUER_ALLOWLIST ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
+  return configured.length > 0 ? configured : ["https://agentregistrar.dev"];
 }
 
 export const app = new Hono();
@@ -541,7 +551,7 @@ app.options("/.well-known/agent-signup.json", (c) =>
 
 app.post("/api/signup/agent", async (c) => {
   const origin = providerOrigin();
-  const errorResponse = (status: number, error: string, description: string) =>
+  const errorResponse = (status: 400 | 401 | 403 | 409, error: string, description: string) =>
     c.json(
       { error, error_description: description, retryable: false },
       status,
@@ -662,10 +672,11 @@ function providerAudience() {
 }
 
 function issuerAllowlist() {
-  return (process.env.ISSUER_ALLOWLIST ?? "https://agentregistrar.dev")
+  const configured = (process.env.ISSUER_ALLOWLIST ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
+  return configured.length > 0 ? configured : ["https://agentregistrar.dev"];
 }
 
 const app = express();
@@ -852,10 +863,11 @@ function providerAudience(env: Env) {
 }
 
 function issuerAllowlist(env: Env) {
-  return (env.ISSUER_ALLOWLIST ?? "https://agentregistrar.dev")
+  const configured = (env.ISSUER_ALLOWLIST ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
+  return configured.length > 0 ? configured : ["https://agentregistrar.dev"];
 }
 
 function json(

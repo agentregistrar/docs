@@ -163,11 +163,18 @@ export async function verifyAssertion(
 
   const iat = payload.iat;
   const exp = payload.exp;
-  if (typeof iat !== "number" || typeof exp !== "number" || exp - iat > 300) {
+  const now = Math.floor(Date.now() / 1000);
+  if (
+    typeof iat !== "number" ||
+    typeof exp !== "number" ||
+    exp <= iat ||
+    iat > now + 60 ||
+    exp - iat > 300
+  ) {
     return fail(
       401,
       "invalid_assertion",
-      "Assertion must carry numeric iat and exp with a lifetime of at most 300 seconds",
+      "Assertion must carry numeric iat and exp with a positive lifetime of at most 300 seconds, and iat no more than 60 seconds in the future",
     );
   }
 
