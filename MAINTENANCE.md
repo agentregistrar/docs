@@ -12,7 +12,7 @@ repeat them.
 - **Site:** Cloudflare Worker `agentregistrar-docs`, static assets from
   `agentregistrar/docs` `main`. Workers Builds deploys on push; the manual
   fallback is `pnpm run deploy`.
-- **Security contact:** `security@agentregistrar.dev`.
+- **Security contact:** `privacy@agentregistrar.dev`.
 - **Operator runbooks:** deployment, DNS, and rollback detail live in the
   operator's private deployment runbook. Do not copy private hostnames or
   account ids into a public page.
@@ -154,7 +154,7 @@ This is a fast path. Do not wait for the quarterly audit.
 1. Correct the affected page immediately. Add a `banner` when the information is
    incomplete or changing.
 2. Do not publish exploit details, live credentials, JWTs, or real user data.
-3. Link the security contact (`security@agentregistrar.dev`) and record what
+3. Link the security contact (`privacy@agentregistrar.dev`) and record what
    changed and when.
 4. Re-run the affected examples and the link checks.
 5. If the incident invalidates a claim, remove the claim or state the new limit.
