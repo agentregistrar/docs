@@ -54,7 +54,12 @@ and `endpoints`.
 - `required_scopes` is unique and includes `"tos:accept"`.
 - `terms` carries `version` and absolute HTTPS `url` (no `terms.text` or
   `terms.sha256`).
-- `endpoints.agent_signup` is the sole endpoint and is absolute HTTPS.
+- `endpoints.agent_signup` is required and is absolute HTTPS (`http://localhost`
+  and `http://127.0.0.1` dev exception).
+- `endpoints.agent_login` (`v2.2.0` Day-2 re-authentication) is OPTIONAL; when
+  present, it MUST also be absolute HTTPS (`http://localhost` and
+  `http://127.0.0.1` dev exception). Absence of `endpoints.agent_login` is
+  conformant.
 - Removed `rp_attestation` MUST NOT be present (fails conformance with
   `rp_attestation_removed`).
 - Optional `attestation` source:
@@ -86,11 +91,11 @@ return a challenge page, report it and stop.
 
 ## 4. Run the conformance and attestation validator
 
-Run the published `@agentregistrar/discovery@2.1.1` CLI with `npx` (no clone
+Run the published `@agentregistrar/discovery@2.2.0` CLI with `npx` (no clone
 required):
 
 ```bash
-npx @agentregistrar/discovery@2.1.1 validate https://skdl.dev/.well-known/agent-signup.json --json
+npx @agentregistrar/discovery@2.2.0 validate https://skdl.dev/.well-known/agent-signup.json --json
 ```
 
 Verify the optional `attestation` source against a trusted broker (checks
@@ -98,7 +103,7 @@ source fetch, `{ "attestation": "<JWS>" }` envelope, signature, `rp.origin`,
 `rp.audience`, and `iat`/`exp` window):
 
 ```bash
-npx @agentregistrar/discovery@2.1.1 validate https://skdl.dev/.well-known/agent-signup.json \
+npx @agentregistrar/discovery@2.2.0 validate https://skdl.dev/.well-known/agent-signup.json \
   --verify-attestation \
   --trusted-rp-broker https://agentregistrar.dev \
   --json
@@ -107,11 +112,11 @@ npx @agentregistrar/discovery@2.1.1 validate https://skdl.dev/.well-known/agent-
 Add `--require-attestation` to turn an unverified, expired, or invalid
 attestation into a non-zero exit code.
 
-Optional non-destructive probes (never POST and never trigger signup):
+Optional non-destructive probes (never POST and never trigger signup or login):
 
 ```bash
-npx @agentregistrar/discovery@2.1.1 validate https://skdl.dev/.well-known/agent-signup.json --json --probe-jwks
-npx @agentregistrar/discovery@2.1.1 validate https://skdl.dev/.well-known/agent-signup.json --json --probe-endpoints
+npx @agentregistrar/discovery@2.2.0 validate https://skdl.dev/.well-known/agent-signup.json --json --probe-jwks
+npx @agentregistrar/discovery@2.2.0 validate https://skdl.dev/.well-known/agent-signup.json --json --probe-endpoints
 ```
 
 `--json` prints the machine-readable result. Fallback: from a clone of
@@ -129,7 +134,7 @@ arguments. Exit codes:
 ## 5. Inspect the schema when a field is unclear
 
 The pinned schema is at
-`https://github.com/agentregistrar/spec/blob/v2.1.1/agent-signup.schema.json`
+`https://github.com/agentregistrar/spec/blob/v2.2.0/agent-signup.schema.json`
 and served at `https://docs.agentregistrar.dev/protocol/agent-signup.schema.json`.
 Zod and the written specification win if the schema and prose diverge; report
 any divergence.
@@ -137,17 +142,18 @@ any divergence.
 ## 6. Report the verdict
 
 Report one line per check, then a summary with exact evidence (status, counts,
-attestation verdict, validator version `@agentregistrar/discovery@2.1.1`, and
+attestation verdict, validator version `@agentregistrar/discovery@2.2.0`, and
 date):
 
 ```text
 - [pass] transport: 200, application/json, https
 - [pass] protocol: agent-identity-protocol (protocol_version 2.0)
+- [pass] endpoints: agent_signup present; agent_login present (optional)
 - [pass] issuer_allowlist: https://agentregistrar.dev (1 origin)
 - [pass] required_scopes: tos:accept, signup:free_tier
 - [pass] terms.url: stable bytes, 0 redirects, version 2026.1
 - [pass] attestation: verified (mode broker, level domain, issuer https://agentregistrar.dev)
-- [pass] conformance: valid, 0 errors, 0 warnings (@agentregistrar/discovery@2.1.1)
+- [pass] conformance: valid, 0 errors, 0 warnings (@agentregistrar/discovery@2.2.0)
 Summary: 0 failures, 0 warnings. Verdict: conformant and verified.
 ```
 
@@ -158,12 +164,12 @@ Verdict rules:
 - Distinguish conformance from verification: a conformant document without
   `attestation` is **conformant and unverified** (valid result, not an error).
 - Warnings do not change the verdict, but must be listed.
-- Never claim support without the document URL, `@agentregistrar/discovery@2.1.1`,
+- Never claim support without the document URL, `@agentregistrar/discovery@2.2.0`,
   and the date run.
 
 ## 7. References
 
 - Protocol overview and validator guide: <https://docs.agentregistrar.dev/protocol/> and <https://docs.agentregistrar.dev/protocol/validator/>
 - Validate and register guide: <https://docs.agentregistrar.dev/providers/guides/validate-and-register/>
-- Normative specification (`v2.1.1`): <https://github.com/agentregistrar/spec/blob/v2.1.1/agent-identity-protocol.md>
+- Normative specification (`v2.2.0`): <https://github.com/agentregistrar/spec/blob/v2.2.0/agent-identity-protocol.md>
 - Implementation registry: <https://github.com/agentregistrar/spec/blob/main/registry/README.md>

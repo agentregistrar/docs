@@ -9,8 +9,10 @@ discovery and accepts a signed Agent Identity assertion.
 | :--- | :--- | :--- |
 | `/.well-known/agent-signup.json` | `GET`, `OPTIONS` | Discovery document with CORS and a 60 second cache. |
 | `/terms` | `GET` | Local plain-text terms for the demo. |
-| `/api/signup/agent` | `POST` | Verifies the assertion and resolves or creates an account. |
+| `/api/signup/agent` | `POST` | Verifies the `signup` assertion, resolves or creates an account, and returns `handoff` on creation. |
 | `/api/signup/agent` | `OPTIONS` | CORS preflight for the signup route. |
+| `/api/login/agent` | `POST` | Verifies the `login` assertion, checks `jti` + terms version (`409`/`404`), and mints a fresh session + `handoff`. |
+| `/api/login/agent` | `OPTIONS` | CORS preflight for the login route. |
 
 ## Run
 
@@ -24,7 +26,7 @@ The server listens on `http://127.0.0.1:3003`.
 ## Validate
 
 ```bash
-npx @agentregistrar/discovery@2.1.1 validate http://127.0.0.1:3003/.well-known/agent-signup.json --probe-endpoints --json
+npx @agentregistrar/discovery@2.2.0 validate http://127.0.0.1:3003/.well-known/agent-signup.json --probe-endpoints --json
 ```
 
 Expected: exit code `0`, `"valid": true`, and zero errors.
@@ -33,6 +35,7 @@ Check the unsigned request path:
 
 ```bash
 curl -sS -i -X POST http://127.0.0.1:3003/api/signup/agent
+curl -sS -i -X POST http://127.0.0.1:3003/api/login/agent
 curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3003/api/signup/agent
 ```
 
@@ -43,9 +46,11 @@ for the unsigned POST, and `405` for the GET.
 
 | File | Purpose |
 | :--- | :--- |
-| `lib/verify-assertion.ts` | Self-contained hardened `jose` verifier. |
-| `app/.well-known/agent-signup.json/route.ts` | Discovery document and CORS preflight. |
-| `app/api/signup/agent/route.ts` | Signup handler, demo account store, and method guard. |
+| `lib/verify-assertion.ts` | Self-contained hardened `jose` verifier (`expectedPurpose`: `"signup"` or `"login"`). |
+| `lib/store.ts` | In-memory demo stores for accounts and `jti` replay tracking. |
+| `app/.well-known/agent-signup.json/route.ts` | Discovery document (`agent_signup` and `agent_login`) and CORS preflight. |
+| `app/api/signup/agent/route.ts` | Signup handler, `handoff`, and method guard. |
+| `app/api/login/agent/route.ts` | Day-2 login handler, terms freshness check, and per-session `handoff`. |
 | `app/terms/route.ts` | Local terms text served at `/terms`. |
 | `next.config.ts` | Minimal Next.js configuration. |
 

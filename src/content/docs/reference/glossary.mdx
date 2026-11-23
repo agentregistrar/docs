@@ -56,21 +56,23 @@ claims](/protocol/assertion-claims/#claim-set).
 
 ## Protocol artifacts
 
-**Agent Identity Protocol.** The open Apache-2.0 agent-signup contract. Its
-prose name is Agent Identity Protocol; its wire identifier is
-`agent-identity-protocol`; its wire version is `2.0` (`protocol_version: "2.0"`).
-The current specification release is `v2.1.0`. See [Protocol](/protocol/).
+**Agent Identity Protocol.** The open Apache-2.0 agent-signup and Day-2
+re-login contract. Its prose name is Agent Identity Protocol; its wire
+identifier is `agent-identity-protocol`; its wire version is `2.0`
+(`protocol_version: "2.0"`). The current specification release is `v2.2.0`. See
+[Protocol](/protocol/).
 
 **Protocol version.** The wire version carried in discovery `protocol_version`
 (`"2.0"`), distinct from the specification document and package release tag
-(`v2.1.0`).
+(`v2.2.0`).
 
 **Discovery document.** The identity-only JSON served at
 `GET /.well-known/agent-signup.json` on the provider's canonical origin:
 protocol name and version, `audience`, `provider_name`, `issuer_allowlist`,
-`required_scopes`, `terms` (`version`, `url`), optional `attestation`, and the
-single endpoint `endpoints.agent_signup`. It never carries catalogs, pricing, or
-provisioning endpoints. See [Discovery fields](/protocol/discovery-fields/).
+`required_scopes`, `terms` (`version`, `url`), optional `attestation`,
+`endpoints.agent_signup`, and optional `endpoints.agent_login` (`v2.2.0` Day-2
+re-authentication). It never carries catalogs, pricing, or provisioning
+endpoints. See [Discovery fields](/protocol/discovery-fields/).
 
 **Issuer allowlist.** The `issuer_allowlist` array in discovery naming exact
 broker origins the provider accepts. The assertion's `iss` must match one entry
@@ -94,11 +96,12 @@ their behalf. Its version and optional hash appear in assertions as
 `delegation.master_tos_version` and `delegation.master_tos_hash`. See [Trust
 and limits](/start/trust-and-limits/).
 
-**Assertion (signed identity token).** A short-lived (5-minute default)
-Ed25519-signed JWT (`typ: agent-id+jwt`) proving the agent, verified human
-owner, and accepted terms for one exact `aud`. Minted by `identity_signup` and
-sent verbatim inside `signup_request` to `endpoints.agent_signup`. See
-[Assertion claims](/protocol/assertion-claims/).
+**Assertion (signed identity token).** A short-lived Ed25519-signed JWT
+(`typ: agent-id+jwt`) proving the agent, verified human owner, purpose
+(`"signup"` with 5-minute default TTL, or `"login"` with uncached 120-second TTL
+and single-use `jti`), and accepted terms for one exact `aud`. Minted by
+`identity_signup` or `identity_login` and sent verbatim inside `signup_request`
+or `login_request`. See [Assertion claims](/protocol/assertion-claims/).
 
 **JTI.** The unique identifier on a signed token: `jti_...` on an assertion,
 `srp_...` on a signup receipt, or `abr_...` on an abuse report. A provider
@@ -186,12 +189,13 @@ context](/protocol/receipt-and-context/#contract-f-and-proof-sources).
 
 **Model Context Protocol (MCP).** The JSON-RPC 2.0 protocol served by the broker
 at `https://agentregistrar.dev/mcp` (server name `agentregistrar`, version
-`1.0.0`). See [MCP tools](/reference/mcp-tools/#endpoint-and-discovery).
+`1.1.0`). See [MCP tools](/reference/mcp-tools/#endpoint-and-discovery).
 
-**MCP tool.** One of the four callable broker operations in `tools/list`:
-`identity_whoami`, `identity_signup`, `identity_record_signup`, and
-`inbox_read`. Tool errors return `isError: true` with a structured JSON error
-envelope, not an HTTP error. See [MCP tools](/reference/mcp-tools/).
+**MCP tool.** One of the five callable broker operations in `tools/list`:
+`identity_whoami`, `identity_signup`, `identity_login`,
+`identity_record_signup`, and `inbox_read`. Tool errors return `isError: true`
+with a structured JSON error envelope, not an HTTP error. See [MCP
+tools](/reference/mcp-tools/).
 
 **MCP resource.** One of the four static, read-only `text/markdown` documents
 advertised under `agentregistrar://docs/*` (`quickstart`, `assertion-claims`,

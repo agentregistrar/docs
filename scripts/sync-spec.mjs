@@ -41,8 +41,9 @@
  */
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, posix } from "node:path";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, posix, resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 
 const ROOT = new URL("..", import.meta.url).pathname;
@@ -145,6 +146,7 @@ function parseArgs(argv) {
     commit: null,
     ref: null,
     note: null,
+    local: null,
     write: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -181,6 +183,13 @@ function parseArgs(argv) {
       }
       options.note = note;
       i += 1;
+    } else if (arg === "--local") {
+      const localPath = argv[i + 1];
+      if (!localPath || localPath.startsWith("--")) {
+        throw new Error("--local needs a directory path, for example --local /home/al/spec");
+      }
+      options.local = resolve(localPath);
+      i += 1;
     } else if (arg === "--help" || arg === "-h") {
       options.mode = "help";
     } else {
@@ -205,6 +214,8 @@ function usage() {
   node scripts/sync-spec.mjs --commit <sha>  preview a commit pin
   node scripts/sync-spec.mjs --write --commit <sha> [--ref <ref>] [--tag <tag>]
                                              pin the lock to that commit
+  node scripts/sync-spec.mjs --write --local <dir> --tag <tag>
+                                             sync from a local spec checkout
 `);
 }
 
@@ -766,37 +777,81 @@ function printSummary(pin, outputs, generatedAt) {
   }
 }
 
+function readLocalFiles(localDir) {
+  if (!existsSync(localDir)) {
+    throw new Error(`Local spec directory does not exist: ${localDir}`);
+  }
+  const files = new Map();
+  for (const name of readdirSync(localDir)) {
+    if (
+      CORE_SOURCE_FILES.includes(name) ||
+      name === SCHEMA_SOURCE ||
+      RELEASE_NOTES_PATTERN.test(name)
+    ) {
+      files.set(`local/${name}`, readFileSync(join(localDir, name)));
+    }
+  }
+  return files;
+}
+
+function resolveLocalCommit(localDir, explicitCommit) {
+  if (explicitCommit) return explicitCommit;
+  try {
+    const sha = execFileSync("git", ["-C", localDir, "rev-parse", "HEAD"], {
+      encoding: "utf8",
+    }).trim();
+    if (/^[0-9a-f]{40}$/i.test(sha)) return sha;
+  } catch {
+    // Fall back when the local directory is not a git repo.
+  }
+  return "0".repeat(40);
+}
+
 async function sync(inputPin, write) {
   const lock = existsSync(LOCK_PATH) ? readLock() : null;
   const previousPin = lock ? `${lock.tag}@${lock.commit}` : null;
 
-  if (inputPin.kind === "commit" && !inputPin.tag) {
+  if ((inputPin.kind === "commit" || inputPin.kind === "local") && !inputPin.tag) {
     throw new Error(
-      "A commit pin needs a protocol tag for the lock. Pass `--tag <tag>` or keep a lock with `tag`.",
+      "A commit or local pin needs a protocol tag for the lock. Pass `--tag <tag>` or keep a lock with `tag`.",
     );
   }
 
-  const label =
-    inputPin.kind === "commit"
-      ? `commit ${inputPin.commit}`
-      : `tag ${inputPin.tag}`;
-  console.log(`Fetching ${SPEC_REPO} at ${label} ...`);
-  const [commit, tarball] = await Promise.all([
-    resolveCommit(inputPin),
-    fetchTarball(inputPin),
-  ]);
+  let commit;
+  let files;
+  let label;
+  if (inputPin.kind === "local") {
+    label = `local ${inputPin.local}`;
+    console.log(`Reading ${SPEC_REPO} from ${label} ...`);
+    commit = resolveLocalCommit(inputPin.local, inputPin.commit);
+    files = readLocalFiles(inputPin.local);
+  } else {
+    label =
+      inputPin.kind === "commit"
+        ? `commit ${inputPin.commit}`
+        : `tag ${inputPin.tag}`;
+    console.log(`Fetching ${SPEC_REPO} at ${label} ...`);
+    const [resolvedCommit, tarball] = await Promise.all([
+      resolveCommit(inputPin),
+      fetchTarball(inputPin),
+    ]);
+    commit = resolvedCommit;
+    files = extractTarGz(tarball);
+  }
   const pin = { ...inputPin, commit };
-  const files = extractTarGz(tarball);
   const sources = readSources(files, label);
   const hashes = sourceHashes(sources);
 
   verifySchema(sources.get("agent-signup.schema.json").toString("utf8"));
 
-  const samePin = lock
-    ? pin.kind === "commit"
-      ? lock.commit === pin.commit
-      : lock.tag === pin.tag && !lock.ref
-    : false;
+  const samePin =
+    inputPin.kind === "local"
+      ? false
+      : lock
+        ? pin.kind === "commit"
+          ? lock.commit === pin.commit
+          : lock.tag === pin.tag && !lock.ref
+        : false;
   if (samePin) {
     assertLockMatches(lock, pin, hashes);
   }
@@ -838,6 +893,16 @@ async function sync(inputPin, write) {
 }
 
 function pinFromOptions(options, lock) {
+  if (options.local) {
+    return {
+      kind: "local",
+      local: options.local,
+      commit: options.commit ?? null,
+      tag: options.tag ?? lock?.tag ?? null,
+      ref: options.ref ?? null,
+      note: options.note ?? null,
+    };
+  }
   if (options.commit) {
     return {
       kind: "commit",
@@ -872,7 +937,7 @@ async function main() {
   }
 
   if (options.mode === "check") {
-    if (options.tag || options.commit || options.ref || options.note) {
+    if (options.tag || options.commit || options.ref || options.note || options.local) {
       throw new Error(
         "--check uses the committed lock and cannot preview another revision. Omit --check to preview.",
       );
@@ -886,7 +951,7 @@ async function main() {
     return;
   }
 
-  if (options.mode === "auto" && !options.tag && !options.commit) {
+  if (options.mode === "auto" && !options.tag && !options.commit && !options.local) {
     const lock = readLock();
     checkOutputs(lock);
     const pinLabel = lock.ref ?? "tag";

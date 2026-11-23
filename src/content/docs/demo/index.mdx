@@ -2,7 +2,7 @@
 title: Try the demo network
 description: Try the live two-broker, three-provider demo network and inspect VaporCloud across verified and unverified signup flows.
 audience: both
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 sidebar:
   label: Demo network
   order: 0
@@ -10,7 +10,7 @@ sidebar:
 
 import DemoNetworkDiagram from "../../../components/diagrams/DemoNetworkDiagram.astro";
 
-The demo network is a deployed test environment for the Agent Identity Protocol (`v2.1.0`, wire `protocol_version: "2.0"`). It pairs two brokers with three test providers so you can compare same-broker, cross-broker, and unverified signup paths live, alongside the VaporCloud reference provider at [skdl.dev](https://skdl.dev).
+The demo network is a deployed test environment for the Agent Identity Protocol (`v2.2.0`, wire `protocol_version: "2.0"`). It pairs two brokers with three test providers so you can compare same-broker, cross-broker, and unverified signup paths live, alongside the VaporCloud reference provider at [skdl.dev](https://skdl.dev).
 
 Broker B, the three demo providers, and VaporCloud are **simulated third parties** operated by Agent Registrar. They are not independent adopters, not production services, and carry no provisioning, billing, SLA, uptime, or endorsement claims. Use only test data; provider terms describe test services only. Re-run the validation commands below before relying on any live output.
 
@@ -76,12 +76,13 @@ Policy is set per human in [Developer Portal](/agents/portal/) (`/trust`); every
 
 ## Inspect VaporCloud (reference provider)
 
-[VaporCloud](https://skdl.dev) is a mock infrastructure provider selling fictional appliances so you can see the exact boundary between the identity-only protocol and vendor-specific APIs. It implements `v2.1.0` with broker-managed verification, signed receipts, a hash-pinned post-signup guide, and authenticated abuse reporting.
+[VaporCloud](https://skdl.dev) is a mock infrastructure provider selling fictional appliances so you can see the exact boundary between the identity-only protocol and vendor-specific APIs. It implements `v2.2.0` with broker-managed verification, Day-2 `agent_login` with multi-session `vc_sess_` bearer tokens and standardized `handoff`, `terms_reacceptance_required`, signed receipts, a hash-pinned post-signup guide, and authenticated abuse reporting.
 
 | Path | Purpose |
 | :--- | :--- |
-| [`/.well-known/agent-signup.json`](https://skdl.dev/.well-known/agent-signup.json) | Identity-only discovery document (`audience: "vaporcloud"`, `mode: "broker"`) |
+| [`/.well-known/agent-signup.json`](https://skdl.dev/.well-known/agent-signup.json) | Identity-only discovery document (`audience: "vaporcloud"`, `mode: "broker"`, `agent_signup` + `agent_login`) |
 | [`/api/signup/agent`](https://skdl.dev/api/signup/agent) | Brokered signup endpoint (`POST` with `Authorization: Bearer <jwt>`) |
+| [`/api/login/agent`](https://skdl.dev/api/login/agent) | Day-2 re-login endpoint (`POST` with `purpose: "login"` JWT, single-use `jti`, fresh `vc_sess_` session) |
 | [`/terms`](https://skdl.dev/terms) | Provider-hosted terms fetched and SHA-256 hashed by the broker at signup |
 | [`/docs/SKILL.md`](https://skdl.dev/docs/SKILL.md) | Hash-pinned vendor API guide (`context.url`), including key rotation and mock provisioning |
 | [`/admin`](https://skdl.dev/admin) | Vendor-side admin view (vendor tooling, not protocol) |
@@ -243,5 +244,5 @@ Broker and provider key rotation, renewal, suspension, and rollback are operator
 - [Provider quickstart](/providers/quickstart/): implement discovery and assertion verification on your own service.
 - [Trust and limits](/start/trust-and-limits/): policy, verification boundaries, and known gaps.
 - [Validate and register](/providers/guides/validate-and-register/): validator usage and registry snapshots.
-- [Specification](/protocol/specification/): the normative v2.1.0 contract.
+- [Specification](/protocol/specification/): the normative v2.2.0 contract.
 - [Demo landing page](https://agentregistrardemorp.com): live host status for P1, P2, and P3.

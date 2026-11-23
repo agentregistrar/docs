@@ -2,13 +2,13 @@
 title: "Conformance validator"
 description: "How to run the discovery conformance validator, read its exit codes and parse its JSON output."
 audience: both
-source: "spec:v2.1.1#validator.md"
-specTag: "v2.1.1"
+source: "spec:v2.2.0#validator.md"
+specTag: "v2.2.0"
 generated: true
-lastReviewed: 2026-11-22
+lastReviewed: 2026-11-23
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/validator.md) at `v2.1.1` (tag `v2.1.1`).
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/validator.md) at `v2.2.0` (tag `v2.2.0`).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Discovery Conformance and Attestation Validator (`agent-identity-protocol`)
@@ -55,6 +55,9 @@ Given a discovery URL or a local JSON file, the validator:
 3. Checks `terms` as URL-hosted terms: `version` is a non-empty string and `url` is an absolute
    protocol URL. The validator never fetches `terms.url`; the broker does that at signup and hashes
    the exact response bytes. Removed `terms.text` / `terms.sha256` fields, if present, are ignored.
+   Also checks required `endpoints.agent_signup` and optional `endpoints.agent_login` (`v2.2.0`) as
+   absolute protocol URLs (`https://`, with the `http://localhost` / `http://127.0.0.1` development
+   exception); omitting `endpoints.agent_login` is conformant.
 4. Fails any forbidden vendor capability surface **at any nesting depth — including under
    `extensions`** — and warns (without failing) on unknown top-level fields and non-reverse-DNS
    `extensions` keys.
@@ -88,8 +91,10 @@ Validate a checked-in fixture or any local document without any network access:
 pnpm validate:discovery fixtures/valid-minimal.json
 pnpm validate:discovery fixtures/valid-full.json
 pnpm validate:discovery fixtures/valid-localhost.json
+pnpm validate:discovery fixtures/valid-with-agent-login.json
 pnpm validate:discovery fixtures/valid-attestation-broker.json
 pnpm validate:discovery fixtures/valid-attestation-provider.json
+pnpm validate:discovery fixtures/invalid-agent-login-http.json        # exit 1
 pnpm validate:discovery fixtures/invalid-rp-attestation-removed.json   # exit 1
 ```
 
@@ -343,15 +348,15 @@ The default run performs **no** extra requests beyond the document itself. Probe
 # Fetch GET <issuer>/.well-known/jwks.json for every issuer and require >=1 verification key:
 pnpm validate:discovery https://example.com/.well-known/agent-signup.json --probe-jwks
 
-# Non-destructively HEAD (then OPTIONS) the advertised agent_signup endpoint:
+# Non-destructively HEAD (then OPTIONS) the advertised agent_signup (and optional agent_login) endpoint(s):
 pnpm validate:discovery https://example.com/.well-known/agent-signup.json --probe-endpoints
 ```
 
-Probes never `POST`, never trigger signup or provisioning, and are limited to the issuers in
-`issuer_allowlist` and the advertised `endpoints.agent_signup`. A failed probe makes the overall result
-invalid (exit `1`). `--probe-jwks` checks the **assertion** issuers in `issuer_allowlist`; the source
-named by `attestation.uri` is fetched only by `--verify-attestation` (or injected with
-`--source-response`), and the RP-broker JWKS only with it.
+Probes never `POST`, never trigger signup, login, or provisioning, and are limited to the issuers in
+`issuer_allowlist` and the advertised `endpoints.agent_signup` / optional `endpoints.agent_login`. A
+failed probe makes the overall result invalid (exit `1`). `--probe-jwks` checks the **assertion**
+issuers in `issuer_allowlist`; the source named by `attestation.uri` is fetched only by
+`--verify-attestation` (or injected with `--source-response`), and the RP-broker JWKS only with it.
 
 ## 9. Why vendor capability fields fail conformance
 
@@ -409,7 +414,7 @@ same code as the CLI, and exits `0` (all rows match) or `1` (a row differs). It 
 matrix (including the `attestation` modes, host binding, the removed field, and typed broker
 403/404/410/503 rows), every attestation JWS (status plus producer/verifier schema mode, including the
 keyless `keys: []` row), source documents, receipts, abuse reports, status responses, broker metadata,
-and provider request/response examples. See [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/fixtures/README.md).
+and provider request/response examples. See [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures/README.md).
 
 ### `pnpm validate:registry [path] [--json]`
 
@@ -434,6 +439,7 @@ unparseable. `--json` emits `{valid, exitCode, errors, warnings}`.
 | `audience` | string \| null | `audience` from the document, if present. |
 | `providerName` | string \| null | `provider_name`, if present. |
 | `signupEndpoint` | string \| null | `endpoints.agent_signup`, if present. |
+| `loginEndpoint` | string \| null | `endpoints.agent_login`, if present (`v2.2.0`). |
 | `terms` | object \| null | `{ version, url }` from the document; the validator does not fetch or hash `terms.url`. |
 | `fetchFailure` | string \| null | Non-null only on exit `2`. |
 | `counts` | object | `{ passed, failed, warnings, probes }` — stable keys. |

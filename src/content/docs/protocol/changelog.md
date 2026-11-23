@@ -1,16 +1,104 @@
 ---
 title: "Release notes and changelog"
-description: "Release notes for Agent Identity Protocol v2.1.1, v2.1.0, v2.0.0, v1.3.2, v1.3.1, v1.3.0, v1.2.0, v1.1.0 and v1.0.0, newest first."
+description: "Release notes for Agent Identity Protocol v2.2.0, v2.1.1, v2.1.0, v2.0.0, v1.3.2, v1.3.1, v1.3.0, v1.2.0, v1.1.0 and v1.0.0, newest first."
 audience: both
-source: "spec:v2.1.1#release-notes"
-specTag: "v2.1.1"
+source: "spec:v2.2.0#release-notes"
+specTag: "v2.2.0"
 generated: true
-lastReviewed: 2026-11-22
+lastReviewed: 2026-11-23
 nimbusDisableRules: ["nimbus/duplicate-heading-text"]
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/tree/5f24f48e4c1d7852c0a16d079ba459e8d047fa11) at `v2.1.1` (tag `v2.1.1`).
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/tree/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445) at `v2.2.0` (tag `v2.2.0`).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
+
+## Release Notes — Agent Identity Protocol `v2.2.0`
+
+- **Protocol identifier:** `agent-identity-protocol`
+- **Protocol version:** `2.0`
+- **Specification / package version:** `v2.2.0`
+- **Release date:** 2026-11-23
+- **Normative specification:** [`agent-identity-protocol.md`](https://docs.agentregistrar.dev/protocol/specification/)
+- **Previous release:** [`release-notes-v2.1.1.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v2.1.1.md)
+
+`v2.2.0` is a strictly additive minor release under `protocol_version: "2.0"`. It introduces
+Day-2 agent re-authentication (`endpoints.agent_login`), Contract A assertion purpose isolation and
+accepted-terms version attribution, anti-ATO account resolution rules, and optional provider-to-agent
+Day-2 response Zod schemas (`AgentHandoffSchema`, `HumanActionRequiredSchema`, and
+`TermsReacceptanceRequiredSchema`). Existing `v2.0`/`v2.1` discovery documents without
+`endpoints.agent_login` remain 100% conformant.
+
+---
+
+### 1. Discovery (`/.well-known/agent-signup.json`)
+
+- Added OPTIONAL `endpoints.agent_login` to [`agent-signup.schema.json`](https://docs.agentregistrar.dev/protocol/agent-signup.schema.json),
+  `AgentSignupDiscoverySchema` (`src/schema.ts`), and `src/validate-discovery.ts`
+  (`field.endpoints.agent_login`, `loginEndpoint` metadata, and `--probe-endpoints`).
+- Enforces the same absolute HTTPS URL rule as `endpoints.agent_signup` (with the documented
+  `http://localhost` / `http://127.0.0.1` development exception).
+- Keeps `protocol: "agent-identity-protocol"` and `protocol_version: "2.0"` unchanged, and keeps all
+  forbidden vendor endpoint checks (`provision`, `email_signup`, `verify_otp`,
+  `broker_signup_receipt`) and forbidden vendor catalog checks intact.
+
+---
+
+### 2. Contract A Extensions, `agent_login` Handshake & Anti-ATO Rules
+
+- **Contract A additive claims** (`agent-identity-protocol.md` §7.0):
+  - Top-level `purpose?: "signup" | "login"` (`endpoints.agent_login` MUST require
+    `purpose === "login"` and SHOULD reject replayed `jti` values; `endpoints.agent_signup` MUST
+    reject `purpose === "login"`).
+  - `delegation.accepted_rp_tos_version?: string` carrying the discovery `terms.version` string at
+    acceptance time.
+- **`POST endpoints.agent_login` handshake & anti-ATO resolution** (§7.4):
+  - Normative lookup order: verify assertion → `(iss, sub)` → broker-created accounts under
+    `(iss, human.id)` → pre-existing human-registered accounts matched by `human.email` (MUST NOT
+    auto-link or grant access by email alone; MUST return `human_action_required` with
+    `reason: "account_link_required"`) → `404 account_not_found`.
+  - Successful logins mint per-session, revocable first-party credentials without invalidating
+    active sessions on other devices.
+
+---
+
+### 3. Provider-to-Agent Day-2 Response Schemas
+
+Exported from `@agentregistrar/discovery` (`src/schema.ts` and `src/index.ts`), strictly separate
+from `AgentSignupDiscoverySchema` and `signup-receipt.schema.json`:
+
+- `AgentHandoffSchema` (`session`, `mcp`, `cli`, `human_urls`) — closed (`.strict()`) at the root
+  and every sub-object so executable shell command fields cannot sneak in, with strict HTTPS URL
+  validation (localhost dev exception). Never placed in discovery or Contract E receipts, and never
+  sent to or stored by the broker.
+- `HumanActionRequiredSchema` (`error: "human_action_required"`, `reason`, `verification_url`,
+  optional `user_code`, `expires_in`, `retry_after_seconds`, `error_description`).
+- `TermsReacceptanceRequiredSchema` (`error: "terms_reacceptance_required"`,
+  `expected_terms_version`, `terms_url`, optional `error_description`).
+
+---
+
+### 4. Fixtures
+
+- Added [`fixtures/valid-with-agent-login.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures/valid-with-agent-login.json) (conformant
+  discovery document with HTTPS `endpoints.agent_login`).
+- Added [`fixtures/invalid-agent-login-http.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures/invalid-agent-login-http.json)
+  (non-conformant discovery document with non-HTTPS `endpoints.agent_login`).
+- Updated [`fixtures/expected.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures/expected.json) and
+  [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures/README.md).
+
+---
+
+### 5. Validation evidence
+
+No test framework is added (`AGENTS.md`). The manual gates were run from this repository:
+
+| Check | Command | Result |
+| :--- | :--- | :--- |
+| Build | `pnpm build` | exit `0`, `dist/` rebuilt |
+| Typecheck | `pnpm typecheck` | exit `0`, no diagnostics |
+| Fixture matrix | `pnpm validate:fixtures` | `Summary: 83 passed, 0 failed`, exit `0` |
+| Registry | `pnpm validate:registry` | `RESULT: VALID — 0 error(s), 0 warning(s), exit 0` |
+| Release consistency | `pnpm check:release` | exit `0`, version consistent across package, spec header, release notes, and built CLI |
 
 ## Release Notes - Agent Identity Protocol `v2.1.1`
 
@@ -19,7 +107,7 @@ nimbusDisableRules: ["nimbus/duplicate-heading-text"]
 - **Specification / package version:** `v2.1.1`
 - **Release date:** 2026-11-22
 - **Normative specification:** [`agent-identity-protocol.md`](https://docs.agentregistrar.dev/protocol/specification/)
-- **Previous release:** [`release-notes-v2.1.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v2.1.0.md)
+- **Previous release:** [`release-notes-v2.1.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v2.1.0.md)
 
 `v2.1.1` is a package and documentation patch. It ships the compiled JavaScript package with a
 working `npx` CLI, makes `package.json` the single source of the validator version, and corrects the
@@ -88,7 +176,7 @@ No test framework is added (`AGENTS.md`). The manual gates were run from this re
 - **Specification / package version:** `v2.1.0`
 - **Release date:** 2026-11-21
 - **Normative specification:** [`agent-identity-protocol.md`](https://docs.agentregistrar.dev/protocol/specification/)
-- **Previous release:** [`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v2.0.0.md)
+- **Previous release:** [`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v2.0.0.md)
 
 `v2.1.0` renames the protocol from `agent-identity-v1` to the **Agent Identity Protocol**
 (`agent-identity-protocol`) and separates the protocol name from the protocol version (`2.0`),
@@ -180,8 +268,8 @@ No test framework is added (`AGENTS.md`). The manual harnesses were run from thi
 - Normative spec: [`agent-identity-protocol.md`](https://docs.agentregistrar.dev/protocol/specification/)
 - Implementation guide: [`implementing-agent-identity-protocol.md`](https://docs.agentregistrar.dev/protocol/implementation-guide/)
 - Validator guide: [`validator.md`](https://docs.agentregistrar.dev/protocol/validator/)
-- Fixture matrix: [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/fixtures/README.md)
-- Previous release: [`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v2.0.0.md)
+- Fixture matrix: [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures/README.md)
+- Previous release: [`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v2.0.0.md)
 
 ## Release Notes — `agent-identity-v1` `v2.0.0`
 
@@ -189,7 +277,7 @@ No test framework is added (`AGENTS.md`). The manual harnesses were run from thi
 - **Specification version:** `v2.0.0` (breaking spec/package release)
 - **Release date:** 2026-11-21
 - **Normative specification:** [`agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/specification/)
-- **Previous release:** [`release-notes-v1.3.2.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.3.2.md)
+- **Previous release:** [`release-notes-v1.3.2.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.3.2.md)
 
 `v2.0.0` simplifies two surfaces that added friction without adding trust. The `protocol` id, the
 signup handshake, the assertion format, the attestation claims, the signature, the 24-hour lifetime,
@@ -343,8 +431,8 @@ exists) and follow §1 and §2 above.
 - Normative spec: [`agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/specification/)
 - Implementation guide: [`implementing-agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/implementation-guide/)
 - Validator guide: [`validator.md`](https://docs.agentregistrar.dev/protocol/validator/)
-- Fixture matrix: [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/fixtures/README.md)
-- Previous release: [`release-notes-v1.3.2.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.3.2.md)
+- Fixture matrix: [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures/README.md)
+- Previous release: [`release-notes-v1.3.2.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.3.2.md)
 
 ## Release Notes — `agent-identity-v1` `v1.3.2`
 
@@ -352,7 +440,7 @@ exists) and follow §1 and §2 above.
 - **Specification version:** `v1.3.2` (documentation patch on `v1.3.1`)
 - **Release date:** 2026-11-14
 - **Normative specification:** [`agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/specification/)
-- **Previous release:** [`release-notes-v1.3.1.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.3.1.md)
+- **Previous release:** [`release-notes-v1.3.1.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.3.1.md)
 
 `v1.3.2` corrects documentation only. It changes no wire format, JSON Schema shape, fixture, validator
 behavior, check id, reason code, or attestation claim. The `VALIDATOR_VERSION` and package version are
@@ -440,8 +528,8 @@ Per the repository `AGENTS.md`, the source-first package is published with **npm
 - Normative spec: [`agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/specification/)
 - Implementation guide: [`implementing-agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/implementation-guide/)
 - Validator guide: [`validator.md`](https://docs.agentregistrar.dev/protocol/validator/)
-- Fixture matrix: [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/fixtures/README.md)
-- Previous release: [`release-notes-v1.3.1.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.3.1.md)
+- Fixture matrix: [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures/README.md)
+- Previous release: [`release-notes-v1.3.1.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.3.1.md)
 
 ## Release Notes — `agent-identity-v1` `v1.3.1`
 
@@ -449,7 +537,7 @@ Per the repository `AGENTS.md`, the source-first package is published with **npm
 - **Specification version:** `v1.3.1` (contract-text patch on `v1.3.0`)
 - **Release date:** 2026-11-13
 - **Normative specification:** [`agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/specification/)
-- **Previous release:** [`release-notes-v1.3.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.3.0.md)
+- **Previous release:** [`release-notes-v1.3.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.3.0.md)
 
 `v1.3.1` is a **contract-text correction**. It changes no wire format, JSON Schema, fixture, validator
 behavior, check id, reason code, or attestation claim. It corrects two normative statements that the
@@ -541,8 +629,8 @@ Per the repository `AGENTS.md`, the source-first package is published with **npm
 - Scope rulebook: [`scope-boundaries.md`](https://docs.agentregistrar.dev/protocol/scope-boundaries/)
 - Implementation guide: [`implementing-agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/implementation-guide/)
 - Validator guide: [`validator.md`](https://docs.agentregistrar.dev/protocol/validator/)
-- Fixture matrix: [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/fixtures/README.md)
-- Previous release: [`release-notes-v1.3.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.3.0.md)
+- Fixture matrix: [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures/README.md)
+- Previous release: [`release-notes-v1.3.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.3.0.md)
 
 ## Release Notes — `agent-identity-v1` `v1.3.0`
 
@@ -550,8 +638,8 @@ Per the repository `AGENTS.md`, the source-first package is published with **npm
 - **Specification version:** `v1.3.0`
 - **Release date:** 2026-11-13
 - **Normative specification:** [`agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/specification/)
-- **Change process:** [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.0.0.md) §3
-- **Previous release:** [`release-notes-v1.2.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.2.0.md)
+- **Change process:** [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.0.0.md) §3
+- **Previous release:** [`release-notes-v1.2.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.2.0.md)
 
 `v1.3.0` is the **attestation source** release. It is a **breaking change to the discovery document**
 and a no-op for the signed attestation: the embedded `rp_attestation` field is removed and replaced by
@@ -577,7 +665,7 @@ still contains `rp_attestation` is non-conformant, and the validator reports
 | **URI rules** | `attestation.uri` is a stable, absolute HTTPS URL with no userinfo and no fragment (`http://localhost` / `http://127.0.0.1` is the development exception). A `broker` URI origin must be in `issuer_allowlist` (and a trusted broker origin when a trusted list is configured); a `provider` URI origin must be the discovery origin or a subdomain of it. | §5.4 |
 | **Removed carrier** | A document containing `rp_attestation` is non-conformant with the stable reason `rp_attestation_removed`. | §5.2, §14.7 |
 | **Validator** | New conformance checks (`field.attestation.mode`, `field.attestation.uri`, `field.attestation.binding`, `field.rp_attestation`), frozen verification reasons, mode-aware `--json` fields (`mode`, `source_uri`, `expires_at`), and the fixture-only `--source-response` flag. `VALIDATOR_VERSION` and the package version are `1.3.0`. | §19, [`validator.md`](https://docs.agentregistrar.dev/protocol/validator/) |
-| **Fixtures** | The old `valid-attested-*` fixtures are replaced by broker, provider, absent, invalid-mode, relative/HTTP/userinfo/fragment URI, broker/provider wrong host, removed-field, typed `403`/`404`/`410`/`503`, and expired-source rows. | [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/fixtures/README.md) |
+| **Fixtures** | The old `valid-attested-*` fixtures are replaced by broker, provider, absent, invalid-mode, relative/HTTP/userinfo/fragment URI, broker/provider wrong host, removed-field, typed `403`/`404`/`410`/`503`, and expired-source rows. | [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures/README.md) |
 
 #### 1.1 Discovery shape
 
@@ -786,12 +874,12 @@ handshake and the signed artifacts are unchanged, so the `protocol` id stays `ag
 - Implementation guide: [`implementing-agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/implementation-guide/)
 - Validator guide: [`validator.md`](https://docs.agentregistrar.dev/protocol/validator/)
 - Discovery schema: [`agent-signup.schema.json`](https://docs.agentregistrar.dev/protocol/agent-signup.schema.json)
-- Attestation source schema: [`attestation-source.schema.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/attestation-source.schema.json)
-- Attestation schema (unchanged): [`rp-attestation.schema.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/rp-attestation.schema.json)
-- Fixture matrix: [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/fixtures/README.md)
-- Registry: [`registry/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/README.md),
-  [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/implementations.json)
-- Previous release: [`release-notes-v1.2.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.2.0.md)
+- Attestation source schema: [`attestation-source.schema.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/attestation-source.schema.json)
+- Attestation schema (unchanged): [`rp-attestation.schema.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/rp-attestation.schema.json)
+- Fixture matrix: [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures/README.md)
+- Registry: [`registry/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/README.md),
+  [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/implementations.json)
+- Previous release: [`release-notes-v1.2.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.2.0.md)
 
 ## Release Notes — `agent-identity-v1` `v1.2.0`
 
@@ -799,8 +887,8 @@ handshake and the signed artifacts are unchanged, so the `protocol` id stays `ag
 - **Specification version:** `v1.2.0`
 - **Release date:** 2026-10-24 (target; this branch is the reviewed artifact — see §6)
 - **Normative specification:** [`agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/specification/)
-- **Change process:** [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.0.0.md) §3
-- **Previous release:** [`release-notes-v1.1.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.1.0.md)
+- **Change process:** [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.0.0.md) §3
+- **Previous release:** [`release-notes-v1.1.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.1.0.md)
 
 `v1.2.0` is the **two-sided trust** release: it gives relying parties a portable, broker-issued
 identity, lets agents verify that identity locally before signup, and makes receipts and abuse
@@ -971,10 +1059,10 @@ A breaking change still requires a new `protocol` value and a new discovery path
 - Scope rulebook: [`scope-boundaries.md`](https://docs.agentregistrar.dev/protocol/scope-boundaries/)
 - Implementation guide: [`implementing-agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/implementation-guide/)
 - Validator guide: [`validator.md`](https://docs.agentregistrar.dev/protocol/validator/)
-- Fixture matrix: [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/fixtures/README.md)
-- Registry: [`registry/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/README.md),
-  [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/implementations.json)
-- Previous release: [`release-notes-v1.1.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.1.0.md)
+- Fixture matrix: [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures/README.md)
+- Registry: [`registry/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/README.md),
+  [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/implementations.json)
+- Previous release: [`release-notes-v1.1.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.1.0.md)
 
 ## Release Notes — `agent-identity-v1` `v1.1.0`
 
@@ -982,7 +1070,7 @@ A breaking change still requires a new `protocol` value and a new discovery path
 - **Specification version:** `v1.1.0`
 - **Release date:** 2026-10-18
 - **Normative specification:** [`agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/specification/)
-- **Change process:** [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.0.0.md) §3
+- **Change process:** [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.0.0.md) §3
 
 `v1.1.0` is an **additive, text-only** revision of the `agent-identity-v1` discovery contract. It adds
 clarifications that were implicit in `v1.0.0`, plus one **optional** success-response field. It removes
@@ -1033,7 +1121,7 @@ its version tag:
 
 ### 3. Change process
 
-Unchanged from [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.0.0.md) §3. `v1.1.0` was reviewed against
+Unchanged from [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.0.0.md) §3. `v1.1.0` was reviewed against
 the [scope-boundaries.md](https://docs.agentregistrar.dev/protocol/scope-boundaries/) checklist: every change is identity-, delegation-,
 ToS-, traceability-, or handoff-related; none advertises a catalog, SKU, pricing, resource endpoint,
 credential, or vendor API usage; all changes are additive within v1. A breaking change **MUST** still
@@ -1072,8 +1160,8 @@ Other valid fixtures are also unchanged: `valid-minimal.json` and `valid-localho
 `valid: true`, exit code `0`, `{ passed: 16, failed: 0, warnings: 0, probes: 0 }`.
 
 The **`v1.0.0` release evidence remains as history** (see
-[`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.0.0.md) §4 and
-[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/implementations.json)); the runs above are the `v1.1.0`
+[`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.0.0.md) §4 and
+[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/implementations.json)); the runs above are the `v1.1.0`
 counterparts. No live **production** origin was validated for this revision.
 
 ### 5. Release record
@@ -1082,7 +1170,7 @@ Per the repository `AGENTS.md`, the source-first package `@agentregistrar/discov
 specification version — `package.json` `version` bumped `1.0.2` → `1.1.0` — and published to npm using
 **trusted publishing (OIDC)** by dispatching `publish.yml` from `main`. No npm token is involved.
 
-- Workflow: [`.github/workflows/publish.yml`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/.github/workflows/publish.yml) (`workflow_dispatch`) on
+- Workflow: [`.github/workflows/publish.yml`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/.github/workflows/publish.yml) (`workflow_dispatch`) on
   repository `agentregistrar/spec`, environment `npm-publish`, `id-token: write`.
 - Publish run: [`39168886677`](https://github.com/agentregistrar/spec/actions/runs/39168886677) —
   `Publish package` on `main`, conclusion **success**.
@@ -1110,9 +1198,9 @@ version tracks the specification version.
 - Scope rulebook: [`scope-boundaries.md`](https://docs.agentregistrar.dev/protocol/scope-boundaries/)
 - Implementation guide: [`implementing-agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/implementation-guide/)
 - Validator guide: [`validator.md`](https://docs.agentregistrar.dev/protocol/validator/)
-- Registry: [`registry/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/README.md),
-  [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/implementations.json)
-- Previous release: [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.0.0.md)
+- Registry: [`registry/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/README.md),
+  [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/implementations.json)
+- Previous release: [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.0.0.md)
 
 ## Release Notes — `agent-identity-v1` `v1.0.0`
 
@@ -1140,8 +1228,8 @@ The release is recorded once the following artifacts agree on the same identity-
 | JSON Schema | [`agent-signup.schema.json`](https://docs.agentregistrar.dev/protocol/agent-signup.schema.json) | Checked-in schema; the validator reports any divergence from Zod. |
 | Conformance validator | `src/validate-discovery.ts` (`pnpm validate:discovery …`) | Objective conformance check; `validatorVersion` `1.0.0`. |
 | Reference implementation | VaporCloud (reference Relying Party, maintained in the private repository) | Identity-only discovery document + post-signup `context` handoff. |
-| Implementation registry | [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/implementations.json) and [`registry/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/README.md) | Adoption surface and conformance badge. |
-| Public package | [`package.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/package.json) — `@agentregistrar/discovery` `1.0.0` | Self-contained, source-first distribution of the canonical schema (`src/schema.ts`) and the validator CLI (`src/validate-discovery.ts`); **Apache-2.0**. npm publishing is **pending** (scope reservation only); consume it via this repository or `github:agentregistrar/spec#v1.0.0` (no `bin` entry). |
+| Implementation registry | [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/implementations.json) and [`registry/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/README.md) | Adoption surface and conformance badge. |
+| Public package | [`package.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/package.json) — `@agentregistrar/discovery` `1.0.0` | Self-contained, source-first distribution of the canonical schema (`src/schema.ts`) and the validator CLI (`src/validate-discovery.ts`); **Apache-2.0**. npm publishing is **pending** (scope reservation only); consume it via this repository or `github:agentregistrar/spec#v1.0.0` (no `bin` entry). |
 
 #### Protocol surface at v1.0.0 (summary)
 
@@ -1210,7 +1298,7 @@ pnpm validate:discovery fixtures/valid-full.json --json
 ```
 
 The same commands and results are recorded per entry in
-[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/implementations.json). No live **production** origin has
+[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/implementations.json). No live **production** origin has
 been validated; the registry records a local reference-implementation run only, and live validation of
 a hosted implementation is an operational step performed by that implementer.
 
@@ -1226,7 +1314,7 @@ a hosted implementation is an operational step performed by that implementer.
 
 ### 6. Related artifacts
 
-- Adoption surface: [`registry/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/README.md) and
-  [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/implementations.json).
+- Adoption surface: [`registry/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/README.md) and
+  [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/implementations.json).
 - New-RP guide: [`implementing-agent-identity-v1.md`](https://docs.agentregistrar.dev/protocol/implementation-guide/).
 - Validator guide: [`validator.md`](https://docs.agentregistrar.dev/protocol/validator/).

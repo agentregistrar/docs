@@ -2,18 +2,18 @@
 title: Publish discovery
 description: Author an identity-only agent-signup.json document, host stable UTF-8 terms bytes, and configure optional attestation modes.
 audience: human
-verifiedAgainst: "spec v2.1.1, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 sidebar:
   order: 5
 ---
 
-`GET /.well-known/agent-signup.json` tells agents which brokers your service trusts, which scopes are required, where your terms live, and where to send a signup assertion. It is an identity parameter document, not a product catalog.
+`GET /.well-known/agent-signup.json` tells agents which brokers your service trusts, which scopes are required, where your terms live, and where to send signup or Day-2 login assertions. It is an identity parameter document, not a product catalog.
 
 If you use the [Provider Portal](/providers/portal/), Step 2 of the setup wizard generates this JSON for you. Use this guide when authoring or hosting the document yourself.
 
 ## Identity-only discovery document
 
-This document passes the `v2.1.1` conformance validator with zero errors and zero warnings (`example.com` and `example-provider` are synthetic values):
+This document passes the `v2.2.0` conformance validator with zero errors and zero warnings (`example.com` and `example-provider` are synthetic values; `endpoints.agent_login` is optional):
 
 ```json
 {
@@ -23,7 +23,7 @@ This document passes the `v2.1.1` conformance validator with zero errors and zer
   "provider_name": "Example Provider",
   "provider_url": "https://example.com",
   "contact": "security@example.com",
-  "updated_at": "2026-11-22T00:00:00Z",
+  "updated_at": "2026-11-23T00:00:00Z",
   "issuer_allowlist": ["https://agentregistrar.dev"],
   "required_scopes": ["tos:accept"],
   "terms": {
@@ -31,7 +31,8 @@ This document passes the `v2.1.1` conformance validator with zero errors and zer
     "url": "https://example.com/terms"
   },
   "endpoints": {
-    "agent_signup": "https://example.com/api/signup/agent"
+    "agent_signup": "https://example.com/api/signup/agent",
+    "agent_login": "https://example.com/api/login/agent"
   },
   "attestation": {
     "mode": "broker",
@@ -113,7 +114,7 @@ Verification proves domain control (or legal-entity evidence where reviewed), no
 Check the live document before taking traffic:
 
 ```bash
-npx @agentregistrar/discovery@2.1.1 validate https://example.com/.well-known/agent-signup.json --probe-jwks --json
+npx @agentregistrar/discovery@2.2.0 validate https://example.com/.well-known/agent-signup.json --probe-jwks --json
 ```
 
 ## Next steps

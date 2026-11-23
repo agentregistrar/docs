@@ -2,7 +2,7 @@
 title: Provider Portal
 description: Set up services with the 3-step wizard, inspect signups and CSV exports, manage keys, invite teammates, and review plan limits.
 audience: human
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 sidebar:
   order: 4
 ---
@@ -43,7 +43,7 @@ Opening a service at `/provider/[slug]/services/[id]` displays three steps in or
    - **HTTPS file:** Serve the exact token (optionally with one trailing newline) as `text/plain` with HTTP `200` at the shown well-known URL, with no cross-origin redirects.
    - **DNS TXT:** Publish exactly one `agent-signup-verify` TXT value at the shown record name.
    - Challenge tokens are shown once at creation and allow up to 5 verification attempts before expiry. Verifying your first origin activates the provider organization.
-2. **Publish discovery:** Customize `terms.version`, `terms.url`, and `endpoints.agent_signup` in the browser-side generator, then copy the generated JSON and serve it at `GET /.well-known/agent-signup.json` with `Content-Type: application/json`.
+2. **Publish discovery:** Customize `terms.version`, `terms.url`, `endpoints.agent_signup`, and optional `endpoints.agent_login` in the browser-side generator, then copy the generated JSON and serve it at `GET /.well-known/agent-signup.json` with `Content-Type: application/json`.
    - The generated document includes your **broker-managed** `attestation` URL (`mode: "broker"`). No signing key is required (`keys: []` is supported by default), and the broker renews the attestation on demand.
 3. **Test setup:** Click **Test my setup** to run a synchronous dry-run. The broker fetches your live `/.well-known/agent-signup.json`, checks the attestation and `terms.url`, probes `endpoints.agent_signup` with an unsigned request (requiring a stable JSON error envelope rather than HTML, a redirect, or `200`), and displays the exact placeholder assertion claims it would mint.
    - The dry-run creates no account and mints no assertion. When all checks pass and your organization contact email is verified, the service is marked live automatically.

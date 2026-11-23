@@ -2,7 +2,7 @@
 title: Receipt and context
 description: The provider-signed Contract E signup receipt, its historical validity window, proof sources, Contract F ingestion, and the hash-pinned context pointer.
 audience: both
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 ---
 
 A successful signup can return two identity artifacts: a provider-signed signup
@@ -23,8 +23,8 @@ guide](/protocol/implementation-guide/).
 
 On success the relying party returns `200` or `201` with:
 
-- provider credentials, when an account was created;
-- an optional `resolution` field: `"created"` or `"resolved"`;
+- provider credentials, when an account was created (or an optional `handoff` object on `201` signup or `200` login - strictly between provider and agent, never sent to the broker or placed in Contract E receipts, and never containing shell command strings);
+- an optional `resolution` field: `"created"` or `"resolved"` (or `"logged_in"` / `"agent_attached"` on `agent_login`);
 - optionally, an RP-signed `signup_token` per Contract E;
 - optionally, a `context` pointer.
 

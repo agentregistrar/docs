@@ -1,12 +1,8 @@
+import { accounts, seenSignupJti } from "@/lib/store";
 import { verifyAssertion } from "@/lib/verify-assertion";
 
 const PORT = 3003;
 const NO_STORE = { "cache-control": "no-store" };
-
-// Local demo only. Replace both maps with a database that has unique
-// constraints on (iss, human.id) and jti before taking live traffic.
-const accounts = new Map<string, { accountId: string; apiKey: string }>();
-const seenJti = new Map<string, string>();
 
 function providerOrigin() {
   return process.env.PROVIDER_ORIGIN ?? `http://127.0.0.1:${PORT}`;
@@ -39,6 +35,7 @@ export async function POST(request: Request) {
     requiredScopes: ["tos:accept"],
     termsUrl: process.env.TERMS_URL ?? `${origin}/terms`,
     termsSha256: process.env.TERMS_SHA256,
+    expectedPurpose: "signup",
     jwksUrlOverride: process.env.JWKS_URL_OVERRIDE,
   });
 
@@ -48,7 +45,7 @@ export async function POST(request: Request) {
 
   const claims = result.claims;
   const accountKey = `${claims.iss}:${claims.human.id}`;
-  const previousAccount = seenJti.get(claims.jti);
+  const previousAccount = seenSignupJti.get(claims.jti);
 
   if (previousAccount !== undefined && previousAccount !== accountKey) {
     return errorResponse(
@@ -57,10 +54,12 @@ export async function POST(request: Request) {
       "Assertion id used in a conflicting context",
     );
   }
-  seenJti.set(claims.jti, accountKey);
+  seenSignupJti.set(claims.jti, accountKey);
 
+  const agentId = claims.sub ?? claims.agent?.id ?? claims.human.id;
   const existing = accounts.get(accountKey);
   if (existing) {
+    existing.agentIds.add(agentId);
     return json(
       { resolution: "resolved", account_id: existing.accountId },
       200,
@@ -70,6 +69,8 @@ export async function POST(request: Request) {
   const created = {
     accountId: `acct_${crypto.randomUUID()}`,
     apiKey: `key_${crypto.randomUUID()}`,
+    agentIds: new Set([agentId]),
+    sessions: new Set<string>(),
   };
   accounts.set(accountKey, created);
 
@@ -78,6 +79,16 @@ export async function POST(request: Request) {
       resolution: "created",
       account_id: created.accountId,
       api_key: created.apiKey,
+      handoff: {
+        session: {
+          credential_type: "api_key",
+          access_token: created.apiKey,
+          token_type: "Bearer",
+        },
+        human_urls: {
+          dashboard_url: `${origin}/dashboard`,
+        },
+      },
     },
     201,
   );

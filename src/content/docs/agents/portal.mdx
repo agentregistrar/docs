@@ -1,8 +1,8 @@
 ---
 title: Developer Portal
-description: Manage your connected agents, unified /activity audit trail, /trust policies, /settings email forwarding, and kill switch in the Developer Portal.
+description: Manage connected agents, /activity audit rows, /trust re-login toggles, /settings terms approval, and kill switches in the portal.
 audience: human
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 sidebar:
   order: 4
 ---
@@ -24,6 +24,7 @@ The dashboard gives you an at-a-glance view of your account:
 - **Identity header:** confirms your verified human email and account state.
 - **MCP setup banner:** copy-paste connection snippets for **Claude Code**, **OpenCode**, **Codex CLI**, **Cursor**, and **Gemini CLI**. Once you have connected at least one agent, the banner collapses automatically so your active agents stay at the top.
 - **Active agents grid:** shows your current quota usage (for example `1 of 2 active`, or unlimited when no cap is set), each agent's status (`ACTIVE`, `REVOKED`, or `SUSPENDED`), ID, inbox address, scopes, a link to open `/agents/[id]`, and a one-click kill switch.
+- **Pending approvals banner:** appears on `/dashboard` and `/activity` whenever strict terms approval is enabled and a service terms update is waiting for your review at `/approvals/[id]`.
 - **Recent activity preview:** displays the newest entries from `/activity` with a link to the full audit trail.
 
 Agents are created when you approve a coding tool on the browser OAuth consent screen (`/oauth/authorize`), not via a standalone create button on the dashboard.
@@ -46,7 +47,7 @@ Opening any agent shows its identity header, session controls, kill switch, and 
 
 | State | Who sets it | What stops immediately | How it is restored |
 | :--- | :--- | :--- | :--- |
-| **`revoked`** | Human owner via one-click **Revoke agent** in `/dashboard` or `/agents/[id]` | New `identity_signup` tokens, `identity_whoami`, and `inbox_read` for that agent. Other agents stay active. | Human clicks **Reactivate agent** (restores the exact same ID and inbox). |
+| **`revoked`** | Human owner via one-click **Revoke agent** in `/dashboard` or `/agents/[id]` | New `identity_signup` and `identity_login` tokens, `identity_whoami`, and `inbox_read` for that agent. Other agents stay active. | Human clicks **Reactivate agent** (restores the exact same ID and inbox). |
 | **`suspended`** | Broker operator following a verified, receipt-linked provider abuse report | Same tool blocks as `revoked`, plus new browser OAuth approvals on the account are blocked. | Operator review and restore only; the kill switch is hidden and cannot clear it. |
 
 ### What revocation does not do
@@ -69,23 +70,24 @@ The kill switch is a broker identity control, not a remote delete button on thir
 
 ## Activity (`/activity`)
 
-`/activity` is your unified, paginated audit trail across all agents. Every row starts from a recorded terms acceptance (`tos_acceptances`) joined with its strongest signup receipt (if the provider issued one).
+`/activity` is your unified, paginated audit trail across all agents. The timeline renders Day-1 **Signup** rows (from `tos_acceptances` joined with the strongest signup receipt), Day-2 **Re-login** rows (showing the service, agent, and OAuth client label), and **Terms Re-Accepted** rows (showing the previous to new terms version and SHA-256 hash diff).
 
-Because acceptances are the base of the table:
+Because acceptances are the base of the signup trail:
 
 - **Keyless and receiptless signups stay visible.** Even when a provider verifies your agent's token without issuing a signed receipt, you still see the service, agent, terms URL, SHA-256 hash, timestamp, and email delivery status.
 - **Receipt-backed signups show proof details.** When a provider posts a receipt (or your agent records one with `identity_record_signup`), the row includes the provider account ID, proof source (`rp_callback` or `rp_signed`), and optional hash-pinned guide link.
-- **Verification snapshots stay transparent.** Each entry records the provider's verification status at signup time separately from its latest known status.
+- **Verification snapshots stay transparent.** Each entry records the provider's verification status at signup or login time separately from its latest known status.
+- **New-device login alerts:** The first `identity_login` to a service from a new OAuth client or grant sends a security alert email to your verified email address with the agent name, OAuth client name, service, and kill-switch link.
 
 ## Trust (`/trust` and `/trust/report`)
 
 Every agent under your account inherits your trust policy from [agentregistrar.dev/trust](https://agentregistrar.dev/trust):
 
 - **Default verification policy:**
-  - **`verify` (recommended default):** requires a valid verified domain (or entity) credential from a trusted broker before minting a signup token. Accepts both broker-managed and provider-managed verification.
-  - **`no_verify`:** allows signups to unverified services (the service is still labeled unverified in `/activity`).
+  - **`verify` (recommended default):** requires a valid verified domain (or entity) credential from a trusted broker before minting a signup or login token. Accepts both broker-managed and provider-managed verification.
+  - **`no_verify`:** allows signups and logins to unverified services (the service is still labeled unverified in `/activity`).
   - **`strict`:** requires a valid broker-managed verification credential and rejects provider-managed sources.
-- **Per-provider rules and blocklist:** override the default policy for a specific provider origin and audience (for example, allowing one local or unverified tool with `no_verify`), or mark any service as **blocked** (`rp_blocked` refuses signup regardless of verification status).
+- **Per-provider rules, re-login toggle, and blocklist:** override the default verification policy for a specific provider origin and audience, toggle **Day-2 re-login** (`Allowed` by default or `Disabled` - failing closed with `service_relogin_disabled`), or mark any service as **blocked** (`rp_blocked` refuses both signup and login regardless of verification status).
 - **Submitted provider reports and `/trust/report`:** if a provider misbehaves, use [agentregistrar.dev/trust/report](https://agentregistrar.dev/trust/report) to submit a report naming the origin, audience, reason, and optional evidence. You can optionally block the provider or distrust its attesting broker in the same step. Provider reports open a case and update your personal policy; they do not adjudicate disputes.
 - **Advanced: federated broker trust:** collapsed by default on `/trust`. Expand it to view broker defaults or explicitly trust or distrust another broker (for example, trusting the demo Broker B in [Try the demo network](/demo/)).
 
@@ -93,11 +95,12 @@ Every agent under your account inherits your trust policy from [agentregistrar.d
 A verified provider proved control of its domain (or legal-entity details at the `entity` level). It is not an endorsement, security audit, or safety guarantee.
 </Aside>
 
-## Settings (`/settings`)
+## Settings (`/settings`) and terms approvals (`/approvals/[id]`)
 
-[agentregistrar.dev/settings](https://agentregistrar.dev/settings) manages two areas:
+[agentregistrar.dev/settings](https://agentregistrar.dev/settings) manages three areas:
 
-- **Email forwarding mode:** choose how inbound emails sent to your agents' `@agents.agentregistrar.dev` addresses are forwarded to your verified email: **`all`** (default), **`legal_only`**, or **`off`**. Terms acceptance copies are **always** emailed to you regardless of this setting. See [Inbox and verification](/agents/inbox-and-verification/) for full details.
+- **Email forwarding mode:** choose how inbound emails sent to your agents' `@agents.agentregistrar.dev` addresses are forwarded to your verified email: **`all`** (default), **`legal_only`**, or **`off`**. Terms acceptance and re-acceptance copies are **always** emailed to you regardless of this setting. See [Inbox and verification](/agents/inbox-and-verification/) for full details.
+- **Terms re-acceptance mode:** choose between **`Autonomous under Master Agreement`** (default: when a provider updates its terms before `identity_login`, the broker automatically records an immutable re-acceptance row and emails you the old-to-new version and SHA-256 diff) or **`Require my approval before re-accepting updated terms`** (strict gate: `identity_login` fails closed with `terms_approval_required`, creates a 24-hour request at `/approvals/[id]`, and emails you an approval link showing the version/hash diff and one-click **Approve** / **Deny** controls).
 - **Account and Delegation Agreement (read-only):** confirms your verified email address, active agent quota (`X of 2` or unlimited), signed Master Delegation Agreement version (`v2026-10-01`), signing timestamp, and agreement SHA-256 hash.
 
 ## Next

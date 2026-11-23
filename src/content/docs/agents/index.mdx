@@ -2,7 +2,7 @@
 title: For developers and agents
 description: Connect your coding tool to Agent Registrar over MCP, give each agent an inbox, and manage every signup in one portal.
 audience: human
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 sidebar:
   order: 1
 ---
@@ -46,7 +46,7 @@ Every agent gets its own identity and `@agents.agentregistrar.dev` email inbox u
   />
 </CardGrid>
 
-## One MCP endpoint, four tools
+## One MCP endpoint, five tools
 
 Every supported coding tool connects to the same remote MCP server using standard OAuth 2.1 (PKCE `S256`) with no broker API key to copy:
 
@@ -54,12 +54,13 @@ Every supported coding tool connects to the same remote MCP server using standar
 https://agentregistrar.dev/mcp
 ```
 
-Once connected, your agent has access to four tools:
+Once connected, your agent has access to five tools:
 
 | Tool | What it does |
 | :--- | :--- |
-| `identity_whoami` | Shows the agent bound to this session, its email address, scopes, your verified owner record, and recent signups |
-| `identity_signup` | Checks the service's discovery file and terms, hashes the exact terms bytes, emails you a copy, and returns a prepared signup request |
+| `identity_whoami` | Shows the agent bound to this session, its email address, scopes, your verified owner record, recent signups, and services under your other agents (`human_other_agent_signups`) |
+| `identity_signup` | Checks the service's discovery file and terms, hashes the exact terms bytes, emails you a copy, and returns a prepared `purpose: "signup"` request |
+| `identity_login` | Day-2 re-authentication for services publishing `endpoints.agent_login`: checks re-login policy and terms freshness, re-attests drifted terms when allowed, and returns a fresh 120s `purpose: "login"` request |
 | `identity_record_signup` | Records an optional provider-signed receipt in your `/activity` audit trail and returns any hash-pinned usage guide pointer |
 | `inbox_read` | Lists recent emails, reads one message, or waits for a matching inbound email and extracts six-digit verification codes |
 

@@ -2,13 +2,13 @@
 title: "Scope boundaries"
 description: "What the identity protocol owns, what the vendor owns, and the checklist for future protocol changes."
 audience: both
-source: "spec:v2.1.1#scope-boundaries.md"
-specTag: "v2.1.1"
+source: "spec:v2.2.0#scope-boundaries.md"
+specTag: "v2.2.0"
 generated: true
-lastReviewed: 2026-11-22
+lastReviewed: 2026-11-23
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/scope-boundaries.md) at `v2.1.1` (tag `v2.1.1`).
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/scope-boundaries.md) at `v2.2.0` (tag `v2.2.0`).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Identity vs Vendor Scope Boundaries
@@ -38,11 +38,12 @@ to the vendor, documented in a post-signup context guide — never in discovery 
 | :--- | :--- |
 | Agent sub-identity registration and human binding | `identity_register`, agent ↔ verified human owner |
 | Master Agent Delegation Agreement and delegated scopes | `delegation.scopes`, `tos:accept` |
-| Agent Identity JWT assertions and JWKS verification | Contract A, issuer-hosted JWKS |
+| Agent Identity JWT assertions and JWKS verification | Contract A (`purpose`: `"signup" \| "login"`), issuer-hosted JWKS |
 | MCP OAuth 2.1, MCP tools, agent reachability | `<agent>@<domain>` inbox, inbox tools |
-| Relying Party discovery and brokered signup | `agent-signup.json`, `POST endpoints.agent_signup` |
-| Delegated RP ToS acceptance | `terms`, `tos_acceptances`, hash verification |
-| Identity-focused signup ledger and traceability | who/whom/which ToS/when/proof |
+| Relying Party discovery, brokered signup, and Day-2 re-login | `agent-signup.json`, `POST endpoints.agent_signup`, optional `POST endpoints.agent_login` |
+| Delegated RP ToS acceptance and Day-2 re-attestation | `terms`, `tos_acceptances` (`event_kind: "signup" \| "reacceptance"`), `accepted_rp_tos_version`, hash verification |
+| Multi-device/multi-agent continuity & step-up gate | `human_action_required` (`account_link_required`, `agent_link_required`, `step_up_required`, `billing_required`), `terms_reacceptance_required` |
+| Identity-focused signup & login ledger and traceability | who/whom/which ToS/when/proof (zero provider credentials stored) |
 | Abuse reporting and universal revocation | Contract D.2, kill switch |
 | Post-signup context pointer (identity-adjacent) | opaque `context.url` + `context.sha256` |
 | Relying Party identity | provider account, origin/audience verification, RP signing keys, broker-issued attestation, RP-signed receipts, authenticated abuse identity |
@@ -54,8 +55,8 @@ to the vendor, documented in a post-signup context guide — never in discovery 
 | :--- | :--- |
 | Product catalogs, SKUs, pricing tiers, free-tier quotas | `instance_catalog`, product specs |
 | Resource provisioning APIs and lifecycle | `/api/provision`, instances, endpoints |
-| Resource credentials | vendor API keys for resources |
-| Vendor API/SDK usage and operational runbooks | usage docs, error catalogs |
+| Resource credentials | vendor API keys for resources; broker credential vaults or API proxying |
+| Vendor API/SDK usage and operational runbooks | usage docs, error catalogs, auto-installing or executing arbitrary shell commands from wire responses |
 | Legacy email/OTP signup flows implemented by the vendor | `/api/signup/email`, `/api/signup/verify-otp` |
 | Vendor admin dashboards and instance "nuke" mechanics | admin UI, instance actions |
 
@@ -64,6 +65,10 @@ to the vendor, documented in a post-signup context guide — never in discovery 
 - Vendor capabilities **MUST NOT** be represented as protocol surface in discovery, in the signed
   receipt (Contract E), in broker storage, in the broker UI, in MCP instructions, or in the
   implementation registry.
+- Provider-to-agent `handoff` (`session`, `mcp`, `cli`, `human_urls`) is **strictly a provider-to-agent
+  HTTP response convention** returned on `agent_signup` / `agent_login`. It **MUST NOT** appear in
+  discovery or Contract E receipts, **MUST NOT** carry executable shell command strings, and
+  **MUST NOT** be sent to or stored by the broker.
 - Vendor capabilities remain available to the agent through the vendor's post-signup context guide.
 - A document does **not** become conformant by hidden vendor data under `extensions`.
 
@@ -108,6 +113,7 @@ Removing vendor capabilities from the protocol **MUST NOT** remove these in-scop
 | Vendor ToS text mentioning appliances/SKUs | **Harmless**; it is the vendor's own terms. |
 | Vendor admin dashboards, nuke actions, storefronts | Vendor-owned; not protocol. |
 | `provider_account_id` in the receipt | **In scope** as an opaque reference; not the start of a resource inventory. |
+| Day-2 `endpoints.agent_login` & pull-based ToS re-attestation (`v2.2.0`) | **In scope** as identity re-authentication and ToS drift re-acceptance; `handoff` stays a provider-to-agent HTTP response convention only and never enters broker storage or discovery. |
 
 ---
 

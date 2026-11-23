@@ -2,18 +2,19 @@
 title: Framework examples
 description: Copy-pasteable Next.js, Hono, Express, and Cloudflare Workers handlers sharing one jose JWT verifier, plus deployment notes.
 audience: human
-verifiedAgainst: "spec v2.1.1, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 sidebar:
   order: 5
   label: Framework examples
 ---
 
-Every provider host implements the same two HTTP routes:
+Every provider host implements the same HTTP routes (plus optional Day-2 re-login):
 
-1. `GET /.well-known/agent-signup.json` serves your identity-only discovery document with `200` and `application/json`, no authentication, and no redirects. `OPTIONS` on the same path answers the CORS preflight with `204` and no body.
-2. `POST /api/signup/agent` verifies the incoming `Authorization: Bearer <jwt>` assertion against the broker's public JWKS, enforces issuer, audience, lifetime, scopes, `human.verified`, `delegation.accepted_rp_tos_url`, and `jti` replay protection, then resolves or creates your local account idempotently.
+1. `GET /.well-known/agent-signup.json` serves your identity-only discovery document (`endpoints.agent_signup` and optional `endpoints.agent_login`) with `200` and `application/json`, no authentication, and no redirects. `OPTIONS` on the same path answers the CORS preflight with `204` and no body.
+2. `POST /api/signup/agent` verifies the incoming `Authorization: Bearer <jwt>` (`purpose: "signup"`) assertion against the broker's public JWKS, enforces issuer, audience, lifetime, scopes, `human.verified`, `delegation.accepted_rp_tos_url`, and `jti` replay protection, then resolves or creates your local account idempotently (returning an optional `handoff` on creation).
+3. `POST /api/login/agent` (optional `v2.2.0` Day-2 endpoint) verifies a `purpose: "login"` assertion, enforces single-use `jti`, checks `delegation.accepted_rp_tos_version` (`409 terms_reacceptance_required`) and existing accounts (`404 account_not_found`, never auto-linking pre-existing human accounts by email alone), and mints a fresh per-session bearer token + `handoff`.
 
-Complete runnable starters live in the public docs repository at [Provider examples](https://github.com/agentregistrar/docs/tree/main/examples). Each folder is standalone, and all four share one hardened `jose` verifier with `jku` and `x5u` rejection, allowlist-gated per-issuer JWKS lookup, and the claim checks below.
+Complete runnable starters live in the public docs repository at [Provider examples](https://github.com/agentregistrar/docs/tree/main/examples). Each folder is standalone, and all four share one hardened `jose` verifier with `jku` and `x5u` rejection, allowlist-gated per-issuer JWKS lookup, `expectedPurpose` enforcement, and the claim checks below.
 
 ## Shared verification helper
 
@@ -35,20 +36,31 @@ export interface VerifierConfig {
   requiredScopes: string[];
   termsUrl: string;
   termsSha256?: string;
+  expectedPurpose?: "signup" | "login";
   jwksUrlOverride?: string;
 }
 
 export interface AssertionClaims {
   iss: string;
+  sub?: string;
   aud: string;
   jti: string;
   iat: number;
   exp: number;
-  human: { id: string; verified: true } & Record<string, unknown>;
+  purpose: "signup" | "login";
+  agent?: { id?: string; email?: string; name?: string } & Record<
+    string,
+    unknown
+  >;
+  human: { id: string; verified: true; email?: string } & Record<
+    string,
+    unknown
+  >;
   delegation: {
     scopes: string[];
     accepted_rp_tos_url: string;
     accepted_rp_tos_hash?: string;
+    accepted_rp_tos_version?: string;
   } & Record<string, unknown>;
   [claim: string]: unknown;
 }
@@ -183,6 +195,27 @@ export async function verifyAssertion(
     return fail(403, "audience_mismatch", "Assertion audience does not match");
   }
 
+  const rawPurpose = payload.purpose;
+  if (
+    rawPurpose !== undefined &&
+    rawPurpose !== "signup" &&
+    rawPurpose !== "login"
+  ) {
+    return fail(
+      401,
+      "invalid_assertion",
+      "Assertion purpose must be signup or login",
+    );
+  }
+  const purpose: "signup" | "login" = rawPurpose ?? "signup";
+  if (cfg.expectedPurpose !== undefined && purpose !== cfg.expectedPurpose) {
+    return fail(
+      401,
+      "invalid_assertion",
+      `Expected assertion purpose "${cfg.expectedPurpose}"`,
+    );
+  }
+
   const iat = payload.iat;
   const exp = payload.exp;
   const now = Math.floor(Date.now() / 1000);
@@ -252,15 +285,20 @@ export async function verifyAssertion(
     return fail(401, "invalid_assertion", "Assertion must carry a non-empty jti");
   }
 
+  const agent = isRecord(payload.agent) ? payload.agent : undefined;
+
   return {
     ok: true,
     claims: {
       ...payload,
       iss: payload.iss,
+      ...(typeof payload.sub === "string" ? { sub: payload.sub } : {}),
       aud: cfg.audience,
       jti,
       iat,
       exp,
+      purpose,
+      ...(agent ? { agent } : {}),
       human: { ...human, id: human.id, verified: true },
       delegation: {
         ...(delegation ?? {}),
@@ -268,6 +306,9 @@ export async function verifyAssertion(
         accepted_rp_tos_url: acceptedUrl,
         ...(typeof delegation?.accepted_rp_tos_hash === "string"
           ? { accepted_rp_tos_hash: delegation.accepted_rp_tos_hash }
+          : {}),
+        ...(typeof delegation?.accepted_rp_tos_version === "string"
+          ? { accepted_rp_tos_version: delegation.accepted_rp_tos_version }
           : {}),
       },
     },
@@ -325,6 +366,7 @@ function discoveryDocument() {
     },
     endpoints: {
       agent_signup: `${origin}/api/signup/agent`,
+      agent_login: `${origin}/api/login/agent`,
     },
     ...(attestationUri
       ? { attestation: { mode: "broker" as const, uri: attestationUri } }
@@ -353,25 +395,18 @@ export function OPTIONS() {
 }
 ```
 
-Create `app/api/signup/agent/route.ts`:
+Create `app/api/signup/agent/route.ts` and `app/api/login/agent/route.ts` sharing an in-memory store (`lib/store.ts` in the starter; replace with database constraints in production):
 
 ```ts
 // app/api/signup/agent/route.ts
+import { accounts, seenSignupJti } from "@/lib/store";
 import { verifyAssertion } from "@/lib/verify-assertion";
 
 const PORT = 3003;
 const NO_STORE = { "cache-control": "no-store" };
 
-// Local demo only. Use database unique constraints on (iss, human.id) and jti.
-const accounts = new Map<string, string>();
-const seenJti = new Map<string, string>();
-
 function providerOrigin() {
   return process.env.PROVIDER_ORIGIN ?? `http://127.0.0.1:${PORT}`;
-}
-
-function providerAudience() {
-  return process.env.PROVIDER_AUDIENCE ?? "nextjs-example";
 }
 
 function issuerAllowlist() {
@@ -393,41 +428,53 @@ export async function POST(request: Request) {
   const origin = providerOrigin();
   const result = await verifyAssertion(request.headers.get("authorization"), {
     issuerAllowlist: issuerAllowlist(),
-    audience: providerAudience(),
+    audience: process.env.PROVIDER_AUDIENCE ?? "nextjs-example",
     requiredScopes: ["tos:accept"],
     termsUrl: process.env.TERMS_URL ?? `${origin}/terms`,
     termsSha256: process.env.TERMS_SHA256,
+    expectedPurpose: "signup",
     jwksUrlOverride: process.env.JWKS_URL_OVERRIDE,
   });
   if (!result.ok) return errorResponse(result.status, result.error, result.error_description);
 
   const claims = result.claims;
   const accountKey = `${claims.iss}:${claims.human.id}`;
-  const previous = seenJti.get(claims.jti);
+  const previous = seenSignupJti.get(claims.jti);
   if (previous !== undefined && previous !== accountKey) {
-    return errorResponse(
-      409,
-      "assertion_replayed",
-      "Assertion id used in a conflicting context",
-    );
+    return errorResponse(409, "assertion_replayed", "Assertion id used in a conflicting context");
   }
-  seenJti.set(claims.jti, accountKey);
+  seenSignupJti.set(claims.jti, accountKey);
 
+  const agentId = claims.sub ?? claims.agent?.id ?? claims.human.id;
   const existing = accounts.get(accountKey);
   if (existing) {
+    existing.agentIds.add(agentId);
     return Response.json(
-      { resolution: "resolved", account_id: existing },
+      { resolution: "resolved", account_id: existing.accountId },
       { status: 200, headers: NO_STORE },
     );
   }
 
-  const accountId = `acct_${crypto.randomUUID()}`;
-  accounts.set(accountKey, accountId);
+  const created = {
+    accountId: `acct_${crypto.randomUUID()}`,
+    apiKey: `key_${crypto.randomUUID()}`,
+    agentIds: new Set([agentId]),
+    sessions: new Set<string>(),
+  };
+  accounts.set(accountKey, created);
   return Response.json(
     {
       resolution: "created",
-      account_id: accountId,
-      api_key: `key_${crypto.randomUUID()}`,
+      account_id: created.accountId,
+      api_key: created.apiKey,
+      handoff: {
+        session: {
+          credential_type: "api_key",
+          access_token: created.apiKey,
+          token_type: "Bearer",
+        },
+        human_urls: { dashboard_url: `${origin}/dashboard` },
+      },
     },
     { status: 201, headers: NO_STORE },
   );
@@ -446,10 +493,121 @@ export function OPTIONS() {
 }
 
 function methodNotAllowed() {
-  return new Response(null, {
-    status: 405,
-    headers: { allow: "POST", ...NO_STORE },
+  return new Response(null, { status: 405, headers: { allow: "POST", ...NO_STORE } });
+}
+
+export const GET = methodNotAllowed;
+export const HEAD = methodNotAllowed;
+```
+
+```ts
+// app/api/login/agent/route.ts
+import { accounts, seenLoginJti } from "@/lib/store";
+import { verifyAssertion } from "@/lib/verify-assertion";
+
+const PORT = 3003;
+const NO_STORE = { "cache-control": "no-store" };
+
+function providerOrigin() {
+  return process.env.PROVIDER_ORIGIN ?? `http://127.0.0.1:${PORT}`;
+}
+
+function issuerAllowlist() {
+  const configured = (process.env.ISSUER_ALLOWLIST ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+  return configured.length > 0 ? configured : ["https://agentregistrar.dev"];
+}
+
+function errorResponse(status: number, error: string, description: string) {
+  return Response.json(
+    { error, error_description: description, retryable: false },
+    { status, headers: NO_STORE },
+  );
+}
+
+export async function POST(request: Request) {
+  const origin = providerOrigin();
+  const termsUrl = process.env.TERMS_URL ?? `${origin}/terms`;
+  const termsVersion = process.env.TERMS_VERSION ?? "2026.1";
+
+  const result = await verifyAssertion(request.headers.get("authorization"), {
+    issuerAllowlist: issuerAllowlist(),
+    audience: process.env.PROVIDER_AUDIENCE ?? "nextjs-example",
+    requiredScopes: ["tos:accept"],
+    termsUrl,
+    termsSha256: process.env.TERMS_SHA256,
+    expectedPurpose: "login",
+    jwksUrlOverride: process.env.JWKS_URL_OVERRIDE,
   });
+  if (!result.ok) return errorResponse(result.status, result.error, result.error_description);
+
+  const claims = result.claims;
+  if (seenLoginJti.has(claims.jti)) {
+    return errorResponse(409, "assertion_replayed", "Login assertion jti already consumed");
+  }
+  seenLoginJti.add(claims.jti);
+
+  const existing = accounts.get(`${claims.iss}:${claims.human.id}`);
+  if (!existing) {
+    return errorResponse(404, "account_not_found", "No account exists for this identity.");
+  }
+  if (claims.delegation.accepted_rp_tos_version !== termsVersion) {
+    return Response.json(
+      {
+        error: "terms_reacceptance_required",
+        expected_terms_version: termsVersion,
+        terms_url: termsUrl,
+        error_description: "Terms of Service updated; re-attest via your broker.",
+        retryable: false,
+      },
+      { status: 409, headers: NO_STORE },
+    );
+  }
+
+  const agentId = claims.sub ?? claims.agent?.id ?? claims.human.id;
+  const resolution = existing.agentIds.has(agentId) ? "logged_in" : "agent_attached";
+  existing.agentIds.add(agentId);
+
+  const sessionId = `sess_${crypto.randomUUID()}`;
+  const sessionToken = `tok_${crypto.randomUUID()}`;
+  existing.sessions.add(sessionId);
+
+  return Response.json(
+    {
+      resolution,
+      account_id: existing.accountId,
+      terms_version: termsVersion,
+      handoff: {
+        session: {
+          credential_type: "bearer_token",
+          access_token: sessionToken,
+          token_type: "Bearer",
+          expires_in: 3600,
+          session_id: sessionId,
+        },
+        human_urls: { dashboard_url: `${origin}/dashboard` },
+      },
+    },
+    { status: 200, headers: NO_STORE },
+  );
+}
+
+export function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "POST, OPTIONS",
+      "access-control-allow-headers": "Authorization, Content-Type",
+      ...NO_STORE,
+    },
+  });
+}
+
+function methodNotAllowed() {
+  return new Response(null, { status: 405, headers: { allow: "POST", ...NO_STORE } });
 }
 
 export const GET = methodNotAllowed;
@@ -467,7 +625,7 @@ npm run dev
 In another terminal, validate discovery on port `3003`:
 
 ```bash
-npx @agentregistrar/discovery@2.1.1 validate http://127.0.0.1:3003/.well-known/agent-signup.json --probe-jwks --probe-endpoints --json
+npx @agentregistrar/discovery@2.2.0 validate http://127.0.0.1:3003/.well-known/agent-signup.json --probe-jwks --probe-endpoints --json
 ```
 
 Expected: exit code `0`, `"valid": true`, and zero errors. Full source: [Next.js App Router starter](https://github.com/agentregistrar/docs/tree/main/examples/nextjs).
@@ -527,6 +685,7 @@ app.get("/.well-known/agent-signup.json", (c) => {
       },
       endpoints: {
         agent_signup: `${origin}/api/signup/agent`,
+        agent_login: `${origin}/api/login/agent`,
       },
       ...(attestationUri
         ? { attestation: { mode: "broker" as const, uri: attestationUri } }
@@ -563,6 +722,7 @@ app.post("/api/signup/agent", async (c) => {
     requiredScopes: ["tos:accept"],
     termsUrl: process.env.TERMS_URL ?? `${origin}/terms`,
     termsSha256: process.env.TERMS_SHA256,
+    expectedPurpose: "signup",
     jwksUrlOverride: process.env.JWKS_URL_OVERRIDE,
   });
   if (!result.ok) return errorResponse(result.status, result.error, result.error_description);
@@ -640,7 +800,7 @@ npm run dev
 In another terminal, validate discovery on port `3004`:
 
 ```bash
-npx @agentregistrar/discovery@2.1.1 validate http://127.0.0.1:3004/.well-known/agent-signup.json --probe-jwks --probe-endpoints --json
+npx @agentregistrar/discovery@2.2.0 validate http://127.0.0.1:3004/.well-known/agent-signup.json --probe-jwks --probe-endpoints --json
 ```
 
 Expected: exit code `0`, `"valid": true`, and zero errors. Full source: [Hono starter](https://github.com/agentregistrar/docs/tree/main/examples/hono).
@@ -706,6 +866,7 @@ app.get("/.well-known/agent-signup.json", (_req, res) => {
       },
       endpoints: {
         agent_signup: `${origin}/api/signup/agent`,
+        agent_login: `${origin}/api/login/agent`,
       },
       ...(attestationUri
         ? { attestation: { mode: "broker" as const, uri: attestationUri } }
@@ -740,6 +901,7 @@ app.post("/api/signup/agent", async (req, res) => {
     requiredScopes: ["tos:accept"],
     termsUrl: process.env.TERMS_URL ?? `${origin}/terms`,
     termsSha256: process.env.TERMS_SHA256,
+    expectedPurpose: "signup",
     jwksUrlOverride: process.env.JWKS_URL_OVERRIDE,
   });
   if (!result.ok) return errorResponse(result.status, result.error, result.error_description);
@@ -806,7 +968,7 @@ npm run dev
 In another terminal, validate discovery on port `3005`:
 
 ```bash
-npx @agentregistrar/discovery@2.1.1 validate http://127.0.0.1:3005/.well-known/agent-signup.json --probe-jwks --probe-endpoints --json
+npx @agentregistrar/discovery@2.2.0 validate http://127.0.0.1:3005/.well-known/agent-signup.json --probe-jwks --probe-endpoints --json
 ```
 
 Expected: exit code `0`, `"valid": true`, and zero errors. Full source: [Express starter](https://github.com/agentregistrar/docs/tree/main/examples/express).
@@ -896,6 +1058,7 @@ async function handleSignup(request: Request, env: Env) {
     requiredScopes: ["tos:accept"],
     termsUrl: env.TERMS_URL ?? `${origin}/terms`,
     termsSha256: env.TERMS_SHA256,
+    expectedPurpose: "signup",
     jwksUrlOverride: env.JWKS_URL_OVERRIDE,
   });
   if (!result.ok) return errorResponse(result.status, result.error, result.error_description);
@@ -1032,7 +1195,7 @@ npm run dev
 `npm run dev` runs `wrangler dev --port 3006`, so Wrangler listens on `http://127.0.0.1:3006`. In another terminal, validate discovery:
 
 ```bash
-npx @agentregistrar/discovery@2.1.1 validate http://127.0.0.1:3006/.well-known/agent-signup.json --probe-jwks --probe-endpoints --json
+npx @agentregistrar/discovery@2.2.0 validate http://127.0.0.1:3006/.well-known/agent-signup.json --probe-jwks --probe-endpoints --json
 ```
 
 Expected: exit code `0`, `"valid": true`, and zero errors. Full source: [Cloudflare Workers starter](https://github.com/agentregistrar/docs/tree/main/examples/cloudflare-workers).
@@ -1044,23 +1207,23 @@ Expected: exit code `0`, `"valid": true`, and zero errors. Full source: [Cloudfl
 
 | Platform | Run directly | Gotchas |
 | :--- | :--- | :--- |
-| **Vercel** | Next.js or Hono | Exclude `/.well-known/agent-signup.json` and `/api/signup/agent` from auth middleware `matcher` and Vercel Attack Challenge Mode. Serverless memory is ephemeral, so back accounts and `jti` with a database. |
-| **Cloudflare** | Cloudflare Workers or Hono | Add a WAF and Bot Fight Mode skip rule for both routes so automated agents receive JSON, not an HTML challenge. Use D1 or Durable Objects for account and `jti` uniqueness. |
+| **Vercel** | Next.js or Hono | Exclude `/.well-known/agent-signup.json`, `/api/signup/agent`, and `/api/login/agent` from auth middleware `matcher` and Vercel Attack Challenge Mode. Serverless memory is ephemeral, so back accounts, sessions, and `jti` with a database. |
+| **Cloudflare** | Cloudflare Workers or Hono | Add a WAF and Bot Fight Mode skip rule for discovery, signup, and login routes so automated agents receive JSON, not an HTML challenge. Use D1 or Durable Objects for account and `jti` uniqueness. |
 | **Container and PaaS hosts** | Express, Hono, or Next.js | Railway, Fly.io, Render, Heroku, AWS ECS, and GCP Cloud Run terminate TLS in front of the app. Set `PROVIDER_ORIGIN` to the canonical `https://` origin and do not redirect between `www` and the apex on discovery. |
-| **Netlify** | Functions or Edge | Publish `public/.well-known/agent-signup.json` without a redirect, or serve that path from a Function or Edge route, and route `/api/signup/agent` to a Function that returns JSON errors. |
-| **AWS API Gateway and Lambda, GCP Cloud Functions** | Lambda or Function | Exempt both routes from custom authorizers, and return JSON error envelopes instead of gateway HTML on auth or method failures. |
+| **Netlify** | Functions or Edge | Publish `public/.well-known/agent-signup.json` without a redirect, or serve that path from a Function or Edge route, and route `/api/signup/agent` and `/api/login/agent` to Functions that return JSON errors. |
+| **AWS API Gateway and Lambda, GCP Cloud Functions** | Lambda or Function | Exempt discovery, signup, and login routes from custom authorizers, and return JSON error envelopes instead of gateway HTML on auth or method failures. |
 
 - **Canonical origin:** The examples read the public origin from `PROVIDER_ORIGIN`, and local tests point the verifier at a fixture JWKS with `JWKS_URL_OVERRIDE`. The older `PROVIDER_URL` and `BROKER_JWKS_URL` names map to the same two settings; use the example names in new code.
-- **Bot challenges and auth walls:** A challenge page, login redirect, or HTML error body fails discovery and signup probes. Allow both paths before any middleware that authenticates human sessions.
+- **Bot challenges and auth walls:** A challenge page, login redirect, or HTML error body fails discovery, signup, and login probes. Allow all three paths before any middleware that authenticates human sessions.
 - **Dotfiles on Netlify:** Netlify can drop or rewrite dotfile paths. Confirm that `GET https://<origin>/.well-known/agent-signup.json` returns `200 application/json` from the deployed site, not a redirect or the single-page app shell.
 - **Gateway error shapes:** API Gateway and Cloud Functions can replace an integration error with their own HTML or a different status. Map verification failures to the JSON envelope inside the handler.
-- **Database constraints:** Enforce uniqueness on `(iss, human.id)`. Record each `jti` with the account it resolved to, and return `409 assertion_replayed` when the same `jti` arrives for a different account.
+- **Database constraints & anti-ATO resolution:** Enforce uniqueness on `(iss, human.id)` and `agent_id`. Record each `jti` (`agent_login` enforces single-use `jti`). Never auto-link pre-existing human-registered accounts by `human.email` alone — return `403 human_action_required` with `reason: "account_link_required"`.
 
 ## Notes before deploying
 
-- **Persist accounts and `jti`:** Replace the in-memory `Map` stores with unique database constraints on `(iss, human.id)` and `jti`, or D1 and Durable Objects on Workers, so restarts and concurrent requests stay idempotent.
+- **Persist accounts, sessions, and `jti`:** Replace the in-memory `Map` stores with unique database constraints on `(iss, human.id)`, `agent_id`, and `jti`, or D1 and Durable Objects on Workers, so restarts and concurrent requests stay idempotent. Each starter repository also includes the complete `POST /api/login/agent` route handler (`409 terms_reacceptance_required`, `404 account_not_found`, and fresh per-session `handoff`).
 - **Remove test overrides:** Leave `JWKS_URL_OVERRIDE` unset in production so keys always resolve from `<iss>/.well-known/jwks.json`.
-- **Do not cache signup responses:** Set `Cache-Control: no-store` on every `POST /api/signup/agent` response because creation responses may carry show-once credentials.
+- **Do not cache signup or login responses:** Set `Cache-Control: no-store` on every `POST /api/signup/agent` and `POST /api/login/agent` response because responses may carry credentials or session tokens.
 - **Add optional receipts and context later:** Once signup works, see [Receipts and context guide](/providers/guides/issue-signup-receipt/) to return an RP-signed `signup_token` and a hash-pinned `context` pointer.
 
 ## Next steps

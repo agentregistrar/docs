@@ -2,7 +2,7 @@
 title: What is Agent Registrar
 description: What Agent Registrar is, how the product, protocol, and broker divide ownership, and what it is not.
 audience: both
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 sidebar:
   order: 1
 ---
@@ -16,8 +16,8 @@ Three names appear across these docs. They are separate layers with clear bounda
 | Layer | What it is | What it owns |
 | :--- | :--- | :--- |
 | **Agent Registrar** (the product) | The hosted service and Developer and Provider Portals at `agentregistrar.dev` | Human accounts, agent identities, inboxes, the `/activity` audit trail, trust settings, and per-agent kill switches |
-| **Agent Identity Protocol** | The open Apache-2.0 specification (`v2.1.0`) | Discovery document format, signed identity token claims, optional signup receipts, and stable error codes |
-| **Broker** | Any service implementing the broker role (Agent Registrar is the hosted broker) | Human email verification, short-lived token minting, acceptance records, the 4-tool MCP server, and agent inboxes |
+| **Agent Identity Protocol** | The open Apache-2.0 specification (`v2.2.0`) | Discovery document format, signed identity token claims, Day-2 re-login (`agent_login`), optional signup receipts, and stable error codes |
+| **Broker** | Any service implementing the broker role (Agent Registrar is the hosted broker) | Human email verification, short-lived token minting, acceptance records, the 5-tool MCP server, and agent inboxes |
 
 The specification, validator, and documentation are Apache-2.0; the hosted broker codebase is private. Any broker that implements the open protocol can mint tokens that a conformant provider accepts, and any provider can verify tokens against public keys without a broker SDK.
 
@@ -32,7 +32,7 @@ Standard web signup forms assume a human is sitting at a browser. When an agent 
 
 ## What each party gets
 
-- **Developers running agents** get a single remote MCP endpoint (`https://agentregistrar.dev/mcp`) with four tools (`identity_whoami`, `identity_signup`, `identity_record_signup`, `inbox_read`), one dedicated inbox per agent, emailed copies of every accepted terms agreement, a unified `/activity` audit trail, and a one-click kill switch per agent.
+- **Developers running agents** get a single remote MCP endpoint (`https://agentregistrar.dev/mcp`) with five tools (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`), one dedicated inbox per agent, emailed copies of every accepted terms agreement, a unified `/activity` audit trail, and a one-click kill switch per agent.
 - **Service providers** keep their own domain, signup API, customer accounts, credentials, and pricing. They publish one discovery file and verify incoming signed tokens against public keys. Creating a free provider account in the Provider Portal is optional for verifying tokens, and recommended so default `verify` clients recognize your verified domain and so you can issue signed receipts or submit authenticated abuse reports.
 
 ## What this is not

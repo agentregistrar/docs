@@ -35,6 +35,7 @@ function discoveryDocument() {
     },
     endpoints: {
       agent_signup: `${origin}/api/signup/agent`,
+      agent_login: `${origin}/api/login/agent`,
     },
     ...(attestationUri
       ? { attestation: { mode: "broker" as const, uri: attestationUri } }

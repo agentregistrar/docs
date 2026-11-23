@@ -1,19 +1,21 @@
 ---
 title: Assertion claims
-description: The Contract A claim set, a worked example, the provider checks, and why the assertion carries no provider claim.
+description: The Contract A claim set (including Day-2 purpose and accepted_rp_tos_version), worked example, and provider checks.
 audience: both
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 ---
 
 An agent obtains a signed Agent Identity assertion from its broker with
-[`identity_signup`](/reference/mcp-tools/#identity_signup). The assertion is a
-compact Ed25519-signed JWT. It is the proof the agent presents at
-`endpoints.agent_signup`; the discovery document and the assertion are separate
-artifacts.
+[`identity_signup`](/reference/mcp-tools/#identity_signup) (`purpose: "signup"`,
+300-second TTL) or [`identity_login`](/reference/mcp-tools/#identity_login)
+(`purpose: "login"`, uncached 120-second TTL with single-use `jti`). The
+assertion is a compact Ed25519-signed JWT presented at `endpoints.agent_signup`
+or `endpoints.agent_login`; the discovery document and the assertion are
+separate artifacts.
 
 This page is a reference for the Contract A claim set and the relying-party
 verification checks. The normative handshake is [spec section
-7](/protocol/specification/#7-assertion--agent_signup-handshake); the
+7](/protocol/specification/#7-assertion-agent_signup-and-agent_login-handshakes); the
 assertion format itself is Contract A and is referenced, not redefined, by the
 discovery specification.
 
@@ -24,9 +26,10 @@ discovery specification.
 | `iss` | string | Issuer: the broker origin that minted and signed the assertion. |
 | `sub` | string (`agt_...`) | Subject: the agent sub-identity id. |
 | `aud` | string | Audience: the exact `audience` from the relying party's discovery document, case-sensitive. |
-| `jti` | string (`jti_...`) | Unique assertion id. |
+| `jti` | string (`jti_...`) | Unique assertion id (single-use on `purpose: "login"`). |
 | `iat` | integer | Issued-at, Unix seconds. |
-| `exp` | integer | Expiry, Unix seconds. The broker default lifetime is 5 minutes. |
+| `exp` | integer | Expiry, Unix seconds. Broker default is 300s (`signup`) or 120s (`login`). |
+| `purpose` | `"signup" \| "login"` | Optional (`v2.2.0` additive; defaults to `"signup"` when omitted). `agent_signup` rejects `"login"`; `agent_login` requires `"login"`. |
 | `agent.id` | string (`agt_...`) | The agent sub-identity id. |
 | `agent.name` | string | Human-readable agent name. |
 | `agent.email` | string | The agent's dedicated inbox address. |
@@ -39,6 +42,7 @@ discovery specification.
 | `delegation.master_tos_hash` | string (`sha256:...`), optional | Content hash of the Master Terms of Service. |
 | `delegation.accepted_rp_tos_url` | string (URL) | URL of the relying party terms accepted through the agent. It must equal the provider's current `terms.url`. |
 | `delegation.accepted_rp_tos_hash` | string (`sha256:...`) | The broker-computed hash of the exact bytes it fetched at `accepted_rp_tos_url`. |
+| `delegation.accepted_rp_tos_version` | string, optional | Discovery `terms.version` string at the time the referenced acceptance was recorded (`v2.2.0`). |
 | `delegation.accepted_at` | integer | Acceptance time, Unix seconds. |
 | `delegation.scopes` | array of strings | Scopes delegated for this signup. |
 
@@ -62,6 +66,7 @@ exact signed claim set verified by the relying party after signature validation.
   "jti": "jti_01j00000000000000000000000",
   "iat": 1761000000,
   "exp": 1761000300,
+  "purpose": "signup",
   "agent": {
     "id": "agt_01j00000000000000000000000",
     "name": "opencode-agent",
@@ -79,6 +84,7 @@ exact signed claim set verified by the relying party after signature validation.
     "master_tos_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
     "accepted_rp_tos_url": "https://example.com/terms",
     "accepted_rp_tos_hash": "sha256:05435fa3eaee7f3534b4a771ab2328d66d33f712f3534b29e9035717c246d953",
+    "accepted_rp_tos_version": "2026.1",
     "accepted_at": 1761000000,
     "scopes": ["tos:accept"]
   }
@@ -98,11 +104,11 @@ A relying party verifies at least these checks before creating or resolving an a
 3. **Verify the signature.** Verify the compact JWT against the selected issuer key.
 4. **Check the issuer.** `iss` must match one `issuer_allowlist` entry exactly.
 5. **Check the audience.** `aud` must equal the published `audience`.
-6. **Check the lifetime.** `exp` must not have passed, with at most 60 seconds of clock skew. The recommended maximum assertion lifetime is 5 minutes.
-7. **Check the assertion id.** A `jti` reused in a conflicting context is `assertion_replayed`. A repeated request for the same agent, account and service is not a replay; resolve it idempotently.
+6. **Check the lifetime and purpose.** `exp` must not have passed, with at most 60 seconds of clock skew. Require `purpose` (default `"signup"` when omitted) to match the endpoint (`agent_signup` rejects `"login"`; `agent_login` requires `"login"`).
+7. **Check the assertion id.** On `agent_signup`, a `jti` reused in a conflicting context is `assertion_replayed` while a repeated request for the same agent, account and service resolves idempotently. On `agent_login`, enforce single-use `jti` (`409 assertion_replayed`).
 8. **Check the scopes.** `delegation.scopes` must include every `required_scopes` entry.
 9. **Check the human.** `human.verified` must be `true`.
-10. **Check the terms URL.** `delegation.accepted_rp_tos_url` must equal the currently advertised `terms.url` after normalizing trailing slashes. Optionally, when `terms.url` serves deterministic bytes, compare `delegation.accepted_rp_tos_hash` with the digest of those bytes. A mismatch is `tos_hash_mismatch` and a hard stop for the agent.
+10. **Check the terms URL (and version on login).** `delegation.accepted_rp_tos_url` must equal the currently advertised `terms.url` after normalizing trailing slashes. Optionally, when `terms.url` serves deterministic bytes, compare `delegation.accepted_rp_tos_hash` with the digest of those bytes (mismatch is `tos_hash_mismatch`). On `agent_login`, compare `delegation.accepted_rp_tos_version` with your current `terms.version` and return `terms_reacceptance_required` when stale.
 11. **Record the proof.** Keep the assertion `jti`, the accepted terms URL, version and hash, and the attribution for audit.
 
 The stable error codes and their HTTP statuses are in [spec section 7.2](/protocol/specification/#72-error-envelope-and-stable-codes) and [Error codes](/reference/error-codes/#provider-handshake-errors).
@@ -128,7 +134,7 @@ An agent must never decode, re-encode, or modify the compact JWT returned by
 
 ## Related
 
-- [Assertion and agent_signup handshake](/protocol/specification/#7-assertion--agent_signup-handshake)
+- [Assertion, agent_signup, and agent_login handshakes](/protocol/specification/#7-assertion-agent_signup-and-agent_login-handshakes)
 - [Issuer and JWKS assumptions](/protocol/specification/#10-issuer--jwks-assumptions)
 - [Receipt and context](/protocol/receipt-and-context/)
 - [MCP tools](/reference/mcp-tools/)

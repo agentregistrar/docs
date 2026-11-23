@@ -1,12 +1,16 @@
 # Provider examples
 
-These examples show the two HTTP routes a provider hosts for brokered agent
-signup:
+These examples show the three HTTP routes a provider hosts for brokered agent
+signup and optional Day-2 re-login (`v2.2.0`):
 
 1. `GET /.well-known/agent-signup.json` serves the identity-only discovery
-   document.
-2. `POST /api/signup/agent` verifies the broker assertion and resolves or
-   creates a local account.
+   document (advertising both `endpoints.agent_signup` and optional
+   `endpoints.agent_login`).
+2. `POST /api/signup/agent` verifies a `purpose: "signup"` assertion, resolves or
+   creates a local account, and returns `handoff` on creation.
+3. `POST /api/login/agent` verifies a `purpose: "login"` assertion, checks `jti`
+   single-use replay and terms freshness (`409 terms_reacceptance_required` or
+   `404 account_not_found`), and mints a fresh per-session bearer token + `handoff`.
 
 | Example | Runtime | Port | Folder |
 | :--- | :--- | :--- | :--- |
@@ -33,7 +37,7 @@ npm run dev
 In another terminal, run the conformance validator:
 
 ```bash
-npx @agentregistrar/discovery@2.1.1 validate http://127.0.0.1:3003/.well-known/agent-signup.json --probe-endpoints --json
+npx @agentregistrar/discovery@2.2.0 validate http://127.0.0.1:3003/.well-known/agent-signup.json --probe-endpoints --json
 ```
 
 Expected: exit code `0`, `"valid": true`, and zero errors.
@@ -42,6 +46,7 @@ Check the unsigned request path and the method guard:
 
 ```bash
 curl -sS -i -X POST http://127.0.0.1:3003/api/signup/agent
+curl -sS -i -X POST http://127.0.0.1:3003/api/login/agent
 curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3003/api/signup/agent
 ```
 
@@ -72,20 +77,27 @@ result instead of throwing for expected failures:
   `EdDSA`, `typ: "agent-id+jwt"`, and 60 seconds of clock tolerance.
 - Maps expired assertions to `401 assertion_expired` and every other JOSE
   failure to `401 invalid_assertion`.
-- Checks issuer, audience, `iat` and `exp` lifetime, delegated scopes, verified
-  human, terms URL and optional terms hash, and a non-empty `jti`.
+- Checks issuer, audience, `expectedPurpose` (`"signup"` vs `"login"`), `iat` and
+  `exp` lifetime, delegated scopes, verified human, terms URL and optional terms
+  hash, `delegation.accepted_rp_tos_version`, and a non-empty `jti`.
 
 ## Demo stores
 
 All examples use in-memory `Map` stores for accounts and `jti` values. This is
 for local demonstration only. Production must use a database with unique
-constraints on `(iss, human.id)` and `jti` so concurrent requests and restarts
-stay idempotent.
+constraints on `(iss, human.id)`, `agent_id`, and `jti` so concurrent requests
+and restarts stay idempotent, and must never auto-link pre-existing
+human-registered accounts by `human.email` alone (return `human_action_required`
+with `reason: "account_link_required"` instead).
 
 The first signup for an account returns `201` with `resolution: "created"`,
-`account_id`, and a show-once `api_key`. A repeat signup for the same account
-returns `200` with `resolution: "resolved"` and no credential. Every signup
-response uses `Cache-Control: no-store`.
+`account_id`, a show-once `api_key`, and a standardized `handoff` object. A
+repeat signup for the same account returns `200` with `resolution: "resolved"`
+and no credential. `POST /api/login/agent` enforces single-use `jti`, checks
+`accepted_rp_tos_version` (`409 terms_reacceptance_required`) and existing
+accounts (`404 account_not_found`), and returns `200` with a fresh per-session
+`handoff` without revoking other sessions. Every response uses
+`Cache-Control: no-store`.
 
 ## Configuration
 

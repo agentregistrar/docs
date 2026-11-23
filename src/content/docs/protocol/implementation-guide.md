@@ -2,13 +2,13 @@
 title: "Implementation guide"
 description: "A relying-party checklist for publishing discovery, verifying assertions and returning a receipt."
 audience: both
-source: "spec:v2.1.1#implementing-agent-identity-protocol.md"
-specTag: "v2.1.1"
+source: "spec:v2.2.0#implementing-agent-identity-protocol.md"
+specTag: "v2.2.0"
 generated: true
-lastReviewed: 2026-11-22
+lastReviewed: 2026-11-23
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/implementing-agent-identity-protocol.md) at `v2.1.1` (tag `v2.1.1`).
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/implementing-agent-identity-protocol.md) at `v2.2.0` (tag `v2.2.0`).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Implementing the Agent Identity Protocol (Relying Party Guide)
@@ -58,11 +58,11 @@ Required fields (`agent-identity-protocol.md` §5.1): `protocol` (`"agent-identi
 `required_scopes` (including `tos:accept`), `terms` (`version` + the URL of your own hosted terms
 document), and `endpoints.agent_signup`.
 
-Optional fields (§5.2): `spec`, `provider_url`, `contact`, `updated_at`, non-capability `extensions`
-keyed by reverse-DNS namespace, and the optional `attestation` source object (§10 of this guide).
-Nothing else. See the minimal example in §5.5 of the spec; do not copy vendor fields from older docs.
-The embedded `rp_attestation` field from `v1.2.0` is **removed**: a document that still contains it is
-non-conformant, and there is no compatibility field.
+Optional fields (§5.2): `endpoints.agent_login` (optional Day-2 re-login endpoint), `spec`, `provider_url`,
+`contact`, `updated_at`, non-capability `extensions` keyed by reverse-DNS namespace, and the optional
+`attestation` source object (§10 of this guide). Nothing else. See the minimal example in §5.5 of the
+spec; do not copy vendor fields from older docs. The embedded `rp_attestation` field from `v1.2.0` is
+**removed**: a document that still contains it is non-conformant, and there is no compatibility field.
 
 ### Forbidden fields (§5.3)
 
@@ -116,6 +116,20 @@ assertion is Contract A (Ed25519 JWT); you only verify it here. Enforce at minim
 
 Record the assertion `jti`, the accepted ToS version/hash, and attribution for audit. Revocation is
 enforced by the Broker at minting time; you do not need a revocation feed for v1.
+
+If you implement optional `endpoints.agent_login` (`v2.2.0`), also follow `agent-identity-protocol.md`
+§7.0 and §7.4–§7.5:
+
+- Require `purpose === "login"` on `agent_login` (and reject `purpose === "login"` on `agent_signup`),
+  and reject replayed `jti` values within the assertion lifetime.
+- Follow the normative anti-ATO resolution order: resolve `(iss, sub)` first (checking termination and
+  terms freshness via `delegation.accepted_rp_tos_version` / `terms.url`, returning
+  `terms_reacceptance_required` when stale), then `(iss, human.id)` on broker-created accounts, and
+  **never** auto-link or grant access to a pre-existing human-registered account by `human.email` alone
+  (return `human_action_required` with `reason: "account_link_required"`).
+- Mint a new per-session, revocable first-party credential without invalidating other active devices'
+  sessions, and optionally return the provider-to-agent `handoff` object (`session`, `mcp`, `cli`,
+  `human_urls` — HTTPS URLs only, zero executable shell strings).
 
 ---
 
@@ -300,11 +314,11 @@ under `--verify-attestation`.
 The current specification release is recorded in the changelog at
 [`agent-identity-protocol.md`](https://docs.agentregistrar.dev/protocol/specification/) §1.2, with matching release notes in
 `release-notes-v*.md`. `v2.1.0` renamed the protocol to the Agent Identity Protocol and split the wire
-version into `protocol_version: "2.0"`; see [`release-notes-v2.1.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v2.1.0.md).
+version into `protocol_version: "2.0"`; see [`release-notes-v2.1.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v2.1.0.md).
 `v2.0.0` introduced URL-hosted terms and keyless RP attestations, with migration notes in
-[`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v2.0.0.md); the `v1.x` release notes record earlier
-releases. The adoption surface is published in [`registry/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/README.md) with the
-machine-readable registry in [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/implementations.json).
+[`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v2.0.0.md); the `v1.x` release notes record earlier
+releases. The adoption surface is published in [`registry/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/README.md) with the
+machine-readable registry in [`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/implementations.json).
 
 - The implementation registry lists only implementations whose discovery document passes the
   validator. Entry criteria: the validator passes, you publish a stable discovery URL, your
@@ -315,7 +329,7 @@ machine-readable registry in [`registry/implementations.json`](https://github.co
 - Record your `discovery_url` and read `audience` / `protocol` from the validator's `--json` output
   (`validator.md` §12).
 - To submit an entry, open a pull request against `registry/implementations.json` with your
-  validator evidence; see [`registry/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/README.md) §4. The conformance
+  validator evidence; see [`registry/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/README.md) §4. The conformance
   badge snippet and its usage terms are in §5 of the same document.
 
 ---

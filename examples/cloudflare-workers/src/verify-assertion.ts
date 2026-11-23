@@ -13,20 +13,31 @@ export interface VerifierConfig {
   requiredScopes: string[];
   termsUrl: string;
   termsSha256?: string;
+  expectedPurpose?: "signup" | "login";
   jwksUrlOverride?: string;
 }
 
 export interface AssertionClaims {
   iss: string;
+  sub?: string;
   aud: string;
   jti: string;
   iat: number;
   exp: number;
-  human: { id: string; verified: true } & Record<string, unknown>;
+  purpose: "signup" | "login";
+  agent?: { id?: string; email?: string; name?: string } & Record<
+    string,
+    unknown
+  >;
+  human: { id: string; verified: true; email?: string } & Record<
+    string,
+    unknown
+  >;
   delegation: {
     scopes: string[];
     accepted_rp_tos_url: string;
     accepted_rp_tos_hash?: string;
+    accepted_rp_tos_version?: string;
   } & Record<string, unknown>;
   [claim: string]: unknown;
 }
@@ -161,6 +172,27 @@ export async function verifyAssertion(
     return fail(403, "audience_mismatch", "Assertion audience does not match");
   }
 
+  const rawPurpose = payload.purpose;
+  if (
+    rawPurpose !== undefined &&
+    rawPurpose !== "signup" &&
+    rawPurpose !== "login"
+  ) {
+    return fail(
+      401,
+      "invalid_assertion",
+      "Assertion purpose must be signup or login",
+    );
+  }
+  const purpose: "signup" | "login" = rawPurpose ?? "signup";
+  if (cfg.expectedPurpose !== undefined && purpose !== cfg.expectedPurpose) {
+    return fail(
+      401,
+      "invalid_assertion",
+      `Expected assertion purpose "${cfg.expectedPurpose}"`,
+    );
+  }
+
   const iat = payload.iat;
   const exp = payload.exp;
   const now = Math.floor(Date.now() / 1000);
@@ -230,15 +262,20 @@ export async function verifyAssertion(
     return fail(401, "invalid_assertion", "Assertion must carry a non-empty jti");
   }
 
+  const agent = isRecord(payload.agent) ? payload.agent : undefined;
+
   return {
     ok: true,
     claims: {
       ...payload,
       iss: payload.iss,
+      ...(typeof payload.sub === "string" ? { sub: payload.sub } : {}),
       aud: cfg.audience,
       jti,
       iat,
       exp,
+      purpose,
+      ...(agent ? { agent } : {}),
       human: { ...human, id: human.id, verified: true },
       delegation: {
         ...(delegation ?? {}),
@@ -246,6 +283,9 @@ export async function verifyAssertion(
         accepted_rp_tos_url: acceptedUrl,
         ...(typeof delegation?.accepted_rp_tos_hash === "string"
           ? { accepted_rp_tos_hash: delegation.accepted_rp_tos_hash }
+          : {}),
+        ...(typeof delegation?.accepted_rp_tos_version === "string"
+          ? { accepted_rp_tos_version: delegation.accepted_rp_tos_version }
           : {}),
       },
     },

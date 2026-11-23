@@ -2,22 +2,22 @@
 title: "Agent Identity Protocol specification"
 description: "The normative definition of the Agent Identity Protocol discovery document and brokered signup handshake."
 audience: both
-source: "spec:v2.1.1#agent-identity-protocol.md"
-specTag: "v2.1.1"
+source: "spec:v2.2.0#agent-identity-protocol.md"
+specTag: "v2.2.0"
 generated: true
-lastReviewed: 2026-11-22
+lastReviewed: 2026-11-23
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/agent-identity-protocol.md) at `v2.1.1` (tag `v2.1.1`).
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/agent-identity-protocol.md) at `v2.2.0` (tag `v2.2.0`).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Agent Identity Protocol — Relying Party Discovery (`agent-signup.json`)
 
-- **Status:** Normative specification — v2.1.1. Maintained in [`agentregistrar/spec`](https://github.com/agentregistrar/spec).
+- **Status:** Normative specification — v2.2.0. Maintained in [`agentregistrar/spec`](https://github.com/agentregistrar/spec).
 - **Protocol identifier:** `agent-identity-protocol`
 - **Protocol version:** `2.0`
 - **Well-known URI:** `GET /.well-known/agent-signup.json`
-- **Specification release:** v2.1.1 (see §1.3)
+- **Specification release:** v2.2.0 (see §1.3)
 - **Companion document:** [`scope-boundaries.md`](https://docs.agentregistrar.dev/protocol/scope-boundaries/) — the identity-vs-vendor boundary and the future-change review checklist.
 
 This document is the single normative definition of the `agent-signup.json` discovery contract and the
@@ -34,8 +34,10 @@ specification wins for the Agent Identity Protocol.
 This specification defines:
 
 - the discovery document served at `GET /.well-known/agent-signup.json` (Contract D.1);
-- the ToS binding model advertised by the document and enforced at signup;
-- the `POST endpoints.agent_signup` handshake, including stable error codes;
+- the ToS binding model advertised by the document and enforced at signup and Day-2 re-login;
+- the `POST endpoints.agent_signup` handshake and optional Day-2 `POST endpoints.agent_login`
+  re-authentication handshake (including anti-ATO account resolution rules, stable error codes,
+  `human_action_required`, `terms_reacceptance_required`, and optional provider-to-agent `handoff`);
 - the identity facts of the signup receipt (Contract E) and the optional post-signup `context` pointer;
 - the optional broker-issued RP attestation (Contract G), the provider registration/status API that
   issues it (Contract H), and the broker metadata + attestation status surface (Contract I);
@@ -53,9 +55,10 @@ scope.
 
 | Version | Date | Change |
 | :--- | :--- | :--- |
-| `v2.1.1` | 2026-11-22 | **Package and documentation patch.** Ships the compiled JS package with an `npx @agentregistrar/discovery` CLI `bin` (`validate <url-or-file>`, a direct target, and `--version`), derives `VALIDATOR_VERSION` from `package.json`, adds the `pnpm check:release` consistency gate, and fixes the `v2.1.0` documentation errata. No wire format, schema, fixture, or validator-behavior changes. See [`release-notes-v2.1.1.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v2.1.1.md). |
-| `v2.1.0` | 2026-11-21 | **Protocol rename and version split.** Renames the protocol from `agent-identity-v1` to the Agent Identity Protocol (`protocol: "agent-identity-protocol"`, with `aud: "agent-identity-protocol"` in attestations) and separates the protocol name from the wire version (`protocol_version: "2.0"` in discovery and `protocol_versions: ["2.0"]` in broker metadata). Adds the `field.protocol_version` conformance check. The signup handshake and assertion format are unchanged. See [`release-notes-v2.1.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v2.1.0.md). |
-| `v2.0.0` | 2026-11-21 | **Protocol simplification (breaking spec release).** Discovery `terms` becomes URL-hosted: only `version` and `url` are required, and the broker fetches `terms.url` at signup time and hashes the exact response bytes. `terms.text` and `terms.sha256` are removed from discovery and are no longer required or validated. Contract G `keys` allows **0–8** entries, so a domain-verified provider without RP signing keys receives a valid keyless attestation (`keys: []`). The `protocol` id stays `agent-identity-v1`; the signup handshake and assertion format are unchanged. See [`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v2.0.0.md). |
+| `v2.2.0` | 2026-11-23 | **Day-2 re-login, credential handoff, and terms re-attestation (strictly additive).** Adds optional `endpoints.agent_login` to discovery (`protocol` stays `"agent-identity-protocol"` and `protocol_version` stays `"2.0"`), Contract A additive `purpose` (`"signup" \| "login"`) and `delegation.accepted_rp_tos_version`, the `POST endpoints.agent_login` handshake and anti-ATO account resolution rules, and optional provider-to-agent response contracts (`handoff` with strict no-shell-command and never-send-to-broker rules, `human_action_required`, and `terms_reacceptance_required`). Existing `v2.0`/`v2.1` providers remain 100% conformant. See [`release-notes-v2.2.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v2.2.0.md). |
+| `v2.1.1` | 2026-11-22 | **Package and documentation patch.** Ships the compiled JS package with an `npx @agentregistrar/discovery` CLI `bin` (`validate <url-or-file>`, a direct target, and `--version`), derives `VALIDATOR_VERSION` from `package.json`, adds the `pnpm check:release` consistency gate, and fixes the `v2.1.0` documentation errata. No wire format, schema, fixture, or validator-behavior changes. See [`release-notes-v2.1.1.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v2.1.1.md). |
+| `v2.1.0` | 2026-11-21 | **Protocol rename and version split.** Renames the protocol from `agent-identity-v1` to the Agent Identity Protocol (`protocol: "agent-identity-protocol"`, with `aud: "agent-identity-protocol"` in attestations) and separates the protocol name from the wire version (`protocol_version: "2.0"` in discovery and `protocol_versions: ["2.0"]` in broker metadata). Adds the `field.protocol_version` conformance check. The signup handshake and assertion format are unchanged. See [`release-notes-v2.1.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v2.1.0.md). |
+| `v2.0.0` | 2026-11-21 | **Protocol simplification (breaking spec release).** Discovery `terms` becomes URL-hosted: only `version` and `url` are required, and the broker fetches `terms.url` at signup time and hashes the exact response bytes. `terms.text` and `terms.sha256` are removed from discovery and are no longer required or validated. Contract G `keys` allows **0–8** entries, so a domain-verified provider without RP signing keys receives a valid keyless attestation (`keys: []`). The `protocol` id stays `agent-identity-v1`; the signup handshake and assertion format are unchanged. See [`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v2.0.0.md). |
 | `v1.3.2` | 2026-11-14 | **Documentation correction only.** Fixes two normative contradictions in the `v1.3.1` text: issuance with no active key is `409 no_active_key`, not `403 provider_not_eligible`; and the "binding unchecked" rule applies to a `provider` source without a fetch origin, while a `broker` source is always checked from `issuer_allowlist`. No wire format, schema, validator behavior, fixture, or attestation claim changes. |
 | `v1.3.1` | 2026-11-13 | **Contract-text correction only.** Makes the published normative text match the D18 decisions that `v1.3.0` shipped without: Contract H attestation issuance is not plan-, billing-, or subscription-gated, and the client policy contract is `no_verify`/`verify`/`strict` with a separate `blocked` action and a `verify` default. No wire format, schema, validator behavior, fixture, or attestation claim changes. |
 | `v1.3.0` | 2026-11-13 | **Breaking discovery change.** The embedded `rp_attestation` field is removed and replaced by one OPTIONAL `attestation` object (`mode`: `broker` \| `provider`, `uri` naming a stable attestation source). A document that still carries `rp_attestation` is non-conformant; there is no compatibility field, embedded fallback, or dual publication. The attestation JWT, claims, signature, key snapshot, 24-hour lifetime, origin/audience binding, and the Contract F receipt/abuse bodies are unchanged. The wire protocol id stays `agent-identity-v1`. |
@@ -68,16 +71,16 @@ scope.
 the conformance validator (`src/validate-discovery.ts`, `validatorVersion` `1.0.0`), the
 VaporCloud reference implementation, and this documentation were confirmed to agree. Release notes,
 including the release evidence and the change process, are in
-[`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.0.0.md). The published adoption surface is the
-implementation registry in [`registry/README.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/README.md) (machine-readable:
-[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/registry/implementations.json)).
+[`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.0.0.md). The published adoption surface is the
+implementation registry in [`registry/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/README.md) (machine-readable:
+[`registry/implementations.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/registry/implementations.json)).
 
 **Release record (`v1.1.0`).** `v1.1.0` was recorded on **2026-10-18** as a **text-only, additive**
 revision: it changes no schema/Zod/JSON-Schema, no validator, and no wire-protocol behaviour — it adds
 the optional `resolution` success field and clarifies replay vs resolve, acceptance lifetime,
 account identity keys, and credential handoff & recovery. Release notes, including the
 conformance-validator evidence and the change process, are in
-[`release-notes-v1.1.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.1.0.md). `v1.0.0` implementors remain conformant.
+[`release-notes-v1.1.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.1.0.md). `v1.0.0` implementors remain conformant.
 
 **Release record (`v1.2.0`).** `v1.2.0` is the **2026-10-24** revision. It adds the Contracts
 G/H/I text in §14–§19, the optional `rp_attestation` field (§5.2, §5.4), the authenticated abuse
@@ -85,10 +88,10 @@ contract (§11.5) and receipt ingestion contract (§11.6), the v1.2 receipt rule
 renumbers the former §14–§17 to §20–§23. The release ships in the same tag with the JSON Schemas
 `rp-attestation.schema.json`, `broker-metadata.schema.json`, `attestation-status.schema.json`,
 `signup-receipt.schema.json`, `abuse-report.schema.json`, and the updated `agent-signup.schema.json`;
-the fixture matrix in [`fixtures/`](https://github.com/agentregistrar/spec/tree/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/fixtures) with `fixtures/expected.json`; the validator
+the fixture matrix in [`fixtures/`](https://github.com/agentregistrar/spec/tree/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures) with `fixtures/expected.json`; the validator
 (`validatorVersion` and package version `1.2.0`) with `pnpm validate:discovery`,
 `pnpm validate:fixtures`, and `pnpm validate:registry`; and
-[`release-notes-v1.2.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.2.0.md). This branch is the reviewed artifact, not the
+[`release-notes-v1.2.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.2.0.md). This branch is the reviewed artifact, not the
 publication: the tag, npm release, and GitHub release follow the merge (release notes §6). Document
 conformance never requires a live RP broker: only `--verify-attestation` contacts one.
 
@@ -96,10 +99,10 @@ conformance never requires a live RP broker: only `--verify-attestation` contact
 discovery** revision of `agent-identity-v1`. It removes the embedded `rp_attestation` carrier and
 replaces it with one OPTIONAL `attestation` object that names a stable source URI (§5.2, §5.4, §14).
 The release ships the updated [`agent-signup.schema.json`](https://docs.agentregistrar.dev/protocol/agent-signup.schema.json), the new
-[`attestation-source.schema.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/attestation-source.schema.json), the fixture matrix in
-[`fixtures/`](https://github.com/agentregistrar/spec/tree/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/fixtures) with `fixtures/expected.json`, the validator (`validatorVersion` and package
+[`attestation-source.schema.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/attestation-source.schema.json), the fixture matrix in
+[`fixtures/`](https://github.com/agentregistrar/spec/tree/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures) with `fixtures/expected.json`, the validator (`validatorVersion` and package
 version `1.3.0`) with the new conformance checks, reason codes, and `--source-response`, and
-[`release-notes-v1.3.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.3.0.md). The attestation JWT format, claims, signature,
+[`release-notes-v1.3.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.3.0.md). The attestation JWT format, claims, signature,
 key snapshot, 24-hour lifetime, origin/audience binding, and the Contract F receipt/abuse bodies are
 unchanged. There is no compatibility field: a document that still publishes `rp_attestation` is
 non-conformant, and the validator reports `rp_attestation_removed`. Providers must republish discovery
@@ -113,7 +116,7 @@ plan-, billing-, or subscription-gated (§15.3, §15.4), and the client policy c
 field (§17.2, §17.3, §18.3). It also aligns §19–§20, the implementation guide, the validator guide's
 policy-adjacent wording, and the scope rulebook with those decisions. The changed text describes the
 already-decided D18 contract; no attestation claim, discovery field, reason code, or check id changes.
-See [`release-notes-v1.3.1.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.3.1.md).
+See [`release-notes-v1.3.1.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.3.1.md).
 
 **Release record (`v1.3.2`).** `v1.3.2` is a **documentation-correction** patch on `v1.3.1`, shipped
 under `protocol` `agent-identity-v1` with **no** wire, schema, fixture, or validator-behavior change.
@@ -124,7 +127,7 @@ source while keeping the `broker` host binding enforced from `issuer_allowlist`.
 file-mode binding note, the skip annotation in the reason table, the exit-`2` enumeration, the
 producer-revision label in `rp-attestation.schema.json`, and adds a provider note that a second
 attestation broker must appear in `issuer_allowlist`. See
-[`release-notes-v1.3.2.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.3.2.md).
+[`release-notes-v1.3.2.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.3.2.md).
 
 **Release record (`v2.0.0`).** `v2.0.0` is the **2026-11-21** revision and the first release of the
 `@agentregistrar/discovery` package under a new major version. It simplifies two surfaces that added
@@ -142,9 +145,9 @@ friction without adding trust:
   lifetime, and origin/audience binding are unchanged.
 
 The release ships the updated [`agent-signup.schema.json`](https://docs.agentregistrar.dev/protocol/agent-signup.schema.json),
-[`rp-attestation.schema.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/rp-attestation.schema.json), the fixture matrix (including
+[`rp-attestation.schema.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/rp-attestation.schema.json), the fixture matrix (including
 `attestations/valid-domain-keyless.jwt`), the validator/package version `2.0.0`, and
-[`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v2.0.0.md).
+[`release-notes-v2.0.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v2.0.0.md).
 
 **Release record (`v2.1.0`).** `v2.1.0` is the **2026-11-21** revision. It renames the protocol to the
 Agent Identity Protocol (`protocol: "agent-identity-protocol"`) and separates the protocol name from
@@ -152,27 +155,38 @@ the wire version (`protocol_version: "2.0"` in discovery, `protocol_versions: ["
 metadata, and `aud: "agent-identity-protocol"` in Contract G and I JWS). It updates the specification
 file name and schema `$id` URLs, adds the `field.protocol_version` conformance check, and regenerates
 the fixtures. The signup handshake and assertion format are unchanged. See
-[`release-notes-v2.1.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v2.1.0.md).
+[`release-notes-v2.1.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v2.1.0.md).
 
 **Release record (`v2.1.1`).** `v2.1.1` is the **2026-11-22** package and documentation patch. It ships
 the compiled JS package with the `npx @agentregistrar/discovery` CLI `bin`, derives
 `VALIDATOR_VERSION` from `package.json`, adds the `pnpm check:release` gate, and closes the
 documentation errata from `v2.1.0`. No wire format, schema, fixture, or validator-behavior change. See
-[`release-notes-v2.1.1.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v2.1.1.md).
+[`release-notes-v2.1.1.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v2.1.1.md).
+
+**Release record (`v2.2.0`).** `v2.2.0` is the **2026-11-23** strictly additive Day-2 lifecycle
+revision under `protocol_version: "2.0"`. It adds optional `endpoints.agent_login` to discovery
+(`agent-signup.schema.json`, `AgentSignupDiscoverySchema`, and `validate-discovery.ts`), defines
+Contract A additive `purpose` (`"signup" | "login"`) and `delegation.accepted_rp_tos_version`
+claims, specifies the `POST endpoints.agent_login` handshake and anti-ATO account resolution rules,
+and adds optional Zod schemas for provider-to-agent Day-2 response conventions (`AgentHandoffSchema`,
+`HumanActionRequiredSchema`, `TermsReacceptanceRequiredSchema`), leaving `AgentSignupDiscoverySchema`
+and `signup-receipt.schema.json` strictly separate. Existing `v2.0`/`v2.1` discovery documents
+without `endpoints.agent_login` remain 100% conformant. See
+[`release-notes-v2.2.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v2.2.0.md).
 
 ### 1.3 Version identity
 
 - `protocol` carries the stable protocol name: `"agent-identity-protocol"`. `protocol_version`
   carries the wire version: `"2.0"`. Discovery requires both fields (§5.1); `protocol` is not a
   version.
-- Specification and package releases follow semantic versioning (`v2.1.1`; see `package.json`, the
+- Specification and package releases follow semantic versioning (`v2.2.0`; see `package.json`, the
   changelog above, and `release-notes-*.md`). A breaking wire change requires a new
   `protocol_version` value and a new discovery path (§13).
 - `v2.1.0` renamed the protocol from `agent-identity-v1` to the Agent Identity Protocol and separated
   the name from the wire version. The signup handshake and the assertion/attestation wire formats
   remain version `2.0`. Additive changes are recorded in the changelog above and must pass the
   [`scope-boundaries.md`](https://docs.agentregistrar.dev/protocol/scope-boundaries/) review checklist; the process is written down in
-  [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/release-notes-v1.0.0.md) §3.
+  [`release-notes-v1.0.0.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/release-notes-v1.0.0.md) §3.
 - The embedded `rp_attestation` carrier is **removed** in `v1.3.0`. A document that still carries it is
   non-conformant, with no compatibility field, embedded fallback, or dual publication (§14.7).
 - `attestation` (§5.2) is **OPTIONAL**. Absence is conformant and means **unverified**, never
@@ -201,9 +215,12 @@ verified, delegated, has accepted the vendor's ToS, and the signup event has bee
 
 ### 2.1 In scope
 
-- Relying Party discovery of identity-only signup parameters.
-- Delegated acceptance of the Relying Party's ToS, with an unambiguous content hash.
-- Presentation and verification of an Agent Identity assertion during brokered signup.
+- Relying Party discovery of identity-only signup and optional Day-2 re-login parameters.
+- Delegated acceptance and pull-based Day-2 re-attestation of the Relying Party's ToS, with an
+  unambiguous content hash and version.
+- Presentation and verification of an Agent Identity assertion during brokered signup and Day-2
+  re-login (`purpose`: `"signup" | "login"`), including anti-ATO account resolution and multi-device
+  continuity.
 - Identity/attribution traceability: which agent signed up with which provider, on whose behalf,
   under which ToS, when, and with what cryptographic proof.
 - An opaque, hash-pinned pointer to the vendor's post-signup integration guide (`context`).
@@ -341,12 +358,13 @@ Agent                         Broker                         Relying Party
 | `required_scopes` | **REQUIRED**, unique | Scopes the RP requires. For brokered signup this **MUST** include `tos:accept`. It **MAY** include others such as `signup:free_tier`. |
 | `terms.version` | **REQUIRED** | ToS version. The RP **MUST** change it whenever the text at `terms.url` changes materially (§6). |
 | `terms.url` | **REQUIRED** | Absolute HTTPS URL (localhost development exception) of the provider-hosted terms document. The broker fetches it at signup time and hashes the exact response bytes (§6). |
-| `endpoints.agent_signup` | **REQUIRED** | Absolute HTTPS URL accepting `POST` with `Authorization: Bearer <assertion>`. The **only** endpoint in the protocol. |
+| `endpoints.agent_signup` | **REQUIRED** | Absolute HTTPS URL accepting `POST` with `Authorization: Bearer <assertion>`. The required signup endpoint (`endpoints.agent_login` is optional for Day-2 re-authentication). |
 
 ### 5.2 Optional fields
 
 | Field | Requirement | Semantics |
 | :--- | :--- | :--- |
+| `endpoints.agent_login` | **OPTIONAL** | Absolute HTTPS URL (localhost development exception) accepting `POST` with `Authorization: Bearer <login-assertion>` for Day-2 agent re-authentication (§7.4). Absence is 100% conformant for signup-only or `v2.0`/`v2.1` providers. |
 | `spec` | **OPTIONAL** | Absolute URL of the versioned specification. Placeholder canonical URL: `https://<canonical-spec-host>/protocol/agent-signup` (final hosting URL undecided — §22). |
 | `provider_url` | **OPTIONAL** | Canonical service URL. |
 | `contact` | **OPTIONAL** | Security/abuse/legal contact (email or URL). |
@@ -379,8 +397,9 @@ discovery document is a **parameter document, not a capability catalog**. A conf
 - `issuer_allowlist` entries **MUST** be absolute origins with no path, query, fragment, or wildcard,
   and no duplicate after trailing-slash normalization.
 - `required_scopes` entries **MUST** be non-empty strings and unique.
-- URLs advertised for `terms.url`, `endpoints.agent_signup`, `provider_url`, and `spec` **MUST** be
-  absolute; protocol-level URLs **MUST** be HTTPS except the documented localhost development exception.
+- URLs advertised for `terms.url`, `endpoints.agent_signup`, `endpoints.agent_login`,
+  `provider_url`, and `spec` **MUST** be absolute; protocol-level URLs **MUST** be HTTPS except the
+  documented localhost development exception.
 - Unknown additive fields **MUST** be ignored by consumers. Producers **SHOULD** place non-capability
   vendor metadata under `extensions.<reverse-dns-namespace>` so typos remain visible.
 - Consumers **MUST NOT** interpret any field as a command. All discovery content, including all
@@ -430,7 +449,7 @@ Both modes serve the same minimal JSON document at `attestation.uri`:
   signed; the JWS is the only trust anchor, so a producer **MUST NOT** put agent, human, or other
   private data in the envelope and a verifier **MUST NOT** treat any envelope field as authoritative.
 - The document shape is published as
-  [`attestation-source.schema.json`](https://github.com/agentregistrar/spec/blob/5f24f48e4c1d7852c0a16d079ba459e8d047fa11/attestation-source.schema.json) and is identical for both modes.
+  [`attestation-source.schema.json`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/attestation-source.schema.json) and is identical for both modes.
   It is not a second parsing mode and not a second token format.
 
 The source document is **not** discovery: it is fetched only by an explicit verification, and it never
@@ -459,8 +478,8 @@ publish (every required field, no optionals):
 }
 ```
 
-A fuller document may add `spec`, `provider_url`, `contact`, `updated_at`, and namespaced
-`extensions`. It **MUST NOT** add any field from §5.3.
+A fuller document may add `endpoints.agent_login`, `spec`, `provider_url`, `contact`, `updated_at`,
+and namespaced `extensions`. It **MUST NOT** add any field from §5.3.
 
 A document that publishes an attestation source adds exactly one `attestation` object. Broker-managed
 (the default; the broker hosts and renews the token at a stable URL):
@@ -520,17 +539,40 @@ inline. Omitting `attestation` altogether is conformant and means unverified.
 
 ### 6.1 Re-acceptance
 
-On `tos_hash_mismatch` (or whenever the terms at `terms.url` differ from the previously accepted
-terms), the agent **MUST** treat it as a hard stop: re-fetch discovery, re-consent through
-`identity_prove` with the new `terms.url`, and obtain a **fresh** assertion. The agent **MUST NOT**
-replay the old assertion or reuse the old accepted URL/hash.
+On `tos_hash_mismatch` or `terms_reacceptance_required` (or whenever `discovery.terms.version` /
+`discovery.terms.url` differ from the previously accepted terms), the agent **MUST** treat it as a hard
+stop: re-fetch discovery, re-consent / re-attest through the broker (`identity_prove` or
+`identity_login` with `reaccept_terms: true`) with the new `terms.url`, and obtain a **fresh**
+assertion carrying the updated `delegation.accepted_rp_tos_version`, `accepted_rp_tos_url`, and
+`accepted_rp_tos_hash`. The agent **MUST NOT** replay the old assertion or reuse the old accepted
+URL/hash.
 
 ---
 
-## 7. Assertion & `agent_signup` Handshake
+## 7. Assertion, `agent_signup`, and `agent_login` Handshakes
 
-The assertion format is **Contract A** and is not redefined here. This section defines how it is
-presented.
+The assertion format is **Contract A** and is not redefined in full here. This section defines how it
+is scoped and presented for signup and Day-2 re-login.
+
+### 7.0 Contract A additive claims (`v2.2.0`)
+
+`v2.2.0` adds two optional, backwards-compatible claims to Contract A assertions:
+
+- Top-level `purpose?: "signup" | "login"`:
+  - Signup assertions emit `purpose: "signup"` (recommended maximum lifetime 300s).
+  - Day-2 login assertions emit `purpose: "login"` (recommended maximum lifetime 120s, **always
+    fresh `jti`**, never cached or reused across calls).
+  - **Normative RP rule:** `endpoints.agent_login` **MUST** require `purpose === "login"` and
+    **SHOULD** reject replayed `jti` values within the token lifetime. `endpoints.agent_signup`
+    **MUST** reject `purpose === "login"` (returning `400 invalid_request` or
+    `401 invalid_assertion`).
+- Under `delegation`:
+  - `accepted_rp_tos_version?: string` — the `terms.version` string from discovery at the time the
+    referenced acceptance was recorded (allowing reliable freshness checks for HTML-hosted terms
+    without fragile byte recomputation).
+  - Existing `delegation.accepted_rp_tos_url`, `delegation.accepted_rp_tos_hash`, and
+    `delegation.accepted_at` remain populated on both `signup` and `login` assertions (carrying the
+    agent's latest active acceptance — either existing or newly re-accepted).
 
 ### 7.1 Handshake
 
@@ -622,6 +664,162 @@ revocation feed, it **MAY** add an implementation-specific error code, but v1 do
   Master Agent Delegation Agreement). If it does, it **SHOULD** document that policy. Such a policy
   does not change the wire behaviour of `POST endpoints.agent_signup` and does not make an RP
   responsible for prompting re-acceptance.
+
+### 7.4 `POST endpoints.agent_login` Handshake & Anti-ATO Account Resolution (`v2.2.0`)
+
+When a Relying Party advertises optional `endpoints.agent_login`, returning agents (including agents on
+a new device, new harness, or after credential expiry) re-authenticate without invoking signup:
+
+```http
+POST <endpoints.agent_login>
+Authorization: Bearer <login-assertion>
+Content-Type: application/json
+
+{}
+```
+
+#### Normative verification & anti-ATO account resolution order
+
+The RP **MUST** evaluate every request in this order:
+
+1. **Verify the login assertion:**
+   - Signature via `<iss>/.well-known/jwks.json`, `iss` in `issuer_allowlist`, `aud === audience`,
+     `exp` within allowed clock skew (≤ 60s), `human.verified === true`.
+   - `purpose === "login"` (**MUST** reject `purpose === "signup"` or missing `purpose` on `agent_login`).
+   - `jti` not replayed (**SHOULD** reject a replayed `jti` within the assertion lifetime as
+     `409 assertion_replayed` — unlike `agent_signup`, `agent_login` assertions are single-use).
+2. **Lookup by `(iss, sub)` (`agent.id`):**
+   - If the account or agent link is terminated/suspended → `403 { "error": "account_terminated" }`.
+   - If the RP's current terms version/URL has moved ahead of `delegation.accepted_rp_tos_version` /
+     `delegation.accepted_rp_tos_url` → return `terms_reacceptance_required` (§7.5 C).
+   - Otherwise → mint a **new per-session, revocable first-party credential** (an RP **MUST NOT**
+     silently invalidate active session tokens on the human's or agent's other devices) and return
+     `200 OK` with `account_id`, optional `resolution: "logged_in"`, optional `handoff` (§7.5 A), and
+     optional `context`.
+3. **If `sub` is not found, lookup broker-created accounts by `(iss, human.id)`:**
+   - **Option A (Auto-attach, recommended for free/dev workspaces):** Attach `sub` as a new
+     authorized agent on the human's existing broker-created account/org, notify the human, check
+     terms freshness (`terms_reacceptance_required` if stale), and mint a scoped per-session
+     credential for `sub` (`200 OK` with `resolution: "agent_attached"`).
+   - **Option B (Step-up approval):** Return `human_action_required` with
+     `reason: "agent_link_required"` and a provider-hosted `verification_url` (§7.5 B).
+4. **If `human.email` matches a pre-existing *human-registered* account (not created via this broker):**
+   - **Anti-ATO rule:** An RP **MUST NOT** silently grant access or auto-merge by `human.email` alone.
+     Doing so would permit email-based account takeover across unlinked accounts.
+   - Return `human_action_required` with `reason: "account_link_required"` and a provider-hosted
+     `verification_url` where the human signs into the provider and explicitly approves linking the
+     agent (§7.5 B).
+5. **If no matching account exists:**
+   - Return `404 { "error": "account_not_found" }`. `endpoints.agent_login` **MUST NOT** silently
+     create a new account.
+
+### 7.5 Day-2 Provider-to-Agent Response Contracts (`v2.2.0`)
+
+The following JSON response contracts are **strictly provider-to-agent HTTP conventions**. They are
+**never** placed in discovery (`/.well-known/agent-signup.json`), **never** placed in Contract E
+`signup_token` claims, and **never** sent to or stored by the broker.
+
+#### A. Optional `handoff` object (`201` signup and `200` login responses)
+
+An RP **MAY** include an optional `handoff` object in `201` signup or `200` login JSON responses:
+
+```json
+{
+  "account_id": "acc_123",
+  "handoff": {
+    "session": {
+      "credential_type": "bearer_token",
+      "access_token": "<provider-minted secret>",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "<optional provider refresh token>",
+      "scopes": ["resources:read", "resources:write"],
+      "session_id": "sess_abc"
+    },
+    "mcp": {
+      "url": "https://mcp.provider.example/mcp",
+      "transport": "streamable-http",
+      "auth": "bearer"
+    },
+    "cli": {
+      "name": "provider-cli",
+      "env_var": "PROVIDER_ACCESS_TOKEN",
+      "auth_mode": "env_var",
+      "docs_url": "https://provider.example/docs/cli"
+    },
+    "human_urls": {
+      "dashboard_url": "https://provider.example/dashboard",
+      "claim_url": "https://provider.example/claim/...",
+      "billing_url": "https://provider.example/billing"
+    }
+  },
+  "context": {
+    "url": "https://provider.example/docs/SKILL.md",
+    "sha256": "sha256:..."
+  }
+}
+```
+
+Normative rules and security invariants for `handoff`:
+
+- **No executable shell strings.** `handoff` and its sub-objects (`session`, `mcp`, `cli`,
+  `human_urls`) are closed/strict: they **MUST NOT** carry `command`, `install_script`, or arbitrary
+  shell execution fields. `cli.name` is a declarative package/binary identifier without shell
+  metacharacters, and `cli.env_var` is a declarative environment variable identifier. Operational CLI
+  instructions belong in the hash-pinned `SKILL.md` (`context`) and are treated as untrusted vendor
+  documentation (§12).
+- **HTTPS URL enforcement.** `mcp.url`, `cli.docs_url`, and `human_urls.*` **MUST** be absolute
+  `https://` URLs with no userinfo or whitespace (with the `http://localhost` / `http://127.0.0.1`
+  development exception). Agents **SHOULD** verify `mcp.url` shares the provider's registrable domain
+  (or is documented in `context`) before sending `session.access_token` to it.
+- **Enumerated fields:** `session.credential_type` is `"bearer_token" | "api_key" | "oauth_token"`;
+  `cli.auth_mode` is `"env_var" | "bearer_token" | "agent_login" | "oauth"`.
+- **Never sent to the broker.** Agents **MUST NOT** pass `handoff` or any credential inside
+  `handoff.session` to the broker (including `identity_record_signup` or any MCP tool).
+
+#### B. `human_action_required` response (`202 Accepted` or `403 Forbidden`)
+
+Used when an RP requires explicit human action before issuing a session (existing human account
+linking, multi-agent step-up, high-privilege re-login, or billing gates):
+
+```json
+{
+  "error": "human_action_required",
+  "reason": "account_link_required",
+  "verification_url": "https://provider.example/agent-approve/xyz",
+  "user_code": "ABCD-1234",
+  "expires_in": 600,
+  "retry_after_seconds": 5,
+  "error_description": "Sign in to Provider to approve linking this agent to your existing account."
+}
+```
+
+- `error` **MUST** be `"human_action_required"`.
+- `reason` **MUST** be one of `"account_link_required" | "agent_link_required" | "step_up_required" | "billing_required"`.
+- `verification_url` **MUST** be an absolute `https://` URL (localhost dev exception, no userinfo or
+  whitespace).
+- `user_code`, `expires_in`, `retry_after_seconds`, and `error_description` are OPTIONAL.
+
+#### C. `terms_reacceptance_required` error (`403 Forbidden` or `409 Conflict`)
+
+Returned on `POST endpoints.agent_login` (or on provider API calls) when the provider's terms have
+been updated since the agent's latest recorded acceptance:
+
+```json
+{
+  "error": "terms_reacceptance_required",
+  "expected_terms_version": "2026-12-01",
+  "terms_url": "https://provider.example/terms",
+  "error_description": "Terms of Service have been updated. Re-attest via your identity broker before continuing."
+}
+```
+
+- `error` **MUST** be `"terms_reacceptance_required"`.
+- `expected_terms_version` **MUST** be a non-empty string naming the provider's current `terms.version`.
+- `terms_url` **MUST** be an absolute `https://` URL (localhost dev exception, no userinfo or whitespace).
+- On receiving `terms_reacceptance_required`, the agent re-fetches discovery, re-attests via the broker
+  (which fetches and hashes `terms.url` and records an immutable re-acceptance), and retries
+  `POST endpoints.agent_login` with the fresh login assertion (§6.1).
 
 ---
 
@@ -980,7 +1178,11 @@ lifecycle:
   provider credentials.
 - **Do not re-run signup for recovery.** An agent **MUST NOT** re-run signup as a credential-recovery
   mechanism. A repeated signup on an existing account **resolves** the account and does not re-issue
-  credentials.
+  credentials. When the RP supports `endpoints.agent_login` (`v2.2.0`), returning or new-device
+  agents re-authenticate via `POST endpoints.agent_login` (§7.4), which mints a fresh per-session
+  credential (and optional `handoff`, §7.5 A) without invalidating other active devices.
+- **Never send `handoff` to the broker.** Provider credentials and `handoff` objects are strictly
+  provider-to-agent HTTP responses and **MUST NOT** be sent to or stored by the broker.
 - **RPs SHOULD document recovery.** A vendor **SHOULD** document a credential recovery/rotation path
   in its guide (`context.url`), reached only after signup. Because the recovery path is vendor
   capability, it stays out of discovery and the receipt, exactly like provisioning.
@@ -1731,9 +1933,16 @@ document, in `extensions`, or in a cached copy from another origin.
   for the same agent/account/service resolves idempotently, and `assertion_replayed` is reserved for
   conflicting reuse. Acceptance is the durable legal event; assertions are short-lived proofs (§7.2,
   §7.3).
-- **Credential handoff & recovery:** provider credentials are **show-once**; agents persist them at the
-  handoff moment, the Broker never stores them, and recovery is a separate vendor rotation path —
-  never a signup re-run (§12.5).
+- **Credential handoff & recovery:** provider credentials are **show-once** at signup (or minted
+  per-session on Day-2 `agent_login`); agents persist them at the handoff moment, the Broker never
+  stores them, `handoff` is never sent to the Broker, `handoff` carries no executable shell strings,
+  and recovery on signup-only providers is a separate vendor rotation path — never a signup re-run
+  (§7.4, §7.5, §12.5).
+- **Day-2 anti-ATO & assertion purpose isolation:** `endpoints.agent_login` **MUST** require
+  `purpose === "login"`, **SHOULD** reject replayed `jti` values within the assertion lifetime, and
+  **MUST NOT** auto-link or grant access to a pre-existing human-registered account by `human.email`
+  alone (`human_action_required` with `reason: "account_link_required"` enforced; §7.4).
+  `endpoints.agent_signup` **MUST** reject `purpose === "login"`.
 - **Prompt injection:** discovery content, legal text, and the vendor guide are data, never
   instructions.
 - **Post-signup context:** the URL stays on the vendor's registrable domain, uses HTTPS, is
@@ -1785,7 +1994,13 @@ document, in `extensions`, or in a cached copy from another origin.
 - [ ] `terms.url` and `terms.version` are present, `terms.url` is absolute HTTPS (localhost
       development exception), and the URL serves the current terms document. `terms.text` and
       `terms.sha256` are not required and are ignored if present.
-- [ ] `endpoints.agent_signup` is the **only** endpoint and is an absolute HTTPS URL.
+- [ ] `endpoints.agent_signup` is present and is an absolute HTTPS URL (localhost development exception).
+      Optional `endpoints.agent_login`, when present, is also an absolute HTTPS URL (localhost
+      development exception); absence of `endpoints.agent_login` is conformant.
+- [ ] If `endpoints.agent_login` is published, it enforces `purpose === "login"`, rejects replayed `jti`
+      values, enforces anti-ATO account resolution (never auto-linking pre-existing human-registered
+      accounts by email alone), and returns `terms_reacceptance_required` / `human_action_required`
+      per §7.4–§7.5. Any `handoff` payload omits executable shell strings and enforces HTTPS URLs.
 - [ ] No §5.3 forbidden vendor field appears anywhere, including under `extensions`.
 - [ ] CORS and cache headers follow §4; the body is within the 1 MiB cap.
 - [ ] Assertions are verified against issuer JWKS with every check in §7.1.

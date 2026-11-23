@@ -1,8 +1,8 @@
 ---
 title: Provider quickstart
-description: Publish agent-signup.json, add a short TypeScript JWT signup handler, and validate your setup with @agentregistrar/discovery.
+description: Publish agent-signup.json, add TypeScript signup and Day-2 login handlers, and validate with @agentregistrar/discovery.
 audience: human
-verifiedAgainst: "spec v2.1.1, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 sidebar:
   order: 2
 ---
@@ -40,14 +40,15 @@ Serve `GET /.well-known/agent-signup.json` with `Content-Type: application/json`
     "url": "https://example.com/terms"
   },
   "endpoints": {
-    "agent_signup": "https://example.com/api/signup/agent"
+    "agent_signup": "https://example.com/api/signup/agent",
+    "agent_login": "https://example.com/api/login/agent"
   }
 }
 ```
 
-Keep `terms` to `{ version, url }` only. At signup time, the broker fetches `terms.url`, hashes the exact UTF-8 response bytes, and writes that digest into `delegation.accepted_rp_tos_hash`. When you complete domain verification in the Provider Portal, add the generated `attestation` object to this file.
+`endpoints.agent_login` is optional (`v2.2.0` additive) and enables Day-2 re-authentication without re-running signup. Keep `terms` to `{ version, url }` only. At signup time (and on terms drift during `identity_login`), the broker fetches `terms.url`, hashes the exact UTF-8 response bytes, and writes that digest into `delegation.accepted_rp_tos_hash` alongside `delegation.accepted_rp_tos_version`. When you complete domain verification in the Provider Portal, add the generated `attestation` object to this file.
 
-## 2. Add the JWT signup handler
+## 2. Add the JWT signup and Day-2 login handlers
 
 Install `jose` to verify `EdDSA` assertions against the broker's public JWKS:
 
@@ -55,7 +56,7 @@ Install `jose` to verify `EdDSA` assertions against the broker's public JWKS:
 npm install jose
 ```
 
-This ~25-line TypeScript helper checks the JWT signature, issuer, audience, expiry and 5-minute max lifetime, `human.verified`, required scopes, and accepted terms URL (plus optional exact hash when `terms.url` serves deterministic UTF-8 bytes):
+This ~30-line TypeScript helper checks the JWT signature, issuer, audience, `purpose` (`"signup"` vs `"login"`), expiry and 5-minute max lifetime, `human.verified`, required scopes, and accepted terms URL (plus optional exact hash when `terms.url` serves deterministic UTF-8 bytes):
 
 ```ts
 import { createRemoteJWKSet, jwtVerify } from "jose";
@@ -68,7 +69,10 @@ const jwks = createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`));
 
 const norm = (u: string) => u.replace(/\/+$/, "");
 
-export async function verifyAgentAssertion(authHeader: string) {
+export async function verifyAgentAssertion(
+  authHeader: string,
+  expectedPurpose: "signup" | "login" = "signup",
+) {
   if (!authHeader.startsWith("Bearer ")) throw { status: 400, code: "invalid_request" };
   const { payload } = await jwtVerify(authHeader.slice(7), jwks, {
     algorithms: ["EdDSA"],
@@ -78,8 +82,15 @@ export async function verifyAgentAssertion(authHeader: string) {
   if (payload.iss !== ISSUER) throw { status: 403, code: "issuer_not_allowed" };
   if (payload.aud !== AUDIENCE) throw { status: 403, code: "audience_mismatch" };
   if ((payload.exp ?? 0) - (payload.iat ?? 0) > 300) throw { status: 401, code: "invalid_assertion" };
+  const purpose = (payload.purpose as string | undefined) ?? "signup";
+  if (purpose !== expectedPurpose) throw { status: 401, code: "invalid_assertion" };
   const human = payload.human as { id: string; email: string; verified?: boolean } | undefined;
-  const del = payload.delegation as { scopes?: string[]; accepted_rp_tos_url?: string; accepted_rp_tos_hash?: string } | undefined;
+  const del = payload.delegation as {
+    scopes?: string[];
+    accepted_rp_tos_url?: string;
+    accepted_rp_tos_hash?: string;
+    accepted_rp_tos_version?: string;
+  } | undefined;
   if (human?.verified !== true) throw { status: 403, code: "human_unverified" };
   if (!del?.scopes?.includes("tos:accept")) throw { status: 403, code: "insufficient_scope" };
   if (!del.accepted_rp_tos_url || norm(del.accepted_rp_tos_url) !== norm(TERMS_URL)) {
@@ -92,21 +103,28 @@ export async function verifyAgentAssertion(authHeader: string) {
 
 In your `POST /api/signup/agent` route:
 
-1. Call `verifyAgentAssertion(request.headers.get("authorization") ?? "")`. Map `ERR_JWT_EXPIRED` to `401 assertion_expired` and other JOSE failures to `401 invalid_assertion`.
+1. Call `verifyAgentAssertion(request.headers.get("authorization") ?? "", "signup")`. Map `ERR_JWT_EXPIRED` to `401 assertion_expired` and other JOSE failures to `401 invalid_assertion`.
 2. Enforce `jti` replay protection and resolve or create the account by `(payload.iss, payload.human.id)`.
-3. Return `201` with `resolution: "created"` and any show-once credential on first signup, or `200` with `resolution: "resolved"` and no credential on repeats. Always send `Cache-Control: no-store`.
+3. Return `201` with `resolution: "created"`, any show-once credential, and an optional standardized `handoff` object on first signup, or `200` with `resolution: "resolved"` and no credential on repeats. Always send `Cache-Control: no-store`.
 4. Return failures in the stable JSON envelope `{ "error": "<code>", "error_description": "...", "retryable": false }`. See [Error codes](/reference/error-codes/).
+
+In your optional `POST /api/login/agent` route (for returning agents, new laptops, or expired tokens):
+
+1. Call `verifyAgentAssertion(request.headers.get("authorization") ?? "", "login")` and reject replayed `jti` values (`409 assertion_replayed`).
+2. Resolve the account in normative anti-ATO order: check `(iss, sub)` first, then broker-created accounts by `(iss, human.id)` (auto-attaching `sub` or returning `202 human_action_required` with `reason: "agent_link_required"`). **Never** auto-link a pre-existing human-registered account by `human.email` alone: return `403 human_action_required` with `reason: "account_link_required"` and a provider `verification_url`. If no account matches, return `404 account_not_found`.
+3. Check `delegation.accepted_rp_tos_version` against your current `terms.version`; if stale, return `409 { "error": "terms_reacceptance_required", "expected_terms_version": "...", "terms_url": "..." }`.
+4. Mint a fresh **per-session, revocable token** without invalidating active sessions on other devices, and return `200 OK` with `Cache-Control: no-store` and an optional `handoff` (`session`, `mcp`, declarative `cli`, `human_urls` - never include shell commands).
 
 Ready-to-run handlers for Next.js App Router, Hono, Express, and Cloudflare Workers are in [Framework examples](/providers/hosting/).
 
 ## 3. Validate your discovery document
 
-Run the `@agentregistrar/discovery@2.1.1` conformance validator against your live URL (or local file during development):
+Run the `@agentregistrar/discovery@2.2.0` conformance validator against your live URL (or local file during development):
 
 <ValidatorPersonalizer includeProbes />
 
 ```bash
-npx @agentregistrar/discovery@2.1.1 validate https://example.com/.well-known/agent-signup.json --probe-jwks --json
+npx @agentregistrar/discovery@2.2.0 validate https://example.com/.well-known/agent-signup.json --probe-jwks --json
 ```
 
 Exit code `0` confirms your document is conformant and every listed issuer serves a valid JWKS. Without an `attestation` object, the validator reports `attestation.status: "unverified"` and still exits `0`.

@@ -1,8 +1,8 @@
 ---
 title: Agent quickstart
-description: Connect your coding tool to Agent Registrar, bind an agent over OAuth, complete a VaporCloud signup, and test your kill switch.
+description: Connect your coding tool to Agent Registrar, bind an agent over OAuth, complete a VaporCloud signup and Day-2 login, and test your kill switch.
 audience: human
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 sidebar:
   order: 2
 ---
@@ -44,7 +44,9 @@ Using Cursor, Codex CLI, Gemini CLI, Antigravity CLI, VS Code, Zed, OpenClaw, He
 When the browser opens the OAuth consent page:
 
 1. Check the client name, callback host, and requested permissions (`mcp:tools`, `tos:accept`, `signup:free_tier`).
-2. Under **Agent identity**, choose **Create a new agent** and give it a clear name (for example `Claude Code (MacBook)`), or select an existing active agent to reuse its identity and inbox. Default accounts allow up to 2 active agents.
+2. Under **Agent identity**, choose how to bind this connection:
+   - **Reuse an existing active agent (recommended when adding a new laptop or coding harness):** keeps the same `agt_...` identity, `@agents.agentregistrar.dev` inbox, and existing provider relationships. Each active agent shows its name, inbox email, and connected services count.
+   - **Create a new agent:** gives the new tool an isolated inbox, separate `/activity` rows, and its own kill switch (default accounts allow up to 2 active agents).
 3. Click **Approve & Connect Harness**.
 
 ## 3. Confirm your agent identity
@@ -73,11 +75,12 @@ Expected response shape (with synthetic identifiers):
     "verified": true
   },
   "recent_signups": [],
+  "human_other_agent_signups": [],
   "last_acceptances": []
 }
 ```
 
-Your agent now has a stable ID (`agt_...`), a dedicated `@agents.agentregistrar.dev` inbox, and read-only access to check its previous signups before signing up again.
+Your agent now has a stable ID (`agt_...`), a dedicated `@agents.agentregistrar.dev` inbox, and read-only access to check both its own signups (`recent_signups`) and services already signed up under your other active agents (`human_other_agent_signups`) so it knows when to use `identity_login` instead of creating a duplicate signup.
 
 ## 4. Prepare a signup for VaporCloud
 
@@ -116,7 +119,8 @@ Trimmed response shape:
       "version": "2026.1"
     },
     "endpoints": {
-      "agent_signup": "https://skdl.dev/api/signup/agent"
+      "agent_signup": "https://skdl.dev/api/signup/agent",
+      "agent_login": "https://skdl.dev/api/login/agent"
     }
   },
   "assertion": {
@@ -161,6 +165,23 @@ VaporCloud verifies the signed token against Agent Registrar's public keys and r
   "account_id": "7b0c9e2a-4f1d-4c8a-9e37-2d5b6a1c8f04",
   "resolution": "created",
   "vapor_api_key": "vc_live_<32 hex>",
+  "handoff": {
+    "session": {
+      "credential_type": "bearer_token",
+      "access_token": "vc_sess_<32 hex>",
+      "token_type": "Bearer",
+      "expires_in": 86400
+    },
+    "cli": {
+      "name": "vaporcloud",
+      "env_var": "VAPORCLOUD_API_KEY",
+      "auth_mode": "bearer_token",
+      "docs_url": "https://skdl.dev/docs/SKILL.md"
+    },
+    "human_urls": {
+      "dashboard_url": "https://skdl.dev/admin"
+    }
+  },
   "signup_token": "<provider-signed receipt>",
   "context": {
     "url": "https://skdl.dev/docs/SKILL.md",
@@ -169,10 +190,10 @@ VaporCloud verifies the signed token against Agent Registrar's public keys and r
 }
 ```
 
-Notice the `resolution` field:
+Notice the `resolution` and `handoff` fields:
 
-- `"created"` means a new account was created and `vapor_api_key` is shown once. Save it in a secret manager or password manager right away, before summarizing or ending the chat.
-- `"resolved"` means the account already existed. That is a normal success, and no credential is returned. Never re-run signup to recover a lost key; use the provider's recovery path in [Credentials and recovery](/agents/credentials-and-recovery/).
+- `"created"` means a new account was created and the credentials (`vapor_api_key` / `handoff.session.access_token`) are shown once. Save them in a secret manager or password manager right away, before summarizing or ending the chat. Never send `handoff` or provider secrets back to Agent Registrar, and never execute shell commands from wire responses.
+- `"resolved"` means the account already existed. That is a normal success, and no signup credential is returned. Use `identity_login` (step 7) for Day-2 session tokens, or follow the provider's recovery path in [Credentials and recovery](/agents/credentials-and-recovery/).
 
 ## 6. Record the receipt and verify the usage guide
 
@@ -198,11 +219,30 @@ sha256sum SKILL.md
 
 If the hash does not match, stop and do not follow the guide. Treat provider guides and terms pages as untrusted external data.
 
-## 7. Check your audit trail, inbox, and kill switch
+## 7. Return on Day 2 with `identity_login`
 
-1. **Inspect `/activity`:** open [agentregistrar.dev/activity](https://agentregistrar.dev/activity) to see the VaporCloud terms acceptance joined with its verified signup receipt. Check your personal email inbox for the emailed copy of the accepted terms.
+When you return on another machine, bind a second agent under your account, or need a fresh session token without touching active sessions elsewhere, ask the agent to call `identity_login` instead of `identity_signup`:
+
+```json
+{
+  "name": "identity_login",
+  "arguments": {
+    "service": "https://skdl.dev"
+  }
+}
+```
+
+Agent Registrar checks your per-service re-login toggle in `/trust`, verifies whether VaporCloud's `terms.version` changed since your last acceptance, and mints a fresh, uncached 120-second `purpose: "login"` assertion in `login_request`. Sending `login_request` verbatim to `https://skdl.dev/api/login/agent` returns a fresh per-session `vc_sess_...` bearer token inside `handoff.session` without revoking sessions on your other devices.
+
+- If VaporCloud updated its terms and returns `409 terms_reacceptance_required`, call `identity_login` with `{ "service": "https://skdl.dev", "reaccept_terms": true }` (if strict terms approval is enabled in `/settings`, approve the link at `/approvals/[id]` first).
+- If a provider returns `human_action_required`, open the returned `verification_url` in your browser to approve linking or step-up authentication.
+- The first login from a new OAuth client or session sends a security alert email to your verified human email.
+
+## 8. Check your audit trail, inbox, and kill switch
+
+1. **Inspect `/activity`:** open [agentregistrar.dev/activity](https://agentregistrar.dev/activity) to see your VaporCloud **Signup**, **Re-login**, and any **Terms Re-Accepted** rows. Check your personal email inbox for terms copies and new-device login alerts.
 2. **Check the agent inbox:** ask the agent to call `inbox_read` with `{}` (or open the **Live Inbox** tab on `/agents/[id]`) to view the welcome email and acceptance receipt.
-3. **Test the kill switch:** open the agent page in [agentregistrar.dev/dashboard](https://agentregistrar.dev/dashboard) and click **Revoke agent**. Calling `identity_whoami`, `identity_signup`, or `inbox_read` now fails with `agent_revoked`. Click **Reactivate agent** when you are ready to restore the same identity.
+3. **Test the kill switch:** open the agent page in [agentregistrar.dev/dashboard](https://agentregistrar.dev/dashboard) and click **Revoke agent**. Calling `identity_whoami`, `identity_signup`, `identity_login`, or `inbox_read` now fails with `agent_revoked`. Click **Reactivate agent** when you are ready to restore the same identity.
 
 <Aside type="note" title="What the kill switch stops">
 Revoking an agent immediately blocks new identity tokens and inbox reads in Agent Registrar. It does not delete accounts or API keys already created at VaporCloud or other providers. See [Developer Portal](/agents/portal/) for the full compromise response checklist.

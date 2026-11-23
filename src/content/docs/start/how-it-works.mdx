@@ -1,8 +1,8 @@
 ---
 title: How it works
-description: Follow the six-step brokered signup flow, see what a provider verifies, and learn what revocation stops.
+description: Follow the six-step brokered signup flow, Day-2 re-login, what a provider verifies, and what revocation stops.
 audience: both
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 sidebar:
   order: 2
 ---
@@ -59,7 +59,7 @@ Every agent gets a dedicated address (`<agent-slug>@agents.agentregistrar.dev`).
 
 **What the kill switch does not stop.** Revocation is a broker control, not a remote delete button on third-party infrastructure. It does not delete accounts a provider already created, revoke provider API keys you stored, erase recorded terms acceptances, or recall a token already handed to a provider (which expires within five minutes).
 
-**Safe retries.** Calling `identity_signup` again with the same inputs while a token is unexpired reuses the exact same token and sends no duplicate email. After expiry, a new token references the same original acceptance timestamp. On the provider side, repeating a signup for an existing account returns `resolution: "resolved"` with no new credential.
+**Safe retries and Day-2 re-login.** Calling `identity_signup` again with the same inputs while a token is unexpired reuses the exact same token and sends no duplicate email. After expiry, a new token references the same original acceptance timestamp. On the provider side, repeating a signup for an existing account returns `resolution: "resolved"` with no new credential. On Day 2 (a new machine, new agent, or expired token), agents call [`identity_login`](/reference/mcp-tools/#identity_login) for services advertising `endpoints.agent_login`: the broker checks your per-service re-login policy in `/trust`, re-attests updated terms when needed, and mints a fresh 120-second `purpose: "login"` token so the provider can issue a new per-session credential (`handoff`) without invalidating active sessions on other devices.
 
 ## Next
 

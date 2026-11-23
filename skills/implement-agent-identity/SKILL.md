@@ -46,7 +46,9 @@ Required fields:
 - `issuer_allowlist`: non-empty array of exact broker origins (e.g. `["https://agentregistrar.dev"]`)
 - `required_scopes`: unique non-empty array including `"tos:accept"`
 - `terms`: `{ "version": "<string>", "url": "<https://...>" }` only (no `terms.text` or `terms.sha256`)
-- `endpoints`: `{ "agent_signup": "<https://...>" }` (sole endpoint)
+- `endpoints`: `{ "agent_signup": "<https://...>" }` (required), plus optional
+  `"agent_login": "<https://...>"` (`v2.2.0` Day-2 re-authentication). Both
+  must be absolute HTTPS (`http://localhost` / `http://127.0.0.1` dev exception).
 
 Optional fields: `spec`, `provider_url`, `contact`, `updated_at`,
 `attestation`, and non-capability `extensions` keyed by reverse-DNS namespace.
@@ -98,13 +100,18 @@ assertion is an Ed25519 (`EdDSA`) JWT (`typ: agent-id+jwt`). Verify in order:
 3. `aud` equals your `audience`.
 4. `exp` has not passed (at most 60 seconds clock skew) and lifetime is bounded
    (5 minutes recommended max).
-5. `jti` has not been used in a conflicting context (different agent, account,
-   or service).
-6. `delegation.scopes` contains every entry in `required_scopes`.
-7. `human.verified` is `true`.
-8. `delegation.accepted_rp_tos_url` equals your current `terms.url` (trailing
+5. `purpose`: `endpoints.agent_signup` MUST reject `purpose === "login"` (missing
+   `purpose` defaults to `"signup"`). `endpoints.agent_login` MUST require
+   `purpose === "login"`.
+6. `jti` has not been used in a conflicting context on `agent_signup`, and has
+   not been replayed on `agent_login` (single-use within assertion lifetime).
+7. `delegation.scopes` contains every entry in `required_scopes`.
+8. `human.verified` is `true`.
+9. `delegation.accepted_rp_tos_url` equals your current `terms.url` (trailing
    slashes normalized). When `terms.url` serves deterministic bytes, optionally
-   verify `delegation.accepted_rp_tos_hash` against their SHA-256 digest.
+   verify `delegation.accepted_rp_tos_hash` against their SHA-256 digest. On
+   `agent_login`, also check `delegation.accepted_rp_tos_version` against your
+   current `terms.version`.
 
 Record the assertion `jti`, accepted terms URL/version/hash, and human/agent
 attribution for audit.
@@ -130,7 +137,7 @@ Return JSON with a stable machine-readable code:
 | `tos_hash_mismatch` | `409` | Accepted terms URL or hash is stale. |
 | `rate_limited` | `429` | Back off and retry. |
 
-## 5. Account resolution and credentials
+## 5. Account resolution, Day-2 `agent_login`, and `handoff`
 
 Repeat signups and retries must not create duplicate accounts or credentials:
 
@@ -140,7 +147,42 @@ Repeat signups and retries must not create duplicate accounts or credentials:
   success, not an error.
 - Return credentials only on `"created"` (show-once). On `"resolved"`, omit
   credentials, send no duplicate welcome/legal mail, and point at your
-  recovery path in the post-signup guide.
+  recovery path in the post-signup guide or `endpoints.agent_login`.
+
+### Optional Day-2 `POST endpoints.agent_login` (`v2.2.0`)
+
+If you advertise `endpoints.agent_login`, evaluate requests in this normative
+anti-ATO order:
+
+1. Verify signature, `iss`, `aud`, `exp`, `purpose === "login"`,
+   `human.verified === true`, and single-use `jti` (reject replayed `jti` with
+   `409 assertion_replayed`).
+2. Lookup by `(iss, sub)` (`agent.id`): if terminated/suspended, return
+   `403 { "error": "account_terminated" }`. If `delegation.accepted_rp_tos_version`
+   or `accepted_rp_tos_url` is stale, return `409` (or `403`)
+   `{ "error": "terms_reacceptance_required", "expected_terms_version": "...", "terms_url": "..." }`.
+   Otherwise mint a **new per-session, revocable token** without revoking
+   active sessions on other devices, and return `200 OK`.
+3. If `sub` is not found, lookup broker-created accounts by `(iss, human.id)`:
+   either auto-attach `sub` (`200 OK`, `resolution: "agent_attached"`) or return
+   `202` `human_action_required` (`reason: "agent_link_required"`).
+4. If `human.email` matches a pre-existing *human-registered* account (not
+   created via this broker): **MUST NOT** silently grant access or auto-link by
+   email alone. Return `403` `human_action_required` with
+   `reason: "account_link_required"` and a provider-hosted `verification_url`.
+5. If no matching account exists: return `404 { "error": "account_not_found" }`.
+   `agent_login` MUST NOT silently create a new account.
+
+### Optional `handoff` and `human_action_required` (`201` signup / `200` login)
+
+You may return a declarative `handoff` object (`session`, `mcp`, `cli`,
+`human_urls`) strictly between provider and agent (never in discovery or
+Contract E receipts, never sent to the broker). Never include executable shell
+strings (`command`, `install_script`, etc.); `mcp.url`, `cli.docs_url`, and
+`human_urls.*` must be HTTPS (`localhost` dev exception). For step-up gates,
+return `human_action_required` (`202` or `403`) with `reason`
+(`"account_link_required" | "agent_link_required" | "step_up_required" | "billing_required"`)
+and `verification_url`.
 
 ## 6. Issue a Contract E signup receipt (optional)
 
@@ -172,16 +214,16 @@ where `rp_attestation` is the exact historical attestation named by
 
 ## 7. Validate and register
 
-Run the `@agentregistrar/discovery@2.1.1` conformance validator with `npx`
+Run the `@agentregistrar/discovery@2.2.0` conformance validator with `npx`
 before publishing:
 
 ```bash
-npx @agentregistrar/discovery@2.1.1 validate https://your-service.example/.well-known/agent-signup.json --verify-attestation --trusted-rp-broker https://agentregistrar.dev --json
+npx @agentregistrar/discovery@2.2.0 validate https://your-service.example/.well-known/agent-signup.json --verify-attestation --trusted-rp-broker https://agentregistrar.dev --json
 ```
 
 Exit `0` means conformant, `1` means not conformant (or failed attestation
 under `--require-attestation`), `2` means transport/availability failure.
-Report the validator version (`2.1.1`) with the result.
+Report the validator version (`2.2.0`) with the result.
 
 Fallback: from a clone of `agentregistrar/spec`, run
 `pnpm validate:discovery` with the same arguments.
@@ -192,4 +234,4 @@ Fallback: from a clone of `agentregistrar/spec`, run
 - Framework examples and runnable reference code: <https://docs.agentregistrar.dev/providers/hosting/> and <https://github.com/agentregistrar/docs/tree/main/examples>
 - Receipt guide and abuse reporting: <https://docs.agentregistrar.dev/providers/guides/issue-signup-receipt/> and <https://docs.agentregistrar.dev/providers/guides/abuse-reporting/>
 - Protocol overview and schema: <https://docs.agentregistrar.dev/protocol/> and <https://docs.agentregistrar.dev/protocol/agent-signup.schema.json>
-- Normative specification (`v2.1.1`): <https://github.com/agentregistrar/spec/blob/v2.1.1/agent-identity-protocol.md>
+- Normative specification (`v2.2.0`): <https://github.com/agentregistrar/spec/blob/v2.2.0/agent-identity-protocol.md>

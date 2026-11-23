@@ -1,13 +1,13 @@
 ---
 title: Verify assertions
-description: Verify EdDSA agent assertions against broker JWKS, enforce claim and replay rules, and test locally with a fixture.
+description: Verify EdDSA agent assertions against broker JWKS, enforce claim, purpose, and replay rules, and test locally with a fixture.
 audience: human
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 sidebar:
   order: 6
 ---
 
-Accept a signup request only when the compact `EdDSA` JWT in `Authorization: Bearer <jwt>` passes every signature, claim, terms, and replay check in [spec section 7.1](/protocol/specification/#7-assertion--agent_signup-handshake).
+Accept a signup or Day-2 login request only when the compact `EdDSA` JWT in `Authorization: Bearer <jwt>` passes every signature, claim, `purpose`, terms, and replay check in [spec section 7](/protocol/specification/#7-assertion-agent_signup-and-agent_login-handshakes).
 
 Verifying incoming assertions requires no broker account and no SDK: you fetch the issuer's public JWKS from `GET <iss>/.well-known/jwks.json` and check the signed claims locally. See [Assertion claims](/protocol/assertion-claims/) for the full payload schema and [Error codes](/reference/error-codes/) for the complete error envelope.
 
@@ -24,10 +24,11 @@ Map each failed check to its fixed error code in `{ "error": "<code>", "error_de
 | Issued at | `iat` is not more than 60 seconds in the future. | `401 invalid_assertion` |
 | Issuer | `iss` matches an exact entry in your `issuer_allowlist`. | `403 issuer_not_allowed` |
 | Audience | `aud` matches your published `audience` exactly. | `403 audience_mismatch` |
+| Purpose | `purpose` (default `"signup"` when omitted) matches the endpoint: `"signup"` on `agent_signup`, `"login"` required on `agent_login`. | `401 invalid_assertion` |
 | Scopes | `delegation.scopes` includes every entry in `required_scopes` (at minimum `tos:accept`). | `403 insufficient_scope` |
 | Human verification | `human.verified === true`. | `403 human_unverified` |
-| Terms binding | `delegation.accepted_rp_tos_url` matches your current `terms.url` (trailing slashes normalized). Also compare `delegation.accepted_rp_tos_hash` when `terms.url` serves deterministic UTF-8 bytes. | `409 tos_hash_mismatch` |
-| Replay and idempotency | Unique account key `(iss, human.id)` (or `(iss, agent.id)`). Same `jti` for the same account resolves (`200`, `resolution: "resolved"`, no credential). Same `jti` in a conflicting context is rejected. | `409 assertion_replayed` |
+| Terms binding | `delegation.accepted_rp_tos_url` matches your current `terms.url` (trailing slashes normalized). Also compare `delegation.accepted_rp_tos_hash` when `terms.url` serves deterministic UTF-8 bytes, and check `delegation.accepted_rp_tos_version` on `agent_login` (`409 terms_reacceptance_required`). | `409 tos_hash_mismatch` |
+| Replay and idempotency | Unique account key `(iss, human.id)` (or `(iss, agent.id)`). On `agent_signup`, same `jti` for the same account resolves (`200`, `resolution: "resolved"`, no credential) while conflicting reuse rejects. On `agent_login`, enforce single-use `jti` (`409 assertion_replayed`). | `409 assertion_replayed` |
 
 If a JWKS fetch fails transiently, return a retryable `503` response rather than caching a failure or bypassing verification. Always read identity and delegation claims strictly from the verified JWT payload; never trust unverified identity fields in the request body.
 
@@ -86,6 +87,10 @@ export async function verifyAssertion(jwt, config) {
   }
   if (payload.aud !== config.audience) {
     fail("audience_mismatch", "Assertion audience does not match");
+  }
+  const purpose = payload.purpose ?? "signup";
+  if (config.expectedPurpose && purpose !== config.expectedPurpose) {
+    fail("invalid_assertion", `Expected assertion purpose ${config.expectedPurpose}`);
   }
   const now = Math.floor(Date.now() / 1000);
   if (typeof payload.iat !== "number" || typeof payload.exp !== "number") {
@@ -160,12 +165,14 @@ const tosHash = "sha256:" + createHash("sha256").update(termsText, "utf8").diges
 const now = Math.floor(Date.now() / 1000);
 
 const jwt = await new SignJWT({
+  purpose: "signup",
   agent: { id: "agt_test", name: "test-agent", email: "test-agent@agents.example", harness: "test" },
   human: { id: "hum_test", name: "Test Human", email: "human@example.com", verified: true },
   delegation: {
     master_tos_version: "2026.1",
     accepted_rp_tos_url: "https://example.com/terms",
     accepted_rp_tos_hash: tosHash,
+    accepted_rp_tos_version: "2026.1",
     accepted_at: now,
     scopes: ["tos:accept"],
   },

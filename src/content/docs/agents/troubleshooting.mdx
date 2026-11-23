@@ -1,8 +1,8 @@
 ---
 title: Agent troubleshooting
-description: Fix OAuth connection errors, agent quota limits, identity_signup policy blocks, inbox_read timeouts, and revoked or suspended agents.
+description: Fix OAuth errors, agent limits, identity_signup and identity_login policy blocks, inbox_read timeouts, and revoked or suspended agents.
 audience: human
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 sidebar:
   label: Troubleshooting
   order: 7
@@ -41,7 +41,7 @@ curl -sS -D - -o /dev/null https://agentregistrar.dev/mcp
 | Approval button disabled with operator suspension notice | An agent on your account is currently `suspended` by the broker operator | New OAuth connections are blocked until the suspension is reviewed and resolved; check **Abuse Reports** on the agent page or contact `privacy@agentregistrar.dev` |
 | `403` "Master Agent Delegation ToS has not been signed" on `/mcp` | Master Agreement was not signed before tool calls ran | Sign the agreement in `/onboarding/tos` or re-run browser OAuth consent |
 
-## `identity_signup` and `identity_record_signup` errors
+## `identity_signup`, `identity_login`, and `identity_record_signup` errors
 
 | Code | Retryable | Cause | Fix |
 | :--- | :--- | :--- | :--- |
@@ -54,28 +54,35 @@ curl -sS -D - -o /dev/null https://agentregistrar.dev/mcp
 | `rp_broker_unavailable` | yes | Temporary outage reaching the attesting broker or its JWKS | Retry the same `identity_signup` or `identity_record_signup` call |
 | `discovery_unreachable` | yes | Provider's `/.well-known/agent-signup.json` or `terms.url` timed out or returned `5xx` | Retry the same call; nothing was minted |
 | `discovery_missing` | no | Provider returned HTTP 404 or 410 for `/.well-known/agent-signup.json` (does not support Agent Identity Protocol yet) | Do not retry; tell your human owner the service is not yet supported and share `https://docs.agentregistrar.dev/providers/prompt-kit/` |
-| `discovery_invalid` | no | Discovery document is malformed, uses an unsupported protocol version, or `terms.url` is unreadable | Service does not conform to Agent Identity Protocol `v2.1.1`; stop and notify the provider |
+| `discovery_invalid` | no | Discovery document is malformed, uses an unsupported protocol version, or `terms.url` is unreadable | Service does not conform to Agent Identity Protocol `v2.2.0`; stop and notify the provider |
 | `scope_not_granted` | no | Provider requires a scope your agent does not hold, or `requested_scopes` was empty | Check `identity_whoami` for granted scopes; omit `requested_scopes` to use the provider's `required_scopes` |
-| `discovery_source_not_allowed` | no | Passed forbidden fields (`rp_discovery`, `rp_discovery_url`, `rp_attestation`) to `identity_signup`, or passed `rp_attestation` without `signup_token` to `identity_record_signup` | Call `identity_signup` with `{ service }` only; pass `signup_token` with `identity_record_signup` |
+| `discovery_source_not_allowed` | no | Passed forbidden fields (`rp_discovery`, `rp_discovery_url`, `rp_attestation`) to `identity_signup` or `identity_login`, or passed `rp_attestation` without `signup_token` to `identity_record_signup` | Call `identity_signup` / `identity_login` with `{ service }` only; pass `signup_token` with `identity_record_signup` |
+| `login_not_supported` | no | Provider's discovery document does not advertise `endpoints.agent_login` | Do not retry `identity_login`; follow the provider's `SKILL.md` guide (if returned) or human-facing re-auth flow |
+| `service_relogin_disabled` | no | Day-2 re-login is disabled for this service in `/trust` | Do not retry unless you re-enable re-login for that service in `/trust` |
+| `terms_approval_required` | no | Strict terms approval is enabled in `/settings` and the service's terms changed | Open the `approval_url` (or emailed link) to review and approve the updated terms at `/approvals/[id]`, then retry `identity_login` |
 | `ledger_email_failed` | yes | Terms acceptance was recorded, but sending the emailed copy failed | Retry the exact same `identity_signup` call; only the email delivery is retried |
 | `signup_token_not_linked` | no | Receipt references an acceptance not recorded for this agent | Run `identity_signup` for that service first, then retry `identity_record_signup` |
 | `signup_token_invalid` | no | Receipt signature, structure, or historical attestation window check failed | Obtain a valid provider-signed receipt (and exact `rp_attestation` if required); do not retry the rejected token |
 | `signup_token_ownership_mismatch` | no | Receipt belongs to a different agent or human owner | Use the receipt issued for the active session's agent |
 | `human_email_unverified` / `master_tos_unsigned` / `human_suspended` | no | Human account gate failed | Complete onboarding or contact `privacy@agentregistrar.dev` if suspended |
 
-### Provider HTTP signup errors
+### Provider HTTP signup and login errors
 
-When the agent POSTs `signup_request` to the provider, conformant services return stable error codes:
+When the agent POSTs `signup_request` or `login_request` to the provider, conformant services return stable error codes:
 
 | Provider `error` | HTTP | Meaning | Action |
 | :--- | :--- | :--- | :--- |
-| `invalid_request` | `400` | Malformed header or body | Send `signup_request` verbatim (`Authorization: Bearer <jwt>`, body `{}`) |
-| `invalid_assertion` / `assertion_expired` | `401` | Token signature failed or five-minute TTL passed | Call `identity_signup` again for a fresh token (reuses the same acceptance) |
+| `invalid_request` | `400` | Malformed header or body | Send `signup_request` or `login_request` verbatim (`Authorization: Bearer <jwt>`, body `{}`) |
+| `invalid_assertion` / `assertion_expired` | `401` | Token signature/`purpose` failed or TTL passed | Call `identity_signup` (300s) or `identity_login` (fresh 120s) for a fresh token |
 | `issuer_not_allowed` | `403` | Provider does not allow `https://agentregistrar.dev` | Stop; the provider does not accept this broker |
-| `audience_mismatch` | `403` | Token `aud` did not match provider's expected audience | Re-run `identity_signup` against the provider's canonical origin |
+| `audience_mismatch` | `403` | Token `aud` did not match provider's expected audience | Re-run `identity_signup` or `identity_login` against the provider's canonical origin |
 | `insufficient_scope` / `human_unverified` | `403` | Missing required scope or unverified human email | Confirm scopes in `identity_whoami` and email status in `/settings` |
-| `assertion_replayed` | `409` | Token `jti` reused in a conflicting context | Mint a fresh token via `identity_signup` |
+| `account_terminated` | `403` | Account or agent link is terminated/suspended at the provider | Stop; contact the provider if unexpected |
+| `human_action_required` | `202` / `403` | Provider requires human step-up (`account_link_required`, `agent_link_required`, `step_up_required`, `billing_required`) | Open the returned `verification_url` (and enter `user_code` if present) in your browser |
+| `account_not_found` | `404` | No matching account exists on `endpoints.agent_login` | Run `identity_signup` first, or link a pre-existing human account if prompted |
+| `assertion_replayed` | `409` | Token `jti` reused in a conflicting context (or already consumed on single-use `agent_login`) | Mint a fresh token via `identity_signup` or `identity_login` |
 | `tos_hash_mismatch` | `409` | Provider updated its terms since acceptance | Re-run `identity_signup` to fetch and accept the updated terms |
+| `terms_reacceptance_required` | `403` / `409` | Provider updated its terms since your agent's last acceptance | Call `identity_login` with `{ service, reaccept_terms: true }` and resend `login_request` |
 | `rate_limited` | `429` | Provider throttled the request | Back off and retry after the advertised delay |
 
 Remember: `resolution: "resolved"` with no API key is a **success**, not an error. See [Credentials and recovery](/agents/credentials-and-recovery/) if you lost a show-once key.
@@ -91,7 +98,7 @@ Remember: `resolution: "resolved"` with no API key is a **success**, not an erro
 
 ## Revoked vs. suspended agents
 
-Both states return `agent_revoked` on `identity_whoami`, `identity_signup`, and `inbox_read` (a suspension includes a suspension-specific message):
+Both states return `agent_revoked` on `identity_whoami`, `identity_signup`, `identity_login`, and `inbox_read` (a suspension includes a suspension-specific message):
 
 - **If you clicked Revoke agent (`revoked`):** open `/agents/[id]` and click **Reactivate agent** to resume the same identity and inbox, or connect a new agent via browser OAuth if you want a fresh identity.
 - **If the broker operator suspended the agent (`suspended`):** the kill switch is hidden and cannot restore the agent, and new OAuth connections are paused. Open the **Abuse Reports** tab on `/agents/[id]` to review the case, resolve any issue with the reporting provider, and appeal to `privacy@agentregistrar.dev` with the agent ID and case ID.

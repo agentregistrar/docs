@@ -1,8 +1,8 @@
 ---
 title: Error codes
-description: Canonical error reference across discovery validation, MCP transport, all 29 MCP tool codes, provider signup HTTP, broker APIs, and OAuth.
+description: Canonical error reference across discovery validation, MCP transport, all 32 MCP tool codes, provider HTTP, broker APIs, and OAuth.
 audience: both
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 sidebar:
   order: 4
 ---
@@ -17,7 +17,7 @@ and the Agent Identity Protocol. Identify the layer first, then branch on
 | Discovery validation | Conformance validator CLI | Exit code (`0`, `1`, `2`) plus `errors`, `warnings`, `conformance`, `attestation` |
 | MCP transport | `POST /mcp` before any tool runs | HTTP status plus JSON-RPC `error` object (`id: null`) |
 | MCP tools | Inside a tool result | HTTP `200` with `isError: true` and `{ error: { code, message, retryable, side_effects, next_step?, docs } }` |
-| Provider handshake | Relying party's `POST endpoints.agent_signup` | HTTP status plus `{ error, error_description?, retryable? }` |
+| Provider handshake | Relying party's `POST endpoints.agent_signup` / `endpoints.agent_login` | HTTP status plus `{ error, error_description?, retryable? }` (plus Day-2 step-up/terms fields) |
 | Broker APIs and OAuth | `/api/broker/*`, `/api/provider/v1/*`, `/api/oauth/*` | HTTP status plus `{ error, error_description, code? }` |
 
 ## MCP tool error envelope
@@ -77,41 +77,44 @@ Returned with a non-`200` HTTP status from `POST /mcp`, before any tool runs
 | `-32003` | `403` | no | Human owner account is suspended, email is unverified, or current Master Agent Delegation Agreement is unsigned. | Human resolves the account gate in the Developer Portal. |
 | `-32000` | `406` | no | Request did not accept an allowed media type (for example `GET /mcp` without `Accept: text/event-stream`). | Send `POST /mcp` with `Accept: application/json, text/event-stream`. |
 
-## MCP tool errors (29 stable codes)
+## MCP tool errors (32 stable codes)
 
-All 29 codes defined by the broker's MCP error schema:
+All 32 codes defined by the broker's MCP error schema:
 
 | Code | Tools | Retryable | Meaning | Next action |
 | :--- | :--- | :-: | :--- | :--- |
-| `human_suspended` | `identity_signup` | no | Human owner account is suspended. | Human reinstates the account in the Developer Portal; do not retry. |
-| `human_email_unverified` | `identity_signup` | no | Human owner email address is not verified. | Human verifies their email; do not retry. |
-| `master_tos_unsigned` | `identity_signup` | no | Current Master Agent Delegation Agreement is unsigned. | Human accepts the current agreement in the Developer Portal; do not retry. |
-| `agent_revoked` | all 4 tools | no | Bound agent sub-identity is revoked, operator-suspended, or missing from the session. | For revocation, the human reviews the agent in the Developer Portal. Operator suspension is operator-restored only; do not retry or silently create a replacement. |
-| `scope_not_granted` | `identity_signup`, `inbox_read` | no | Agent lacks `tos:accept`, `inbox:read`, or a scope in `requested_scopes`, or `requested_scopes` was passed as `[]`. | Call `identity_whoami` to inspect granted scopes; omit `requested_scopes` to default to discovery `required_scopes`. |
+| `human_suspended` | `identity_signup`, `identity_login` | no | Human owner account is suspended. | Human reinstates the account in the Developer Portal; do not retry. |
+| `human_email_unverified` | `identity_signup`, `identity_login` | no | Human owner email address is not verified. | Human verifies their email; do not retry. |
+| `master_tos_unsigned` | `identity_signup`, `identity_login` | no | Current Master Agent Delegation Agreement is unsigned. | Human accepts the current agreement in the Developer Portal; do not retry. |
+| `agent_revoked` | all 5 tools | no | Bound agent sub-identity is revoked, operator-suspended, or missing from the session. | For revocation, the human reviews the agent in the Developer Portal. Operator suspension is operator-restored only; do not retry or silently create a replacement. |
+| `scope_not_granted` | `identity_signup`, `identity_login`, `inbox_read` | no | Agent lacks `tos:accept`, `inbox:read`, or a scope in `requested_scopes`, or `requested_scopes` was passed as `[]`. | Call `identity_whoami` to inspect granted scopes; omit `requested_scopes` to default to discovery `required_scopes`. |
 | `tos_version_mismatch` | `identity_signup` | no | Caller-pinned `terms_version` does not match `terms.version` in the fetched discovery document. | Re-read `terms.url` and retry with the current `terms_version`, or omit `terms_version`. |
-| `ledger_email_failed` | `identity_signup` | yes | Delegated acceptance was recorded, but the terms ledger email dispatch failed. | Retry `identity_signup` with the same inputs; the acceptance is reused and only the email is retried. |
+| `ledger_email_failed` | `identity_signup`, `identity_login` | yes | Delegated acceptance or re-acceptance was recorded, but the terms ledger email dispatch failed. | Retry with the same inputs; the acceptance is reused and only the email is retried. |
 | `signup_token_invalid` | `identity_record_signup` | no | `signup_token` is missing, malformed, legacy broker-signed, outside the historical attestation window, or conflicts with an existing receipt. | Obtain an RP-signed Contract E receipt and retry; do not retry the rejected token. |
 | `signup_token_not_linked` | `identity_record_signup` | no | Receipt references an acceptance not recorded by this broker for this agent and audience. | Call `identity_signup` for this service first, then record the receipt. |
 | `signup_token_ownership_mismatch` | `identity_record_signup` | no | Receipt belongs to a different agent or human owner. | Stop. Use only receipts issued for this authenticated agent. |
 | `message_not_found` | `inbox_read` | no | No message with that `message_id` exists for this agent. | Call `inbox_read` without `message_id` to list current message ids. |
 | `wait_timeout` | `inbox_read` | yes | No matching inbound email arrived within `wait_seconds` (max `25`). | Retry with a larger `wait_seconds` or `since_seconds_ago`, or list recent messages without `wait_seconds`. |
-| `internal_error` | all 4 tools | yes | Unexpected broker, database, or issuance error. | Check `side_effects` and retry; if it persists, report it. |
-| `discovery_unreachable` | `identity_signup` | yes | Relying party discovery document or `terms.url` timed out, returned 5xx, or could not be reached. Nothing was minted. | Retry later when the origin is reachable; never fabricate a document. |
-| `discovery_missing` | `identity_signup` | no | The relying party returned HTTP 404 or 410 for `/.well-known/agent-signup.json` and does not support `agent-identity-protocol` yet. Nothing was minted. | Do not retry. Tell the human owner the service is not yet supported and share the provider prompt kit (`/providers/prompt-kit/`). |
-| `discovery_invalid` | `identity_signup` | no | Discovery document failed schema/rule validation, `terms.url` is unreadable, or `endpoints.agent_signup` is not fetchable. | Ask the provider to fix discovery or `terms.url`. |
-| `protocol_unsupported` | `identity_signup` | no | Service advertises an unsupported `protocol` or `protocol_version`. | Stop; the service does not support `agent-identity-protocol` `2.0`. |
-| `issuer_not_allowed` | `identity_signup` | no | This broker is not listed in the provider's `issuer_allowlist`. | Stop; this provider does not accept assertions from this broker. |
-| `tos_hash_mismatch` | `identity_signup` | no | Accepted terms URL or hash no longer matches the provider's current terms. | Re-read `terms.url` and retry with a fresh acceptance, or report the mismatch to the provider. |
-| `rp_unverified` | `identity_signup` | no | Human policy (`verify` or `strict`) requires a verified provider and this service has no valid attestation. | Choose a verified provider or ask the human owner to change the verification policy. |
-| `rp_attestation_invalid` | `identity_signup`, `identity_record_signup` | no | Provider attestation source was malformed, rejected, failed signature/origin/audience/key binding, or the exact historical attestation is unavailable. | Ask the provider to publish a valid attestation, or supply the exact historical `rp_attestation` for a receipt. |
-| `rp_attestation_expired` | `identity_signup` | no | Provider attestation passed `exp` plus 60 seconds of skew. Expired means expired or unverified, never unsafe. | Ask the provider to renew its attestation before retrying. |
-| `rp_broker_untrusted` | `identity_signup`, `identity_record_signup` | no | Attestation issuer is outside the human's and broker's trusted RP-broker list. No JWKS fetch was made. | Ask the human owner to review the broker trust list in `/trust`. |
-| `rp_broker_unavailable` | `identity_signup`, `identity_record_signup` | yes | Attestation source or trusted broker metadata/JWKS was temporarily unavailable or rate limited. | Retry later, honoring any retry hint; never downgrade trust. |
-| `rp_suspended` | `identity_signup` | no | Provider is suspended by its broker (`403 provider_suspended`) or local provider record. | Stop; choose another provider. |
-| `rp_blocked` | `identity_signup` | no | Human owner explicitly blocked this relying party. Checked before any verification mode. | Stop unless the human removes the block in `/trust`. |
-| `discovery_source_not_allowed` | `identity_signup`, `identity_record_signup` | no | Caller passed forbidden `rp_discovery`, `rp_discovery_url`, or `rp_attestation` to `identity_signup`, or passed `rp_attestation` without `signup_token` to `identity_record_signup`. | Pass only `service` (and optional `terms_version`/`requested_scopes`/`force_new`) to `identity_signup`, or pass `signup_token` with optional `rp_attestation` to `identity_record_signup`. |
-| `rp_attestation_mode_not_allowed` | `identity_signup` | no | Human `strict` mode requires a broker-managed attestation, but the provider publishes a provider-managed source. | Ask the human to switch to `verify` or the provider to use broker-managed mode. |
-| `rp_attestation_revoked` | `identity_signup` | no | Broker-managed attestation lookup returned `410 attestation_revoked`. | Stop; the provider must obtain a new attestation before retrying. |
+| `internal_error` | all 5 tools | yes | Unexpected broker, database, or issuance error. | Check `side_effects` and retry; if it persists, report it. |
+| `discovery_unreachable` | `identity_signup`, `identity_login` | yes | Relying party discovery document or `terms.url` timed out, returned 5xx, or could not be reached. Nothing was minted. | Retry later when the origin is reachable; never fabricate a document. |
+| `discovery_missing` | `identity_signup`, `identity_login` | no | The relying party returned HTTP 404 or 410 for `/.well-known/agent-signup.json` and does not support `agent-identity-protocol` yet. Nothing was minted. | Do not retry. Tell the human owner the service is not yet supported and share the provider prompt kit (`/providers/prompt-kit/`). |
+| `discovery_invalid` | `identity_signup`, `identity_login` | no | Discovery document failed schema/rule validation, `terms.url` is unreadable, or an advertised endpoint is not fetchable. | Ask the provider to fix discovery or `terms.url`. |
+| `protocol_unsupported` | `identity_signup`, `identity_login` | no | Service advertises an unsupported `protocol` or `protocol_version`. | Stop; the service does not support `agent-identity-protocol` `2.0`. |
+| `issuer_not_allowed` | `identity_signup`, `identity_login` | no | This broker is not listed in the provider's `issuer_allowlist`. | Stop; this provider does not accept assertions from this broker. |
+| `tos_hash_mismatch` | `identity_signup`, `identity_login` | no | Accepted terms URL or hash no longer matches the provider's current terms. | Re-read `terms.url` and retry with a fresh acceptance, or report the mismatch to the provider. |
+| `rp_unverified` | `identity_signup`, `identity_login` | no | Human policy (`verify` or `strict`) requires a verified provider and this service has no valid attestation. | Choose a verified provider or ask the human owner to change the verification policy. |
+| `rp_attestation_invalid` | `identity_signup`, `identity_login`, `identity_record_signup` | no | Provider attestation source was malformed, rejected, failed signature/origin/audience/key binding, or the exact historical attestation is unavailable. | Ask the provider to publish a valid attestation, or supply the exact historical `rp_attestation` for a receipt. |
+| `rp_attestation_expired` | `identity_signup`, `identity_login` | no | Provider attestation passed `exp` plus 60 seconds of skew. Expired means expired or unverified, never unsafe. | Ask the provider to renew its attestation before retrying. |
+| `rp_broker_untrusted` | `identity_signup`, `identity_login`, `identity_record_signup` | no | Attestation issuer is outside the human's and broker's trusted RP-broker list. No JWKS fetch was made. | Ask the human owner to review the broker trust list in `/trust`. |
+| `rp_broker_unavailable` | `identity_signup`, `identity_login`, `identity_record_signup` | yes | Attestation source or trusted broker metadata/JWKS was temporarily unavailable or rate limited. | Retry later, honoring any retry hint; never downgrade trust. |
+| `rp_suspended` | `identity_signup`, `identity_login` | no | Provider is suspended by its broker (`403 provider_suspended`) or local provider record. | Stop; choose another provider. |
+| `rp_blocked` | `identity_signup`, `identity_login` | no | Human owner explicitly blocked this relying party. Checked before any verification mode. | Stop unless the human removes the block in `/trust`. |
+| `discovery_source_not_allowed` | `identity_signup`, `identity_login`, `identity_record_signup` | no | Caller passed forbidden `rp_discovery`, `rp_discovery_url`, or `rp_attestation` to `identity_signup`/`identity_login`, or passed `rp_attestation` without `signup_token` to `identity_record_signup`. | Pass only `service` (plus allowed optional fields) to `identity_signup` or `identity_login`, or pass `signup_token` with optional `rp_attestation` to `identity_record_signup`. |
+| `rp_attestation_mode_not_allowed` | `identity_signup`, `identity_login` | no | Human `strict` mode requires a broker-managed attestation, but the provider publishes a provider-managed source. | Ask the human to switch to `verify` or the provider to use broker-managed mode. |
+| `rp_attestation_revoked` | `identity_signup`, `identity_login` | no | Broker-managed attestation lookup returned `410 attestation_revoked`. | Stop; the provider must obtain a new attestation before retrying. |
+| `login_not_supported` | `identity_login` | no | Relying party discovery omits `endpoints.agent_login`. | Do not retry `identity_login`; follow the provider's `SKILL.md` (if returned) or human-facing re-auth flow. |
+| `service_relogin_disabled` | `identity_login` | no | Human owner disabled Day-2 re-login for this service in `/trust`. | Do not retry unless the human re-enables re-login for this service in `/trust`. |
+| `terms_approval_required` | `identity_login` | no | Human owner enabled strict terms approval in `/settings`, and service terms changed. | Direct the human to `approval_url` (or the emailed approval link), then retry `identity_login` once approved. |
 
 `unverified` is not `invalid`. Absence of `attestation` in discovery is
 conformant; only `verify` and `strict` policies refuse it. An operator-suspended
@@ -123,31 +126,38 @@ agent returns `agent_revoked` with a suspension-specific message and `next_step`
 | :--- | :--- |
 | `identity_whoami` | `{}` |
 | `identity_signup` | `acceptance_recorded`, `acceptance_created`, `ledger_email_sent_to_agent`, `ledger_email_forwarded_to_human`, `rp_verification_recorded`, `rp_verification_reused`, plus `assertion_minted` on errors |
+| `identity_login` | `terms_reaccepted`, `acceptance_created`, `login_event_recorded`, `ledger_email_sent_to_agent`, `ledger_email_forwarded_to_human`, `new_session_alert_sent`, `rp_verification_recorded`, `rp_verification_reused`, plus `assertion_minted` on errors |
 | `identity_record_signup` | `signup_recorded`, `signup_upgraded`, `rp_verification_recorded`, `conflict_flagged` |
 | `inbox_read` | `{}` |
 
-An all-`false` `side_effects` object on `identity_signup` or
+An all-`false` `side_effects` object on `identity_signup`, `identity_login`, or
 `identity_record_signup` is positive evidence that nothing was written or
 emailed.
 
 ## Provider handshake errors
 
-Returned by the relying party from `POST endpoints.agent_signup` using the
-envelope `{ "error": "<code>", "error_description": "...", "retryable": false }`.
-When `retryable` is omitted, infer it from the table below. Normative source:
-[spec section 7.2](/protocol/specification/#72-error-envelope-and-stable-codes).
+Returned by the relying party from `POST endpoints.agent_signup` or `POST
+endpoints.agent_login` using the envelope `{ "error": "<code>",
+"error_description": "...", "retryable": false }`. When `retryable` is omitted,
+infer it from the table below. Normative source: [spec section
+7.2](/protocol/specification/#72-error-envelope-and-stable-codes) and [section
+7.4–7.5](/protocol/specification/#74-post-endpointsagent_login-handshake--anti-ato-account-resolution-v220).
 
 | Code | HTTP | Retryable | Meaning | Next action |
 | :--- | :-: | :-: | :--- | :--- |
-| `invalid_request` | `400` | no | Malformed headers or JSON body. | Send `signup_request` verbatim. |
-| `invalid_assertion` | `401` | no | Signature, header, or claim structure verification failed. | Mint a fresh assertion with `identity_signup`. |
-| `assertion_expired` | `401` | no | `exp` passed beyond the 60-second clock-skew allowance. | Call `identity_signup` for a fresh 5-minute assertion. |
+| `invalid_request` | `400` | no | Malformed headers or JSON body. | Send `signup_request` or `login_request` verbatim. |
+| `invalid_assertion` | `401` | no | Signature, header, `purpose`, or claim structure verification failed. | Mint a fresh assertion with `identity_signup` or `identity_login`. |
+| `assertion_expired` | `401` | no | `exp` passed beyond the 60-second clock-skew allowance. | Call `identity_signup` (300s) or `identity_login` (120s) for a fresh assertion. |
 | `issuer_not_allowed` | `403` | no | `iss` is not in the provider's `issuer_allowlist`. | Stop; this broker is not accepted by that provider. |
-| `audience_mismatch` | `403` | no | `aud` does not equal the provider's published `audience`. | Call `identity_signup` against the canonical service origin. |
+| `audience_mismatch` | `403` | no | `aud` does not equal the provider's published `audience`. | Call `identity_signup` or `identity_login` against the canonical service origin. |
 | `insufficient_scope` | `403` | no | `delegation.scopes` misses a `required_scopes` entry. | Check `identity_whoami` and ensure the agent holds all required scopes. |
 | `human_unverified` | `403` | no | `human.verified` is not `true`. | Human verifies their email in the Developer Portal. |
-| `assertion_replayed` | `409` | no | `jti` was already used in a conflicting context (different agent, account, or service). | Call `identity_signup` for a fresh assertion. |
+| `account_terminated` | `403` | no | Account or agent link at the provider is terminated or suspended (`agent_login`). | Stop; do not retry. |
+| `human_action_required` | `202` / `403` | no | Provider requires human step-up (`account_link_required`, `agent_link_required`, `step_up_required`, `billing_required`). | Direct the human owner to `verification_url` (and `user_code` if provided). |
+| `account_not_found` | `404` | no | No matching account exists on `endpoints.agent_login`. | Use `identity_signup` first, or check whether a human account needs linking. |
+| `assertion_replayed` | `409` | no | `jti` was already used in a conflicting context on `agent_signup`, or already consumed on single-use `agent_login`. | Call `identity_signup` or `identity_login` for a fresh assertion. |
 | `tos_hash_mismatch` | `409` | no | `accepted_rp_tos_url` or `accepted_rp_tos_hash` does not match the provider's current terms. | Re-read `terms.url` and call `identity_signup` again so the broker hashes the updated bytes. |
+| `terms_reacceptance_required` | `403` / `409` | no | Provider updated terms since the agent's last acceptance (`expected_terms_version`, `terms_url`). | Call `identity_login` with `{ service, reaccept_terms: true }` and resend `login_request`. |
 | `rate_limited` | `429` | yes | Caller exceeded the provider's rate limit. | Back off, then retry. |
 
 A `jti` repeated for the **same** agent, account, and service is not a replay; a
@@ -222,6 +232,10 @@ Returned by `/oauth/authorize`, `/api/oauth/*`, and operator webhooks using RFC
 | Situation | Do not | Do |
 | :--- | :--- | :--- |
 | `tos_version_mismatch` or `tos_hash_mismatch` | Retry the same pinned version or assertion | Re-read `terms.url` and call `identity_signup` with the current version (or omit `terms_version`) |
+| `terms_reacceptance_required` | Re-run `identity_signup` for an existing account | Call `identity_login` with `reaccept_terms: true` and resend `login_request` |
+| `terms_approval_required` | Retry `identity_login` before approval | Direct the human to `approval_url` (or `/approvals/[id]`), then retry `identity_login` |
+| `service_relogin_disabled` / `login_not_supported` | Retry `identity_login` unchanged | Ask human to check `/trust` (`service_relogin_disabled`) or follow `SKILL.md` (`login_not_supported`) |
+| `human_action_required` | Auto-retry in a loop | Direct the human to `verification_url` (plus `user_code` if provided) |
 | `rp_unverified` under `verify` or `strict` | Treat the provider as invalid or unsafe | Ask the human to adjust `/trust` policy or choose a verified provider |
 | `rp_attestation_mode_not_allowed` | Force `strict` on a provider-managed source | Ask the human to switch to `verify` or the provider to use broker-managed mode |
 | `rp_attestation_revoked` / `rp_suspended` / `rp_blocked` | Retry or fall back to cached state | Stop; policy or provider status blocks signup |

@@ -2,7 +2,7 @@
 title: Broker HTTP and OAuth
 description: Broker metadata, JWKS, MCP transport, OAuth 2.1 agent binding, provider-verification, abuse-report, and signup-receipt endpoints.
 audience: both
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 sidebar:
   order: 3
 ---
@@ -166,8 +166,9 @@ Behavior:
   `unsupported_response_type`, or `invalid_request`).
 - Valid requests render the consent card where the human reviews the client
   name and scopes, optionally signs the Master Agent Delegation Agreement
-  inline, and chooses whether to **create a new agent** or **connect an existing
-  active agent**.
+  inline, and chooses whether to **reuse an existing active agent** (recommended
+  when adding a new laptop or harness, showing each agent's name, inbox, and
+  connected service count) or **create a new isolated agent**.
 
 ### POST /api/oauth/authorize/decision
 

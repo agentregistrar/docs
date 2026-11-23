@@ -1,8 +1,8 @@
 ---
 title: Discovery fields
-description: The agent-signup.json discovery document field by field for Agent Identity Protocol 2.0 (spec v2.1.0), with hosted terms and optional attestation.
+description: The agent-signup.json discovery document field by field for Agent Identity Protocol 2.0 (spec v2.2.0), with hosted terms and optional attestation.
 audience: both
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.2.0, 2026-11-23"
 ---
 
 A relying party publishes one identity-only document at `GET
@@ -15,7 +15,7 @@ The machine-readable schema is served at
 [`/protocol/agent-signup.schema.json`](/protocol/agent-signup.schema.json)
 with content type `application/schema+json`. Validate a document with the
 [conformance validator](/protocol/validator/). This table follows spec
-`v2.1.0`. The downloadable schema asset and the generated protocol pages are
+`v2.2.0`. The downloadable schema asset and the generated protocol pages are
 pinned by the docs release; when they lag this table, the spec source is
 canonical.
 
@@ -31,12 +31,13 @@ canonical.
 | `required_scopes` | array of strings | Unique non-empty scopes. Brokered signup must include `tos:accept`. | [5.1](/protocol/specification/#51-required-fields) |
 | `terms.version` | string | Terms version. Change it whenever the agreement changes materially. | [5.1](/protocol/specification/#51-required-fields), [6](/protocol/specification/#6-tos-binding) |
 | `terms.url` | string | Absolute URL of the provider-hosted agreement that a human can read. HTTPS is required except the documented localhost development exception. The broker fetches this URL at signup and hashes the exact response bytes. | [5.1](/protocol/specification/#51-required-fields) |
-| `endpoints.agent_signup` | string | Absolute URL that accepts `POST` with `Authorization: Bearer <assertion>`. The only endpoint in the protocol. | [5.1](/protocol/specification/#51-required-fields) |
+| `endpoints.agent_signup` | string | Absolute URL that accepts `POST` with `Authorization: Bearer <assertion>` (`purpose: "signup"` or omitted). | [5.1](/protocol/specification/#51-required-fields) |
 
 ## Optional fields
 
 | Field | Type | Rule | Section |
 | :--- | :--- | :--- | :--- |
+| `endpoints.agent_login` | string | Optional (`v2.2.0` additive) absolute HTTPS URL (`localhost` dev exception) accepting `POST` with `Authorization: Bearer <login-assertion>` (`purpose: "login"`) for Day-2 re-authentication. Absence is conformant. | [5.2](/protocol/specification/#52-optional-fields), [7.4](/protocol/specification/#74-post-endpointsagent_login-handshake--anti-ato-account-resolution-v220) |
 | `spec` | string | Absolute URL of the versioned specification. Optional; implementers may omit it. | [5.2](/protocol/specification/#52-optional-fields) |
 | `provider_url` | string | Canonical service URL. If present, it must share the signup endpoint's registrable domain. | [5.2](/protocol/specification/#52-optional-fields), [11](/protocol/specification/#11-contract-e-identity-facts--the-context-pointer) |
 | `contact` | string | Security, abuse or legal contact: an email address or an HTTPS URL. The localhost development exception (`http://localhost`, `http://127.0.0.1`) is the only `http` form allowed. | [5.2](/protocol/specification/#52-optional-fields) |
