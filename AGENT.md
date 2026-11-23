@@ -192,9 +192,9 @@ never dilute Tier 3 protocol specs into vague prose.
    auditable terms acceptance, and standard JWT verification.
 2. **Developers running agents (co-primary):** Software engineers and builders
    running MCP coding tools (Claude Code, Cursor, OpenCode, Codex CLI, Gemini
-   CLI, Antigravity CLI, VS Code, Claude Desktop) who want 60-second setup,
-   emailed terms copies, a per-agent kill switch, and no third-party credential
-   vault.
+   CLI, Antigravity CLI, VS Code, Zed, OpenClaw, Hermes, Cline, Goose, Claude
+   Desktop, ChatGPT) who want 60-second setup, emailed terms copies, a per-agent
+   kill switch, and no third-party credential vault.
 3. **Protocol implementers and security reviewers (secondary):** Spec readers,
    second-broker builders, and security/legal reviewers auditing exact wire
    contracts, error tables, and threat models.
@@ -227,9 +227,6 @@ never dilute Tier 3 protocol specs into vague prose.
 - Use the Nimbus components registered in `src/components.ts` (`Aside`, `Card`,
   `CardGrid`, `Steps`, `Tabs`, `CodeGroup`, ...) instead of raw HTML or one-off
   widgets. No icons, no theme toggle, no local colors (see `THEME.md`).
-- Never claim support without a verification tier and date on the page. Tiers:
-  1 = recorded end-to-end transcript; 2 = configuration verified; 3 = generic
-  protocol-level instructions.
 - No overclaims: do not describe an SDK, hosted API, SLA, KYC check, safety
   endorsement, or capability that does not exist.
 

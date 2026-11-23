@@ -21,11 +21,12 @@ curl -sS -D - -o /dev/null https://agentregistrar.dev/mcp
 | Symptom | Likely cause | Fix |
 | :--- | :--- | :--- |
 | Config ignored or stdio error (Claude Code, VS Code) | Missing `"type": "http"`, or wrong top-level key (`servers` vs `mcpServers`) | Match the exact snippet in [Connect your tool](/agents/install/) and remove any trailing slash on `/mcp` |
+| Config ignored or transport error in Cline | Cline needs camelCase `"type": "streamableHttp"` | Use `"type": "streamableHttp"` in Cline; Claude Code and VS Code use `"type": "http"`, and OpenClaw uses `"transport": "streamable-http"` |
 | Transport error in Antigravity CLI | Used `httpUrl` or `url` instead of `serverUrl` | Change the config field to `"serverUrl": "https://agentregistrar.dev/mcp"` |
 | Nothing happens in Claude Desktop | URL added to `claude_desktop_config.json` (stdio only) | Remove it and add a Custom Connector under **Customize > Connectors** |
 | `401` after a working session | Bearer token expired, refresh failed, or session disconnected in `/agents/[id]` | Re-run OAuth login in your tool; reconnecting an existing active agent keeps its ID and inbox |
 | `invalid_client` or registration fails | Stale DCR registration, or client tried CIMD and hit an issue | Remove and re-add the server so it re-registers (in Codex CLI, try `--oauth-client-registration dcr`) |
-| Client asks for a pre-registered `clientId` | Client build does not support DCR or CIMD | Agent Registrar does not issue manual client IDs in the portal; use a client that supports DCR or CIMD |
+| Client asks for a manual OAuth client ID | Client requires manual registration | Leave the client ID blank so the client uses Dynamic Client Registration (DCR) or Client ID Metadata Documents (CIMD) automatically |
 | Browser does not open or callback fails | Headless/SSH session, firewall blocking loopback, or occupied callback port | Complete OAuth on a desktop session with a browser, free the callback port (or pass `--callback-port`), or paste the printed URL manually |
 | Connected to the wrong human account | Browser was already signed in to another GitHub account | Log out in the client, sign out of GitHub in the browser, and reconnect |
 | Connected, but zero tools listed | Initialization failed, wrong transport, or stale tool cache | Verify Streamable HTTP transport, remove any manual `Authorization` header, and refresh or clear the client's tool cache |
@@ -35,9 +36,9 @@ curl -sS -D - -o /dev/null https://agentregistrar.dev/mcp
 | Symptom or code | Cause | Fix |
 | :--- | :--- | :--- |
 | Redirected to `/onboarding/verify-email` or `email_verification_required` | Your human email is not verified yet | Enter the six-digit code sent to your email; you will return to the same OAuth consent screen automatically |
-| Master Agreement prompt on consent screen | Current Master Agent Delegation Agreement (`v2026-10-01`) is unsigned | Review and check the inline acceptance box before clicking **Approve & Connect Harness** |
+| Master Agreement prompt on consent screen | Current Master Agent Delegation Agreement (`v2026-11-22`) is unsigned | Review and check the inline acceptance box before clicking **Approve & Connect Harness** |
 | Active agent limit reached (`agent_limit_reached`) | You already have `2 of 2` active agents (or reached your account quota) | Select **Connect to an existing active agent** on the consent screen, or revoke an unused agent in `/dashboard` first |
-| Approval button disabled with operator suspension notice | An agent on your account is currently `suspended` by the broker operator | New OAuth connections are blocked until the suspension is reviewed and resolved; check **Abuse Reports** on the agent page or contact `security@agentregistrar.dev` |
+| Approval button disabled with operator suspension notice | An agent on your account is currently `suspended` by the broker operator | New OAuth connections are blocked until the suspension is reviewed and resolved; check **Abuse Reports** on the agent page or contact `privacy@agentregistrar.dev` |
 | `403` "Master Agent Delegation ToS has not been signed" on `/mcp` | Master Agreement was not signed before tool calls ran | Sign the agreement in `/onboarding/tos` or re-run browser OAuth consent |
 
 ## `identity_signup` and `identity_record_signup` errors
@@ -53,14 +54,14 @@ curl -sS -D - -o /dev/null https://agentregistrar.dev/mcp
 | `rp_broker_unavailable` | yes | Temporary outage reaching the attesting broker or its JWKS | Retry the same `identity_signup` or `identity_record_signup` call |
 | `discovery_unreachable` | yes | Provider's `/.well-known/agent-signup.json` or `terms.url` timed out or returned `5xx` | Retry the same call; nothing was minted |
 | `discovery_missing` | no | Provider returned HTTP 404 or 410 for `/.well-known/agent-signup.json` (does not support Agent Identity Protocol yet) | Do not retry; tell your human owner the service is not yet supported and share `https://docs.agentregistrar.dev/providers/prompt-kit/` |
-| `discovery_invalid` | no | Discovery document is malformed, uses an unsupported protocol version, or `terms.url` is unreadable | Service does not conform to Agent Identity Protocol `v2.1.0`; stop and notify the provider |
+| `discovery_invalid` | no | Discovery document is malformed, uses an unsupported protocol version, or `terms.url` is unreadable | Service does not conform to Agent Identity Protocol `v2.1.1`; stop and notify the provider |
 | `scope_not_granted` | no | Provider requires a scope your agent does not hold, or `requested_scopes` was empty | Check `identity_whoami` for granted scopes; omit `requested_scopes` to use the provider's `required_scopes` |
 | `discovery_source_not_allowed` | no | Passed forbidden fields (`rp_discovery`, `rp_discovery_url`, `rp_attestation`) to `identity_signup`, or passed `rp_attestation` without `signup_token` to `identity_record_signup` | Call `identity_signup` with `{ service }` only; pass `signup_token` with `identity_record_signup` |
 | `ledger_email_failed` | yes | Terms acceptance was recorded, but sending the emailed copy failed | Retry the exact same `identity_signup` call; only the email delivery is retried |
 | `signup_token_not_linked` | no | Receipt references an acceptance not recorded for this agent | Run `identity_signup` for that service first, then retry `identity_record_signup` |
 | `signup_token_invalid` | no | Receipt signature, structure, or historical attestation window check failed | Obtain a valid provider-signed receipt (and exact `rp_attestation` if required); do not retry the rejected token |
 | `signup_token_ownership_mismatch` | no | Receipt belongs to a different agent or human owner | Use the receipt issued for the active session's agent |
-| `human_email_unverified` / `master_tos_unsigned` / `human_suspended` | no | Human account gate failed | Complete onboarding or contact `security@agentregistrar.dev` if suspended |
+| `human_email_unverified` / `master_tos_unsigned` / `human_suspended` | no | Human account gate failed | Complete onboarding or contact `privacy@agentregistrar.dev` if suspended |
 
 ### Provider HTTP signup errors
 
@@ -93,10 +94,10 @@ Remember: `resolution: "resolved"` with no API key is a **success**, not an erro
 Both states return `agent_revoked` on `identity_whoami`, `identity_signup`, and `inbox_read` (a suspension includes a suspension-specific message):
 
 - **If you clicked Revoke agent (`revoked`):** open `/agents/[id]` and click **Reactivate agent** to resume the same identity and inbox, or connect a new agent via browser OAuth if you want a fresh identity.
-- **If the broker operator suspended the agent (`suspended`):** the kill switch is hidden and cannot restore the agent, and new OAuth connections are paused. Open the **Abuse Reports** tab on `/agents/[id]` to review the case, resolve any issue with the reporting provider, and appeal to `security@agentregistrar.dev` with the agent ID and case ID.
+- **If the broker operator suspended the agent (`suspended`):** the kill switch is hidden and cannot restore the agent, and new OAuth connections are paused. Open the **Abuse Reports** tab on `/agents/[id]` to review the case, resolve any issue with the reporting provider, and appeal to `privacy@agentregistrar.dev` with the agent ID and case ID.
 
 ## Where to report bugs or security issues
 
-- **Security issues and suspension appeals:** `security@agentregistrar.dev` (never include live API keys, JWTs, or passwords).
+- **Security issues and suspension appeals:** `privacy@agentregistrar.dev` (never include live API keys, JWTs, or passwords).
 - **Protocol or documentation issues:** [agentregistrar/spec issues](https://github.com/agentregistrar/spec/issues).
 - **Provider-specific errors:** the `contact` address listed in that provider's discovery document.

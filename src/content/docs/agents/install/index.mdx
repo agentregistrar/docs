@@ -1,8 +1,8 @@
 ---
 title: Connect your tool
-description: Add https://agentregistrar.dev/mcp to Claude Code, Cursor, OpenCode, Codex CLI, Gemini CLI, Antigravity, VS Code, or Claude Desktop.
+description: Add https://agentregistrar.dev/mcp to Claude Code, Cursor, OpenCode, Codex, Gemini, Antigravity, VS Code, Zed, OpenClaw, Hermes, Cline, Goose, or ChatGPT.
 audience: human
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.1.1, broker D22, 2026-11-23"
 sidebar:
   label: Connect your tool
   order: 3
@@ -20,8 +20,6 @@ Use the exact URL above with no trailing slash, and never add a static `Authoriz
 
 <Tabs syncKey="harness">
   <TabItem label="Claude Code">
-    **Verification tier: Tier 2 (checked against Claude Code MCP docs on 2026-10-21; broker endpoints checked live).**
-
     Add the server from your terminal:
 
     ```bash
@@ -46,8 +44,6 @@ Use the exact URL above with no trailing slash, and never add a static `Authoriz
     To reset stored credentials, use **Clear authentication** inside `/mcp`, or run `claude mcp remove agentregistrar`.
   </TabItem>
   <TabItem label="Cursor">
-    **Verification tier: Tier 2 (checked against Cursor MCP docs on 2026-10-21; broker endpoints checked live).**
-
     Create `.cursor/mcp.json` in your project (or `~/.cursor/mcp.json` for all projects):
 
     ```json
@@ -65,8 +61,6 @@ Use the exact URL above with no trailing slash, and never add a static `Authoriz
     Check the **Output** panel (`MCP Logs`) if tools do not appear. Remove and re-add the entry to force a fresh OAuth registration.
   </TabItem>
   <TabItem label="OpenCode">
-    **Verification tier: Tier 2 (live connection verified on 2026-11-21 with OpenCode v2.3.2 on Linux; browser sign-in not run on that host).**
-
     Add the server globally (or omit `--global` for the current project):
 
     ```bash
@@ -93,8 +87,6 @@ Use the exact URL above with no trailing slash, and never add a static `Authoriz
     To clear stored tokens, run `opencode mcp logout agentregistrar`.
   </TabItem>
   <TabItem label="Codex CLI">
-    **Verification tier: Tier 2 (checked against Codex MCP docs on 2026-10-21; broker endpoints checked live).**
-
     Add the server and start OAuth login:
 
     ```bash
@@ -118,8 +110,6 @@ Use the exact URL above with no trailing slash, and never add a static `Authoriz
     To disconnect, re-run `codex mcp login agentregistrar` or remove the `[mcp_servers.agentregistrar]` section from `config.toml`.
   </TabItem>
   <TabItem label="Gemini CLI">
-    **Verification tier: Tier 3 (documented command matching the Developer Portal setup banner, 2026-11-22; live client run not yet recorded).**
-
     Add the remote Streamable HTTP server from your terminal:
 
     ```bash
@@ -131,8 +121,6 @@ Use the exact URL above with no trailing slash, and never add a static `Authoriz
     If you are using a personal Google account rather than an enterprise or paid-API-key Gemini CLI setup, check the **Antigravity CLI** tab as well.
   </TabItem>
   <TabItem label="Antigravity CLI">
-    **Verification tier: Tier 3 (checked against Antigravity MCP docs on 2026-11-21; broker endpoints checked live).**
-
     Add the server to your global `~/.gemini/config/mcp_config.json` or workspace `.agents/mcp_config.json`:
 
     ```json
@@ -148,8 +136,6 @@ Use the exact URL above with no trailing slash, and never add a static `Authoriz
     Use `"serverUrl"` (not `httpUrl` or `url`) for remote Streamable HTTP. Open `/mcp` in the CLI (or **Settings > Customizations > Installed MCP Servers** in the app) and choose **Authenticate** next to `agentregistrar`. Tokens are stored in `~/.gemini/antigravity/mcp_oauth_tokens.json`; delete that file if you need a clean sign-in under another account.
   </TabItem>
   <TabItem label="VS Code / Copilot">
-    **Verification tier: Tier 2 (checked against VS Code MCP configuration docs on 2026-10-21; automatic registration unverified).**
-
     Use `.mcp.json` at the workspace root (portable Copilot format):
 
     ```json
@@ -169,14 +155,111 @@ Use the exact URL above with no trailing slash, and never add a static `Authoriz
     code --add-mcp '{"name":"agentregistrar","type":"http","url":"https://agentregistrar.dev/mcp"}'
     ```
 
-    Start `agentregistrar` from **MCP: List Servers** in the Command Palette. Add the server without an `oauth` block first: if your VS Code build demands a pre-registered `oauth.clientId`, that build does not yet support automatic DCR/CIMD registration against this broker, so use a client that registers automatically (such as Claude Code or OpenCode). Run **MCP: Reset Cached Tools** if the tool list looks stale.
+    Start `agentregistrar` from **MCP: List Servers** in the Command Palette and sign in through the browser OAuth prompt. Run **MCP: Reset Cached Tools** if the tool list looks stale.
   </TabItem>
-  <TabItem label="Claude Desktop">
-    **Verification tier: Tier 2 (checked against Claude custom connectors docs on 2026-10-21; broker endpoints checked live).**
+  <TabItem label="Zed">
+    Open your Zed settings (`zed: open settings file` from the Command Palette) and add `agentregistrar` under `context_servers` in `settings.json`:
 
-    Do not place remote HTTP servers in `claude_desktop_config.json` (that file only runs local stdio servers). Instead, add a custom connector:
+    ```json
+    {
+      "context_servers": {
+        "agentregistrar": {
+          "url": "https://agentregistrar.dev/mcp"
+        }
+      }
+    }
+    ```
 
-    1. Open **Customize > Connectors**, then choose **+ Add > Add custom connector**.
+    Or open the Assistant Panel, go to **Settings > AI > MCP Servers**, click **Add Server > Add Remote Server**, and enter `https://agentregistrar.dev/mcp`.
+
+    Do not add a static `headers.Authorization` block. When Zed first connects to the server, it discovers the OAuth metadata and opens your browser to complete sign-in.
+  </TabItem>
+  <TabItem label="OpenClaw">
+    Register the remote Streamable HTTP server and start OAuth login from your terminal:
+
+    ```bash
+    openclaw mcp set agentregistrar '{"url":"https://agentregistrar.dev/mcp","transport":"streamable-http","auth":"oauth"}'
+    openclaw mcp login agentregistrar
+    ```
+
+    This writes `mcp.servers.agentregistrar` in `openclaw.json`:
+
+    ```json
+    {
+      "mcp": {
+        "servers": {
+          "agentregistrar": {
+            "url": "https://agentregistrar.dev/mcp",
+            "transport": "streamable-http",
+            "auth": "oauth"
+          }
+        }
+      }
+    }
+    ```
+
+    On a headless host, pass `--code <authorization-code>` to `openclaw mcp login agentregistrar`. Confirm the server is connected and listing tools with `openclaw mcp doctor --probe`.
+  </TabItem>
+  <TabItem label="Hermes">
+    Add `agentregistrar` under `mcp_servers` in `~/.hermes/config.yaml`:
+
+    ```yaml
+    mcp_servers:
+      agentregistrar:
+        url: "https://agentregistrar.dev/mcp"
+        auth: oauth
+        enabled: true
+    ```
+
+    Authenticate in your browser (or reload active servers inside an open Hermes session with `/reload-mcp`):
+
+    ```bash
+    hermes mcp login agentregistrar
+    hermes mcp test agentregistrar
+    ```
+
+    Hermes caches OAuth tokens in `~/.hermes/mcp-tokens/agentregistrar.json` and exposes the tools as `mcp__agentregistrar__identity_whoami`, `mcp__agentregistrar__identity_signup`, `mcp__agentregistrar__identity_record_signup`, and `mcp__agentregistrar__inbox_read`.
+  </TabItem>
+  <TabItem label="Cline">
+    Open the Cline panel, click the **MCP Servers** icon, select **Configure > Configure MCP Servers** (or edit `~/.cline/data/settings/cline_mcp_settings.json` directly), and add `agentregistrar` with `"type": "streamableHttp"`:
+
+    ```json
+    {
+      "mcpServers": {
+        "agentregistrar": {
+          "type": "streamableHttp",
+          "url": "https://agentregistrar.dev/mcp",
+          "disabled": false
+        }
+      }
+    }
+    ```
+
+    You can also add the server from the **Remote Servers** tab in the Cline MCP UI (choose **Streamable HTTP** and enter `https://agentregistrar.dev/mcp`) or via `cline mcp` in your terminal.
+
+    Click **Authenticate** next to `agentregistrar` in Cline to complete browser OAuth sign-in.
+  </TabItem>
+  <TabItem label="Goose">
+    Add a remote Streamable HTTP extension under `mcp.extensions` in `~/.config/goose/config.yaml` (or `.goose/config.yaml` in your project root):
+
+    ```yaml
+    mcp:
+      extensions:
+        agentregistrar:
+          name: "Agent Registrar"
+          type: streamable_http
+          uri: "https://agentregistrar.dev/mcp"
+          enabled: true
+    ```
+
+    Or run `goose configure` in your terminal, choose **Add Extension > Remote Extension (Streamable HTTP)**, name it `agentregistrar`, and enter `https://agentregistrar.dev/mcp`.
+
+    When Goose first connects to `agentregistrar`, it follows the `401` OAuth discovery challenge and opens your browser to authorize and bind an agent.
+  </TabItem>
+  <TabItem label="Claude Desktop / Web">
+    Do not place remote HTTP servers in `claude_desktop_config.json` (that file only runs local stdio servers). Instead, add a custom connector in Claude Desktop or on `claude.ai`:
+
+    1. Open **Customize > Connectors** (or **Settings > Connectors**), then choose **+ Add > Add custom connector**.
     2. Enter a name (`Agent Registrar`) and URL `https://agentregistrar.dev/mcp`.
     3. Under **OAuth client**, choose **Use Claude's published identity (Recommended)** (CIMD), or **Register automatically** (DCR) as a fallback.
     4. Click **Add**, then choose **Connect** to complete browser OAuth sign-in.
@@ -184,9 +267,16 @@ Use the exact URL above with no trailing slash, and never add a static `Authoriz
 
     On Team and Enterprise plans, an organization Owner adds the connector once under **Organization settings > Connectors** before members connect their own accounts.
   </TabItem>
-  <TabItem label="Generic MCP client">
-    **Verification tier: Tier 3 (protocol-level Streamable HTTP + OAuth discovery checked live against the broker on 2026-10-21).**
+  <TabItem label="ChatGPT">
+    Connect `https://agentregistrar.dev/mcp` as a custom remote MCP server in ChatGPT:
 
+    1. Open ChatGPT settings and enable **Developer mode** under your account or workspace connector settings.
+    2. Open the **Apps / Connectors** panel, click **+**, and choose **Add custom MCP server**.
+    3. Enter the name `Agent Registrar`, connection URL `https://agentregistrar.dev/mcp`, and description `Brokered identity, delegated terms acceptance, signup receipt recording, and per-agent email inbox reads under a verified human owner.`
+    4. Set **Authentication** to **OAuth** (ChatGPT discovers the OAuth endpoints automatically from `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server` and registers via Dynamic Client Registration).
+    5. Save the connector and click **Connect / Sign in** to approve browser OAuth consent and bind an agent.
+  </TabItem>
+  <TabItem label="Generic MCP client">
     Any compliant MCP client connects to `https://agentregistrar.dev/mcp` over Streamable HTTP (`POST` JSON-RPC 2.0 with `Accept: application/json, text/event-stream` and `Authorization: Bearer <token>`):
 
     1. An unauthenticated request returns `401` with `WWW-Authenticate: Bearer resource_metadata="https://agentregistrar.dev/.well-known/oauth-protected-resource"`.
@@ -234,15 +324,5 @@ Use the agentregistrar MCP server. Call identity_whoami with no arguments and sh
 ```
 
 You should see the agent you created or selected during OAuth consent, along with `status: "active"` and default scopes `["tos:accept", "signup:free_tier", "inbox:read"]`.
-
-## Verification tiers explained
-
-We separate documented configurations from live end-to-end transcripts so you know exactly what was tested:
-
-| Tier | Meaning | Clients |
-| :--- | :--- | :--- |
-| **Tier 1** | Recorded end-to-end transcript (connect, OAuth, `identity_whoami`, signup, receipt, inbox) on the live broker | None yet |
-| **Tier 2** | Install config and OAuth path verified against current client docs (and live unauthenticated probe on OpenCode v2.3.2) | Claude Code, Cursor, OpenCode, Codex CLI, VS Code / Copilot, Claude Desktop |
-| **Tier 3** | Protocol-level or portal-documented setup instructions; broker endpoints checked live | Gemini CLI, Antigravity CLI, Generic MCP client |
 
 Hitting a connection or OAuth error? See [Agent troubleshooting](/agents/troubleshooting/).

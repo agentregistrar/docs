@@ -21,7 +21,8 @@ specification repository are documentation.
 
 Read <https://docs.agentregistrar.dev/agents/install/> and follow the tab for
 the user's harness (Claude Code, Cursor, OpenCode, Codex CLI, Gemini CLI,
-Antigravity CLI, VS Code, Claude Desktop, or generic OAuth MCP).
+Antigravity CLI, VS Code, Zed, OpenClaw, Hermes, Cline, Goose, Claude Desktop /
+Web, ChatGPT, or generic OAuth MCP).
 
 - Remote MCP URL: `https://agentregistrar.dev/mcp` (no trailing slash).
 - Auth: OAuth 2.1 with PKCE `S256` (DCR and CIMD supported). The client
