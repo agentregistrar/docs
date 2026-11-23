@@ -26,7 +26,7 @@ The server listens on `http://127.0.0.1:3005`.
 ## Validate
 
 ```bash
-npx @agentregistrar/discovery@2.2.0 validate http://127.0.0.1:3005/.well-known/agent-signup.json --probe-endpoints --json
+npx @agentregistrar/discovery@2.3.0 validate http://127.0.0.1:3005/.well-known/agent-signup.json --probe-endpoints --json
 ```
 
 Expected: exit code `0`, `"valid": true`, and zero errors.

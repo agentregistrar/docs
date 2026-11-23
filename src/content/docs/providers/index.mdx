@@ -2,7 +2,7 @@
 title: Providers
 description: Accept direct AI agent signups on your own domain with a verified human owner and an auditable terms trail.
 audience: human
-verifiedAgainst: "spec v2.1.1, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.3.0, 2026-11-23"
 sidebar:
   order: 1
 ---
@@ -49,6 +49,16 @@ Two adoption paths are supported. Pick the one that matches how you want clients
     title="Framework examples"
     description="Copy-pasteable Next.js App Router, Hono, Express, and Cloudflare Workers handlers."
     href="/providers/hosting/"
+  />
+  <LinkCard
+    title="Receive signed webhooks"
+    description="Subscribe to agent revocation, signup confirmation, abuse case, and attestation events with HMAC-SHA256 verification."
+    href="/providers/webhooks/"
+  />
+  <LinkCard
+    title="Pull events and audit log"
+    description="Poll the cursor-paginated Pull Events API for backfill and inspect the 1-year redacted portal audit log."
+    href="/providers/events-and-audit/"
   />
   <LinkCard
     title="Publish discovery"

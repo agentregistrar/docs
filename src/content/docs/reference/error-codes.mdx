@@ -2,7 +2,7 @@
 title: Error codes
 description: Canonical error reference across discovery validation, MCP transport, all 32 MCP tool codes, provider HTTP, broker APIs, and OAuth.
 audience: both
-verifiedAgainst: "spec v2.2.0, 2026-11-23"
+verifiedAgainst: "spec v2.3.0, 2026-11-23"
 sidebar:
   order: 4
 ---
@@ -186,7 +186,10 @@ and `POST /api/broker/report-abuse` (Contract D.2) using
 | Code | HTTP | Surface | Meaning |
 | :--- | :-: | :--- | :--- |
 | `invalid_api_key` | `401` | `/api/provider/v1/*` | Missing, malformed, revoked, or unknown provider API key. |
-| `insufficient_provider_scope` | `403` | `/api/provider/v1/*` | Key lacks the required scope (`account:read`, `keys:write`, `attestation:read`, `attestation:write`). |
+| `insufficient_provider_scope` | `403` | `/api/provider/v1/*` | Key lacks the required scope (`account:read`, `keys:write`, `attestation:read`, `attestation:write`, `events:read`, `webhooks:write`). |
+| `insufficient_provider_role` | `403` | `/api/provider/v1/*` | Session member lacks the required role (`owner` or `admin`) for a mutation. |
+| `plan_feature_unavailable` | `403` | `/api/provider/v1/*` | Provider plan does not include the required feature flag (such as `webhooks` or `events_api`). |
+| `plan_limit_reached` | `409` | `/api/provider/v1/*` | Provider reached a plan quota (such as `max_services` or `max_webhook_endpoints`). |
 | `provider_suspended` | `403` | Provider mutations | Provider account is suspended or revoked. |
 | `provider_not_eligible` | `403` | Provider mutations | Provider is not `active` or origin is not `verified`. |
 | `audience_conflict` / `origin_conflict` | `409` | Service/origin registration | Origin or audience is already registered; goes to operator review. |

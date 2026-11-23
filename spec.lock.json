@@ -1,24 +1,24 @@
 {
-  "tag": "v2.2.0",
-  "commit": "1b0c0d299912d9e2c26587e2d9aadf19fb1d4445",
+  "tag": "v2.3.0",
+  "commit": "99f61a91032560753dcffc4f42565db7b6c2e924",
   "source": "https://github.com/agentregistrar/spec",
-  "generated_at": "2026-11-23T19:20:03Z",
+  "generated_at": "2026-11-23T21:04:20Z",
   "files": [
     {
       "path": "agent-identity-protocol.md",
-      "sha256": "sha256:79c938241e291fa840e4f5cf81d1d6062f4ed9bfaaeb64aa4e4b1cc7b3c1e82d"
+      "sha256": "sha256:c3bf3286e1238151a2b499cce33bb842100c493e788be747348f76c7fec578a6"
     },
     {
       "path": "scope-boundaries.md",
-      "sha256": "sha256:0e9f9f0ea5f5327049dd72b3f46a456ebc33da97657d8fbc72c1c20fc9713947"
+      "sha256": "sha256:c92454bb601a03037ef0e00d50c56c09e50c80774f4ed419343c7945b5cb90fd"
     },
     {
       "path": "implementing-agent-identity-protocol.md",
-      "sha256": "sha256:c6f532299ae4180eb8b73b34a4ce6eafe49294f28a6ea3115a81ad41da719120"
+      "sha256": "sha256:326dc53cc2f83890aa0ca1b2f6e03949d484034a5dad1a5808223bd8ded8f709"
     },
     {
       "path": "validator.md",
-      "sha256": "sha256:2efab213ea4b6028031fc39540273378a970b78dcae65cc33463c3c49e7d4659"
+      "sha256": "sha256:65468955c2f3f95f39d6bb66b2c7e4c0cba956fdc39089bce405e3609d2d561d"
     },
     {
       "path": "release-notes-v1.0.0.md",
@@ -61,6 +61,14 @@
       "sha256": "sha256:3a0f2d188b2df6d21b7406a37e273c954ae9c73d0b699684b57d8b308c4bab61"
     },
     {
+      "path": "release-notes-v2.2.1.md",
+      "sha256": "sha256:6f940b21953fcef43cca0b8a6f9e82e2be924eee8dcd74c60eb1e91dbb117106"
+    },
+    {
+      "path": "release-notes-v2.3.0.md",
+      "sha256": "sha256:4981d80ac6640bb5acf82def0c9bf48fa508d6e41ececb84cf60b0e333a3cb19"
+    },
+    {
       "path": "agent-signup.schema.json",
       "sha256": "sha256:fb8ff6d02cba32b5abc07c6fdc03175f312973e2e46452c9a11bf535386ceb4f"
     }
@@ -68,23 +76,23 @@
   "outputs": [
     {
       "path": "src/content/docs/protocol/specification.md",
-      "sha256": "sha256:5584c592822950a49a1be61c6f89392987fb449c8a0c15ddc893be4f708eed91"
+      "sha256": "sha256:0b6a7364135959459512ef07c86232ff06454481f134010ef71b7212c4d1f31a"
     },
     {
       "path": "src/content/docs/protocol/scope-boundaries.md",
-      "sha256": "sha256:aad1b2302fcea53bd0c4ba81a55c1f32996e895889cd155e931473f279309b68"
+      "sha256": "sha256:2281c473be8c604f5f7bd8297e647d32466fe3a59c3d87652a0ab0091217952f"
     },
     {
       "path": "src/content/docs/protocol/implementation-guide.md",
-      "sha256": "sha256:94d04e9bb4d01c01454bdb4d94d3775bcee5de49260d338a1a8a91b061a92076"
+      "sha256": "sha256:c14e9ef856f6837075c603d75cd776098834f8e97ae75f0f61de6f7c62f74031"
     },
     {
       "path": "src/content/docs/protocol/validator.md",
-      "sha256": "sha256:1cbb4d08a276bc72677a669f4c28535293849ec1a720e1874ccae04597ab7f2d"
+      "sha256": "sha256:827c25c5f600e66a43d461a5fbd9f98175f617381b88b0b03630c229858f4b75"
     },
     {
       "path": "src/content/docs/protocol/changelog.md",
-      "sha256": "sha256:55f3c2587925922cf9b164472db1ad1df970b1db94befef00bc3364ffe3ce3c1"
+      "sha256": "sha256:e15e0aeb7222f80cf460cfbb5afe06e351341e5d6350a88646ab015fd21924fb"
     },
     {
       "path": "public/protocol/agent-signup.schema.json",

@@ -2,13 +2,13 @@
 title: "Conformance validator"
 description: "How to run the discovery conformance validator, read its exit codes and parse its JSON output."
 audience: both
-source: "spec:v2.2.0#validator.md"
-specTag: "v2.2.0"
+source: "spec:v2.3.0#validator.md"
+specTag: "v2.3.0"
 generated: true
 lastReviewed: 2026-11-23
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/validator.md) at `v2.2.0` (tag `v2.2.0`).
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/99f61a91032560753dcffc4f42565db7b6c2e924/validator.md) at `v2.3.0` (tag `v2.3.0`).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Discovery Conformance and Attestation Validator (`agent-identity-protocol`)
@@ -392,8 +392,11 @@ warnings only, so producers can evolve additively without silently losing visibi
 - A source fetch never follows a cross-origin redirect, and the source body or a token from it is never
   echoed into an error message.
 - For a trusted issuer without `--jwks`, broker metadata is fetched from that issuer's
-  `/.well-known/agent-broker.json`; only a validated, same-origin HTTPS `jwks_uri` is followed,
-  otherwise the fixed `/.well-known/jwks.json` fallback is used.
+  `/.well-known/agent-broker.json` and validated against `BrokerMetadataSchema` (six required fields
+  plus optional `signup_receipt_endpoint` in `v2.3.0`, `additionalProperties: false`); only a
+  validated, same-origin HTTPS `jwks_uri` is followed, otherwise the fixed `/.well-known/jwks.json`
+  fallback is used. Cross-origin `attestation_status_uri`, `abuse_endpoint`, and
+  `signup_receipt_endpoint` are permitted under standard SSRF rules (same-origin recommended).
 - `terms.url` and all document content are treated as data and are never executed or interpreted.
   The validator does not fetch `terms.url`.
 - Every fetch applies the timeout, the 1 MiB read cap, and the three-hop same-origin redirect limit.
@@ -413,8 +416,10 @@ Reads the expected result for every standalone fixture from `fixtures/expected.j
 same code as the CLI, and exits `0` (all rows match) or `1` (a row differs). It covers the discovery
 matrix (including the `attestation` modes, host binding, the removed field, and typed broker
 403/404/410/503 rows), every attestation JWS (status plus producer/verifier schema mode, including the
-keyless `keys: []` row), source documents, receipts, abuse reports, status responses, broker metadata,
-and provider request/response examples. See [`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/fixtures/README.md).
+keyless `keys: []` row), source documents, receipts, abuse reports, status responses, broker metadata
+(including optional `signup_receipt_endpoint` present, omitted, cross-origin, non-HTTPS, userinfo,
+and unknown-property rejection), and provider request/response examples. See
+[`fixtures/README.md`](https://github.com/agentregistrar/spec/blob/99f61a91032560753dcffc4f42565db7b6c2e924/fixtures/README.md).
 
 ### `pnpm validate:registry [path] [--json]`
 

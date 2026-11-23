@@ -2,13 +2,13 @@
 title: "Scope boundaries"
 description: "What the identity protocol owns, what the vendor owns, and the checklist for future protocol changes."
 audience: both
-source: "spec:v2.2.0#scope-boundaries.md"
-specTag: "v2.2.0"
+source: "spec:v2.3.0#scope-boundaries.md"
+specTag: "v2.3.0"
 generated: true
 lastReviewed: 2026-11-23
 ---
 
-> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/1b0c0d299912d9e2c26587e2d9aadf19fb1d4445/scope-boundaries.md) at `v2.2.0` (tag `v2.2.0`).
+> Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/99f61a91032560753dcffc4f42565db7b6c2e924/scope-boundaries.md) at `v2.3.0` (tag `v2.3.0`).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Identity vs Vendor Scope Boundaries
@@ -131,7 +131,7 @@ object; the identity and the signed statement are unchanged.
 - the broker-issued RP attestation and its publication through the optional `attestation` source
   object (`mode` `broker` or `provider`, stable source URI);
 - the provider API that issues and renews attestations (Contract H) and the broker metadata that
-  advertises JWKS/status/abuse endpoints (Contract I);
+  advertises JWKS/status/abuse/signup-receipt endpoints (Contract I);
 - RP-signed receipts and authenticated receipt ingestion;
 - the RP abuse-report signature and the human-visible trust/distrust policy.
 

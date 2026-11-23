@@ -1,6 +1,6 @@
 ---
 name: implement-agent-identity
-description: "Implement the Agent Identity Protocol relying-party contract end to end - publish identity-only discovery with optional attestation, verify a broker assertion, return stable errors, and issue a Contract E signup receipt. Use when a service wants to accept brokered agent signups."
+description: "Implement the Agent Identity Protocol relying-party contract end to end - publish identity-only discovery with optional attestation, verify a broker assertion, return stable errors, optionally deliver async Contract E/F receipts via signup_receipt_endpoint, and optionally verify signed provider webhooks."
 ---
 
 # Implement the Agent Identity Protocol
@@ -184,54 +184,91 @@ return `human_action_required` (`202` or `403`) with `reason`
 (`"account_link_required" | "agent_link_required" | "step_up_required" | "billing_required"`)
 and `verification_url`.
 
-## 6. Issue a Contract E signup receipt (optional)
+## 6. Issue and deliver async Contract E/F signup receipts (optional)
 
-Requires an active Ed25519 signing key registered in your Provider Portal
-attestation (`keys[]` with `"receipt"` purpose). Sign a compact JWS with header
-`{"alg":"EdDSA","typ":"agent-signup-receipt+jwt","kid":"<rp key id>"}` and
-identity-only claims:
+Base signup conformance is keyless (`keys: []` supported). Receipts remain
+strictly RP-signed (no unsigned or API-key receipt tier); register an active
+Ed25519 key in your Provider Portal attestation (`keys[]` with `"receipt"`
+purpose) only when you want signed receipts or Contract D.2 abuse reporting.
 
-- Top-level: `iss` (your canonical RP origin), `sub` (`agent.id`), `aud` (human
-  broker origin), `jti` (`srp_...`), `iat`, `signed_up_at`, `assertion_jti`.
-  **No `exp`** (receipts are historical facts; legacy `exp` is ignored).
-- `service`: `audience`, `origin` (must equal `iss`), `provider_name`,
-  optional `provider_url`, opaque `account_id`, `attestation_jti` (exact
-  attestation `jti` containing `service.key_id`), `key_id` (must equal header
-  `kid`).
-- `agent`: `id`, `name`, `email`.
-- `human`: `id`, `name`, `email`, `verified`.
-- `tos`: `version`, `url`, `sha256`, optional `master_tos_version`.
-- Optional `context`: `{ "url": "<https://...>", "sha256": "sha256:<64 hex>" }`
-  on the signup endpoint's registrable domain pointing to your post-signup
-  guide (`SKILL.md`). Never include SKUs, endpoints, or free-form vendor
-  metadata in the receipt.
+1. Sign a compact Contract E JWS with header
+   `{"alg":"EdDSA","typ":"agent-signup-receipt+jwt","kid":"<rp key id>"}` and
+   identity-only claims:
+   - Top-level: `iss` (canonical RP origin), `sub` (`agent.id`), `aud` (human
+     broker origin), `jti` (`srp_...`), `iat`, `signed_up_at`, `assertion_jti`.
+     **No `exp`** (receipts are historical facts; legacy `exp` is ignored).
+   - `service`: `audience`, `origin` (must equal `iss`), `provider_name`,
+     optional `provider_url`, opaque `account_id`, `attestation_jti` (exact
+     attestation `jti` containing `service.key_id`), `key_id` (must equal
+     header `kid`).
+   - `agent`: `id`, `name`, `email`.
+   - `human`: `id`, `name`, `email`, `verified`.
+   - `tos`: `version`, `url`, `sha256`, optional `master_tos_version`.
+   - Optional `context`: `{ "url": "<https://...>", "sha256": "sha256:<64 hex>" }`
+     on the signup endpoint's registrable domain pointing to your post-signup
+     guide (`SKILL.md`). Never include SKUs, endpoints, or free-form vendor
+     metadata in the receipt.
+2. Discover the Contract F URL (`v2.3.0`): fetch
+   `GET <broker_issuer>/.well-known/agent-broker.json` (cache ~15 min), verify
+   `issuer === broker_issuer`, read optional `signup_receipt_endpoint` (HTTPS,
+   no userinfo, SSRF-checked if cross-origin), and fall back to
+   `<broker_issuer>/api/broker/signup-receipt` when absent.
+3. Enqueue `{ "signup_token", "rp_attestation" }` (using the **exact historical
+   attestation** named by `service.attestation_jti`) in a durable outbox keyed
+   by `signup_token_jti`, and return `201`/`200` (with `signup_token` and
+   optional `context`) immediately to the agent.
+4. Deliver out-of-band with exponential backoff using the `v2.3.0` retry matrix:
+   - **Retry:** network errors/timeouts, `429` (respect `Retry-After`), `503`
+     (`rp_broker_unavailable`), other `5xx`.
+   - **Terminal (do not retry):** `200`/`201` (delivered or deduplicated),
+     `400` (`invalid_request`), `401` (`invalid_attestation`,
+     `rp_broker_untrusted`, `invalid_signup_token`,
+     `attestation_not_valid_at_signing`, `attestation_unavailable`), `409`
+     (`signup_conflict`).
 
-Return `signup_token` (and optional `context`) in the `200`/`201` signup
-response, and optionally submit server-to-server via Contract F
-(`POST <broker>/api/broker/signup-receipt` with `{ "signup_token", "rp_attestation" }`
-where `rp_attestation` is the exact historical attestation named by
-`service.attestation_jti`).
+## 7. Verify signed provider webhooks (optional)
 
-## 7. Validate and register
+If you configure outbound webhooks in the Provider Portal or via
+`/api/provider/v1/webhooks` (`webhooks:write` scope):
 
-Run the `@agentregistrar/discovery@2.2.0` conformance validator with `npx`
+- Endpoint must be public `https://` with no redirects (`3xx` fails with
+  `redirect_blocked`) and return `2xx` within `5,000` ms.
+- Read the **raw UTF-8 body** before JSON parsing.
+- Check headers: `X-AgentRegistrar-Delivery-Id` (`whd_...`),
+  `X-AgentRegistrar-Event`, `X-AgentRegistrar-Timestamp` (Unix seconds),
+  `X-AgentRegistrar-Signature` (`v1=<64-hex>[,v1=<64-hex>]`).
+- Reject if `|now_unix_sec - timestamp| > 300`.
+- Compute `HMAC-SHA256(utf8(whsec_...), utf8("${timestamp}.${raw_body}"))` as
+  lowercase hex across all configured secrets (`[current, previous]` during
+  dual-secret rotation) and compare in constant time against every `v1=` entry.
+- Deduplicate side effects on `X-AgentRegistrar-Delivery-Id` (stable across
+  all 7 retry attempts).
+- On `agent.status_changed`, inspect `data.affected_accounts` (scoped to your
+  organization) and decide local session or API-key action; the broker notifies
+  only and never deletes provider accounts.
+- For missed-event backfill (up to 1 year), poll `GET /api/provider/v1/events`
+  with an `events:read` API key.
+
+## 8. Validate and register
+
+Run the `@agentregistrar/discovery@2.3.0` conformance validator with `npx`
 before publishing:
 
 ```bash
-npx @agentregistrar/discovery@2.2.0 validate https://your-service.example/.well-known/agent-signup.json --verify-attestation --trusted-rp-broker https://agentregistrar.dev --json
+npx @agentregistrar/discovery@2.3.0 validate https://your-service.example/.well-known/agent-signup.json --verify-attestation --trusted-rp-broker https://agentregistrar.dev --json
 ```
 
 Exit `0` means conformant, `1` means not conformant (or failed attestation
 under `--require-attestation`), `2` means transport/availability failure.
-Report the validator version (`2.2.0`) with the result.
+Report the validator version (`2.3.0`) with the result.
 
 Fallback: from a clone of `agentregistrar/spec`, run
 `pnpm validate:discovery` with the same arguments.
 
-## 8. References
+## 9. References
 
 - Provider quickstart and portal guide: <https://docs.agentregistrar.dev/providers/quickstart/> and <https://docs.agentregistrar.dev/providers/portal/>
 - Framework examples and runnable reference code: <https://docs.agentregistrar.dev/providers/hosting/> and <https://github.com/agentregistrar/docs/tree/main/examples>
-- Receipt guide and abuse reporting: <https://docs.agentregistrar.dev/providers/guides/issue-signup-receipt/> and <https://docs.agentregistrar.dev/providers/guides/abuse-reporting/>
+- Receipt guide, webhooks, events API, and abuse reporting: <https://docs.agentregistrar.dev/providers/guides/issue-signup-receipt/>, <https://docs.agentregistrar.dev/providers/webhooks/>, <https://docs.agentregistrar.dev/providers/events-and-audit/>, and <https://docs.agentregistrar.dev/providers/guides/abuse-reporting/>
 - Protocol overview and schema: <https://docs.agentregistrar.dev/protocol/> and <https://docs.agentregistrar.dev/protocol/agent-signup.schema.json>
-- Normative specification (`v2.2.0`): <https://github.com/agentregistrar/spec/blob/v2.2.0/agent-identity-protocol.md>
+- Normative specification (`v2.3.0`): <https://github.com/agentregistrar/spec/blob/v2.3.0/agent-identity-protocol.md>

@@ -1,0 +1,177 @@
+---
+title: Pull events and audit log
+description: Poll provider lifecycle events via the cursor-paginated Pull Events API and inspect the redacted organization audit log in the portal.
+audience: both
+verifiedAgainst: "spec v2.3.0, 2026-11-23"
+sidebar:
+  label: Events and audit log
+  order: 7
+---
+
+Use the **Pull Events API** (`GET /api/provider/v1/events`) to poll organization and lifecycle events programmatically, feed an internal monitoring pipeline, or backfill gaps after webhook downtime. Use the **Audit log** in the Provider Portal to review the same append-only timeline in a browser.
+
+Both surfaces read from your organization's append-only event log, retained for **1 year** (365 days). Every row stores redacted, structured metadata only: **zero raw client IP addresses, zero raw User-Agent strings, zero signing secrets, and zero provider credentials.**
+
+## Privacy and metadata model
+
+Each event record contains:
+
+- `id`: unique event UUID.
+- `provider_id`: provider organization UUID.
+- `event_type`: frozen dot-separated event name (for example `provider.webhook.created` or `provider.api_key.revoked`).
+- `actor_kind`: `"member"`, `"operator"`, or `"system"`.
+- `actor_human_id`: human UUID when `actor_kind` is `"member"` or `"operator"`, or `null` for system actions.
+- `service_id`: optional service UUID when the event is scoped to one service.
+- `request_id`: optional correlation ID linking the event to an API request.
+- `metadata`: compact structured fields identifying the affected resource.
+- `changes`: optional redacted scalar diff object (string, number, boolean, or `null` values only; capped at `1,024` UTF-8 bytes).
+- `created_at`: ISO 8601 UTC timestamp.
+
+## Poll the Pull Events API
+
+### Authentication and scope
+
+`GET /api/provider/v1/events` accepts either:
+
+- **Provider API key** (`Authorization: Bearer <provider_api_key>`) granted the `events:read` scope. Create one under **Credentials** in the [Provider Portal](/providers/portal/#ci-and-automation-api-keys).
+- **Provider Portal session** for any member role (`owner`, `admin`, or `member`) scoped to that organization.
+
+### Query parameters
+
+| Parameter | Type | Default | Rule |
+| :--- | :--- | :--- | :--- |
+| `cursor` | string | omitted | Opaque pagination cursor returned as `next_cursor` by the previous page. |
+| `limit` | integer | `25` | Page size from `1` to `100`. |
+| `type` | string | omitted | Exact frozen event name from the catalog below (for example `provider.agent.status_changed`). |
+| `service_id` | UUID | omitted | Filter events tied to one service in your organization. |
+| `since` | ISO 8601 datetime with offset | omitted | Return events at or after this timestamp. Lookback is capped at 1 year (`365` days). |
+| `until` | ISO 8601 datetime with offset | omitted | Return events at or before this timestamp. |
+
+### Fetch a page with curl
+
+```bash
+curl -sS "https://agentregistrar.dev/api/provider/v1/events?limit=25&since=2026-11-22T00:00:00Z" \
+  -H "Authorization: Bearer <provider_api_key>"
+```
+
+Illustrative response:
+
+```json
+{
+  "events": [
+    {
+      "id": "b6c2e924-0000-4a8e-9200-000000000001",
+      "provider_id": "7f651102-0000-4fa6-b700-000000000000",
+      "event_type": "provider.webhook.secret_rotated",
+      "actor_kind": "member",
+      "actor_human_id": "2a9b4c10-0000-4e3f-8c00-000000000001",
+      "service_id": null,
+      "request_id": "req_01jdocsverify0000000000000",
+      "metadata": {
+        "endpoint_id": "e15e0aeb-0000-49f1-8100-000000000000",
+        "secret_prefix": "whsec_AbCdEf"
+      },
+      "changes": {
+        "grace_hours": 24,
+        "expire_previous_now": false
+      },
+      "created_at": "2026-11-23T20:15:00.000Z"
+    }
+  ],
+  "next_cursor": "eyJjcmVhdGVkX2F0IjoiMjAyNi0xMS0yM1QyMDoxNTowMC4wMDBaIiwiaWQiOiJiNmMyZTkyNC0wMDAwLTRhOGUtOTIwMC0wMDAwMDAwMDAwMDEifQ",
+  "has_more": true
+}
+```
+
+### Backfill after webhook downtime
+
+If your webhook receiver was offline or auto-disabled by the circuit breaker, walk the cursor from the last timestamp you successfully processed:
+
+```ts
+interface ProviderAuditEvent {
+  id: string;
+  provider_id: string;
+  event_type: string;
+  actor_kind: "member" | "operator" | "system";
+  actor_human_id: string | null;
+  service_id: string | null;
+  request_id: string | null;
+  metadata: Record<string, unknown>;
+  changes: Record<string, string | number | boolean | null> | null;
+  created_at: string;
+}
+
+interface EventsPage {
+  events: ProviderAuditEvent[];
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
+export async function backfillProviderEvents(params: {
+  apiKey: string;
+  sinceIso: string;
+  eventType?: string;
+}): Promise<ProviderAuditEvent[]> {
+  const collected: ProviderAuditEvent[] = [];
+  let cursor: string | null = null;
+
+  while (true) {
+    const url = new URL("https://agentregistrar.dev/api/provider/v1/events");
+    url.searchParams.set("limit", "100");
+    url.searchParams.set("since", params.sinceIso);
+    if (params.eventType) url.searchParams.set("type", params.eventType);
+    if (cursor) url.searchParams.set("cursor", cursor);
+
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${params.apiKey}` },
+    });
+    if (!response.ok) {
+      throw new Error(`Events API returned HTTP ${response.status}`);
+    }
+
+    const page = (await response.json()) as EventsPage;
+    collected.push(...page.events);
+
+    if (!page.has_more || !page.next_cursor) {
+      break;
+    }
+    cursor = page.next_cursor;
+  }
+
+  return collected;
+}
+```
+
+## Event catalog
+
+The Pull Events API and Provider Portal Audit log expose the frozen provider event vocabulary across six categories:
+
+| Category | Event types |
+| :--- | :--- |
+| **Organization and team** | `provider.account.created`, `provider.account.renamed`, `provider.member.invited`, `provider.member.invite_revoked`, `provider.member.joined`, `provider.member.role_changed`, `provider.member.removed`, `provider.contact.verification_sent`, `provider.contact.verified`, `provider.contact.bounced`, `provider.owner.transfer_started`, `provider.owner.transferred`, `provider.owner.transfer_cancelled`, `provider.plan.assigned`, `provider.plan.override_changed` |
+| **Services and domains** | `provider.service.added`, `provider.service.verified`, `provider.service.suspended`, `provider.service.restored`, `provider.service.retired`, `provider.service.expired`, `provider.domain.challenge_issued`, `provider.domain.verified`, `provider.domain.verification_failed`, `provider.domain.retired`, `provider.go_live`, `provider.first_signup` |
+| **Keys and API keys** | `provider.key.registered`, `provider.key.rotated`, `provider.api_key.created`, `provider.api_key.revoked` |
+| **Attestations and health** | `provider.attestation.issued`, `provider.attestation.expiring`, `provider.attestation.status_changed`, `provider.discovery.check_passed`, `provider.discovery.check_failed`, `provider.endpoint.probe_passed`, `provider.endpoint.probe_failed`, `provider.dry_run.passed`, `provider.dry_run.failed`, `provider.check.state_changed` |
+| **Webhooks** | `provider.webhook.created`, `provider.webhook.updated`, `provider.webhook.deleted`, `provider.webhook.secret_rotated`, `provider.webhook.auto_disabled` |
+| **Signups, agents, and abuse** | `provider.signup.confirmed`, `provider.signup.conflict`, `provider.agent.status_changed`, `provider.abuse.case_updated` |
+
+## Inspect the audit log in the Provider Portal
+
+Every organization member (`owner`, `admin`, and `member`) can inspect the read-only **Audit log** from the [Provider Portal](/providers/portal/#settings-tab):
+
+- Filter the timeline by `event_type` to isolate security changes (such as API key creation, webhook rotation, or role updates).
+- Inspect who triggered each change (`member` display name, `Operator`, or `System`), the affected service, and the formatted redacted `changes` fields.
+- Paginate backward through up to 1 year of retained history.
+
+## Verify your setup
+
+1. Open **Credentials** in the Provider Portal and create a provider API key with only the `events:read` scope.
+2. Run the `curl` command above with `?limit=5`.
+3. Confirm HTTP `200` and verify that the newest rows include the `provider.api_key.created` event you just triggered.
+4. Confirm that calling a write route (such as `POST /api/provider/v1/webhooks`) with the same `events:read`-only key fails with `403 insufficient_provider_scope`.
+
+## Next steps
+
+- [Receive signed webhooks](/providers/webhooks/): subscribe to push deliveries instead of polling for real-time events.
+- [Broker HTTP and OAuth](/reference/broker-http/#provider-portal-api-apiproviderv1): full Provider API v1 route and scope reference.
+- [Provider Portal](/providers/portal/): manage services, webhooks, API keys, and team roles.

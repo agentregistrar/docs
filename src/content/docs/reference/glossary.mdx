@@ -2,7 +2,7 @@
 title: Glossary
 description: Canonical definitions of Agent Registrar and Agent Identity Protocol terms, with links to the pages that own each mechanism.
 audience: both
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.3.0, 2026-11-23"
 sidebar:
   order: 5
 ---
@@ -59,12 +59,12 @@ claims](/protocol/assertion-claims/#claim-set).
 **Agent Identity Protocol.** The open Apache-2.0 agent-signup and Day-2
 re-login contract. Its prose name is Agent Identity Protocol; its wire
 identifier is `agent-identity-protocol`; its wire version is `2.0`
-(`protocol_version: "2.0"`). The current specification release is `v2.2.0`. See
+(`protocol_version: "2.0"`). The current specification release is `v2.3.0`. See
 [Protocol](/protocol/).
 
 **Protocol version.** The wire version carried in discovery `protocol_version`
 (`"2.0"`), distinct from the specification document and package release tag
-(`v2.2.0`).
+(`v2.3.0`).
 
 **Discovery document.** The identity-only JSON served at
 `GET /.well-known/agent-signup.json` on the provider's canonical origin:
@@ -127,9 +127,10 @@ See [Inbox and verification](/agents/inbox-and-verification/).
 **Signup receipt (`signup_token`).** Optional provider-signed Contract E JWS
 (`typ: agent-signup-receipt+jwt`, `srp_...`, no `exp`) proving that a signup
 occurred, signed with a key listed in the provider's historical attestation.
-Submitted server-to-server via Contract F (`POST /api/broker/signup-receipt`) or
-by the agent via `identity_record_signup`. Not a provider credential. See
-[Receipt and context](/protocol/receipt-and-context/).
+Submitted asynchronously server-to-server via Contract F (discovered from
+`signup_receipt_endpoint` in `/.well-known/agent-broker.json`, falling back to
+`POST /api/broker/signup-receipt`) or by the agent via `identity_record_signup`.
+Not a provider credential. See [Receipt and context](/protocol/receipt-and-context/).
 
 **Context guide (context pointer).** Optional hash-pinned pointer
 (`context.url` and `context.sha256`) returned at signup and inside a receipt,

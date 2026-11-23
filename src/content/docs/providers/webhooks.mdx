@@ -1,0 +1,372 @@
+---
+title: Receive signed webhooks
+description: Configure signed outbound webhooks, verify HMAC-SHA256 signatures, rotate secrets safely, and handle retries and circuit-breaker alerts.
+audience: both
+verifiedAgainst: "spec v2.3.0, 2026-11-23"
+sidebar:
+  label: Webhooks
+  order: 6
+---
+
+Configure signed outbound webhooks to receive real-time HTTP notifications when an agent is revoked or suspended, an abuse case changes, a signup receipt is confirmed or flagged for conflict, a service health check changes state, or a provider-managed attestation approaches expiry.
+
+Agent Registrar sends notifications only. When `agent.status_changed` fires after a human triggers the kill switch or an operator suspends an agent, your service receives `agent_id`, the status transition, and your own `provider_account_id` values. **Your service decides what local account, API key, or session action to take.** The broker never deletes provider accounts, never proxies customer traffic, and never holds provider credentials.
+
+## Before you start
+
+- An active provider organization in the [Provider Portal](/providers/portal/).
+- A public `https://` receiver endpoint reachable without redirects. Private, loopback, link-local, and reserved IP ranges are rejected at save and delivery time, and `3xx` responses are treated as failures (`redirect_blocked`) rather than followed.
+- Endpoints are capped by plan (`5` on `free`, `15` on `pro`).
+
+## Create a webhook endpoint
+
+Create an endpoint in the [Provider Portal](/providers/portal/#webhooks-tab) under **Webhooks**, or call `POST /api/provider/v1/webhooks` with a provider API key holding the `webhooks:write` scope:
+
+```bash
+curl -sS -X POST https://agentregistrar.dev/api/provider/v1/webhooks \
+  -H "Authorization: Bearer <provider_api_key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://provider.example/api/webhooks/agentregistrar",
+    "description": "Primary lifecycle receiver",
+    "subscribed_events": [
+      "agent.status_changed",
+      "signup.confirmed",
+      "signup.conflict",
+      "abuse.case.updated"
+    ]
+  }'
+```
+
+The response returns the endpoint record plus the plaintext signing secret (`whsec_<32-byte-base64url>`). The full secret is shown **once** on creation and rotation and cannot be recovered later. Store it in your secret manager immediately; only the 12-character `secret_prefix` is stored for display.
+
+## Payload envelope and event catalog
+
+Every webhook delivery sends a UTF-8 JSON object with a consistent envelope:
+
+```json
+{
+  "id": "evt_01jdocsverify0000000000000",
+  "type": "agent.status_changed",
+  "api_version": "2026-11-23",
+  "created_at": "2026-11-23T21:00:00.000Z",
+  "provider_id": "7f651102-0000-4fa6-b700-000000000000",
+  "data": {
+    "agent_id": "agt_01jdocsverify0000000000000",
+    "previous_status": "active",
+    "status": "revoked",
+    "reason_category": "human_kill_switch",
+    "affected_accounts": [
+      {
+        "service_id": "9a14c200-0000-4c9a-9100-000000000000",
+        "service_audience": "example-provider",
+        "provider_account_id": "acct_opaque_0001"
+      }
+    ]
+  }
+}
+```
+
+### Subscribable events
+
+Subscribe each endpoint to one or more of the seven live event types. All payloads are PII-minimal and contain zero secrets or provider credentials.
+
+| Event type | Trigger | Target scope | `data` fields |
+| :--- | :--- | :--- | :--- |
+| `agent.status_changed` | Human revokes or reactivates an agent; operator suspends or restores an agent. | Every provider with at least one attributed signup for `agent_id`. | `agent_id`, `previous_status`, `status` (`active`, `revoked`, `suspended`), `reason_category` (`human_kill_switch`, `human_reactivated`, `abuse_suspension`, `operator_restored`), `affected_accounts` (`[{ service_id, service_audience, provider_account_id }]` scoped strictly to your organization). |
+| `abuse.case.updated` | Contract D.2 abuse case opened, updated, resolved, or dismissed. | Reporting provider. | `case_id`, `report_jti`, `agent_id`, `status`, `verification_status`, `resolution_action`. |
+| `service.health_changed` | Scheduled or manual service health check transitions state. | Owning provider. | `service_id`, `service_audience`, `previous_status`, `status`, `reason_code`, `origin_id`. |
+| `signup.confirmed` | New provider-signed receipt (`rp_callback` or `rp_signed`) persisted (not deduplicated replays). | Attributed provider. | `signup_id`, `signup_token_jti`, `assertion_jti`, `agent_id`, `service_id`, `service_audience`, `provider_account_id`, `proof_source`, `signed_up_at`. |
+| `signup.conflict` | Account mismatch (`account_id_mismatch`) flagged during receipt ingestion. | Attributed provider. | `signup_id`, `agent_id`, `service_id`, `service_audience`, `conflict_reason`. |
+| `attestation.expiring` | Active provider-managed attestation enters less than 6 hours before `exp` (deduplicated once per `attestation_jti`). | Owning provider. | `attestation_jti`, `service_id`, `service_audience`, `origin`, `expires_at`. |
+| `attestation.status_changed` | Attestation suspended, revoked, or restored. | Owning provider. | `attestation_jti`, `service_id`, `service_audience`, `previous_status`, `status`. |
+
+In addition, triggering a manual ping from the portal or `POST /api/provider/v1/webhooks/[id]/test` delivers a `webhook.test` event to that single endpoint with `{ "endpoint_id", "message" }` in `data`.
+
+<Aside type="note" title="Provider enforcement boundary">
+`agent.status_changed` is a signal, not remote enforcement. Agent Registrar stops minting new assertions and closes agent inbox access immediately on revocation or suspension, while your service decides whether to revoke sessions, pause API keys, or flag the matching `provider_account_id` locally. See [Trust and limits](/start/trust-and-limits/).
+</Aside>
+
+## Delivery headers and signature format
+
+Every outbound HTTP `POST` includes these headers:
+
+| Header | Example / Format | Purpose |
+| :--- | :--- | :--- |
+| `Content-Type` | `application/json; charset=utf-8` | UTF-8 JSON body. |
+| `User-Agent` | `AgentRegistrar-Webhooks/1.0` | Fixed webhook dispatcher user agent. |
+| `X-AgentRegistrar-Delivery-Id` | `whd_01j...` | Unique delivery ID, stable across retries of the same delivery. Deduplicate on this header. |
+| `X-AgentRegistrar-Event` | `agent.status_changed` | Event type matching `payload.type`. |
+| `X-AgentRegistrar-Timestamp` | `1795381200` | Unix seconds, freshly generated on every delivery attempt. |
+| `X-AgentRegistrar-Signature` | `v1=<64-hex>[,v1=<64-hex>]` | One or two `v1=` HMAC-SHA256 digests encoded as lowercase hex. |
+
+The signature is computed as:
+
+```text
+HMAC-SHA256(utf8(signing_secret), utf8("${timestamp}.${raw_utf8_json_body}"))
+```
+
+Key rules when verifying:
+
+- **Use the raw request body bytes** before running `JSON.parse`. Re-serializing parsed JSON changes whitespace or key order and breaks verification.
+- **Use the full `whsec_...` string as UTF-8 bytes** for the HMAC key; do not base64-decode it.
+- **Enforce replay protection** by rejecting any request whose `X-AgentRegistrar-Timestamp` differs from the current Unix time by more than `300` seconds (`+/- 300s`).
+- **Compare in constant time** across every `v1=` entry in `X-AgentRegistrar-Signature` and every configured secret (current plus optional previous during rotation).
+- **Deduplicate on `X-AgentRegistrar-Delivery-Id`:** A retry sends the same `X-AgentRegistrar-Delivery-Id` with a fresh `X-AgentRegistrar-Timestamp` and signature. Store processed delivery IDs in your database and return `200` on duplicates without repeating side effects.
+
+## Verify webhook signatures
+
+Use the raw body verifier below for your runtime. Both implementations verify timestamps within `+/- 300` seconds, support multiple secrets for rotation overlap, and compare digests in constant time without external dependencies.
+
+<Tabs syncKey="webhook-runtime">
+  <TabItem label="TypeScript (Cloudflare Workers / Web Crypto)">
+
+```ts
+// Works on Cloudflare Workers, Deno, Bun, and Node.js 20+ (Web Crypto API).
+const DEFAULT_TOLERANCE_SECONDS = 300;
+const encoder = new TextEncoder();
+
+function hexToBytes(hex: string): Uint8Array | null {
+  if (hex.length !== 64 || !/^[0-9a-fA-F]{64}$/.test(hex)) {
+    return null;
+  }
+  const out = new Uint8Array(32);
+  for (let i = 0; i < 32; i += 1) {
+    out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
+function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.byteLength !== b.byteLength) return false;
+  let diff = 0;
+  for (let i = 0; i < a.byteLength; i += 1) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff === 0;
+}
+
+export async function verifyAgentRegistrarWebhook(params: {
+  signatureHeader: string | null;
+  timestampHeader: string | null;
+  rawBody: string;
+  secrets: string[];
+  toleranceSeconds?: number;
+}): Promise<boolean> {
+  const {
+    signatureHeader,
+    timestampHeader,
+    rawBody,
+    secrets,
+    toleranceSeconds = DEFAULT_TOLERANCE_SECONDS,
+  } = params;
+
+  if (!signatureHeader || !timestampHeader || !/^\d{1,15}$/.test(timestampHeader.trim())) {
+    return false;
+  }
+
+  const timestampSec = Number(timestampHeader.trim());
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (!Number.isSafeInteger(timestampSec) || Math.abs(nowSec - timestampSec) > toleranceSeconds) {
+    return false;
+  }
+
+  const candidates: Uint8Array[] = [];
+  for (const part of signatureHeader.split(",")) {
+    const trimmed = part.trim();
+    if (!trimmed.startsWith("v1=")) continue;
+    const decoded = hexToBytes(trimmed.slice(3));
+    if (decoded) candidates.push(decoded);
+  }
+  if (candidates.length === 0) return false;
+
+  const signedBytes = encoder.encode(`${timestampSec}.${rawBody}`);
+  const activeSecrets = secrets.filter((s) => s.length > 0);
+  if (activeSecrets.length === 0) return false;
+
+  let matched = 0;
+  for (const secret of activeSecrets) {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    const expected = new Uint8Array(await crypto.subtle.sign("HMAC", key, signedBytes));
+    for (const candidate of candidates) {
+      matched |= constantTimeEqual(expected, candidate) ? 1 : 0;
+    }
+  }
+
+  return matched === 1;
+}
+
+// Example Cloudflare Worker fetch handler
+export default {
+  async fetch(
+    request: Request,
+    env: { WEBHOOK_SECRET: string; WEBHOOK_PREVIOUS_SECRET?: string },
+  ): Promise<Response> {
+    if (request.method !== "POST") {
+      return new Response("Method Not Allowed", { status: 405 });
+    }
+
+    const rawBody = await request.text();
+    const deliveryId = request.headers.get("X-AgentRegistrar-Delivery-Id");
+    const valid = await verifyAgentRegistrarWebhook({
+      signatureHeader: request.headers.get("X-AgentRegistrar-Signature"),
+      timestampHeader: request.headers.get("X-AgentRegistrar-Timestamp"),
+      rawBody,
+      secrets: [env.WEBHOOK_SECRET, env.WEBHOOK_PREVIOUS_SECRET ?? ""].filter(Boolean),
+    });
+
+    if (!valid || !deliveryId) {
+      return Response.json({ error: "invalid_signature" }, { status: 401 });
+    }
+
+    // Check your persistent store for `deliveryId` before acting:
+    // if (await alreadyProcessed(deliveryId)) return Response.json({ ok: true });
+
+    const event = JSON.parse(rawBody) as { type: string; data: Record<string, unknown> };
+    if (event.type === "agent.status_changed") {
+      // Decide locally how to handle `event.data.affected_accounts`.
+    }
+
+    return Response.json({ ok: true }, { status: 200 });
+  },
+};
+```
+
+  </TabItem>
+  <TabItem label="Node.js (node:crypto)">
+
+```ts
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+const DEFAULT_TOLERANCE_SECONDS = 300;
+
+export function verifyAgentRegistrarWebhookNode(params: {
+  signatureHeader: string | undefined;
+  timestampHeader: string | undefined;
+  rawBody: Buffer | string;
+  secrets: string[];
+  toleranceSeconds?: number;
+}): boolean {
+  const {
+    signatureHeader,
+    timestampHeader,
+    rawBody,
+    secrets,
+    toleranceSeconds = DEFAULT_TOLERANCE_SECONDS,
+  } = params;
+
+  if (!signatureHeader || !timestampHeader || !/^\d{1,15}$/.test(timestampHeader.trim())) {
+    return false;
+  }
+
+  const timestampSec = Number(timestampHeader.trim());
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (!Number.isSafeInteger(timestampSec) || Math.abs(nowSec - timestampSec) > toleranceSeconds) {
+    return false;
+  }
+
+  const candidates: Buffer[] = [];
+  for (const part of signatureHeader.split(",")) {
+    const trimmed = part.trim();
+    if (!trimmed.startsWith("v1=")) continue;
+    const hex = trimmed.slice(3);
+    if (!/^[0-9a-fA-F]{64}$/.test(hex)) continue;
+    candidates.push(Buffer.from(hex, "hex"));
+  }
+  if (candidates.length === 0) return false;
+
+  const prefix = Buffer.from(`${timestampSec}.`, "utf8");
+  const bodyBuf = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody, "utf8");
+  const signedPayload = Buffer.concat([prefix, bodyBuf]);
+
+  const activeSecrets = secrets.filter((s) => s.length > 0);
+  if (activeSecrets.length === 0) return false;
+
+  let matched = 0;
+  for (const secret of activeSecrets) {
+    const expected = createHmac("sha256", Buffer.from(secret, "utf8"))
+      .update(signedPayload)
+      .digest();
+    for (const candidate of candidates) {
+      if (candidate.byteLength === expected.byteLength) {
+        matched |= timingSafeEqual(expected, candidate) ? 1 : 0;
+      }
+    }
+  }
+
+  return matched === 1;
+}
+```
+
+When using Express, mount `express.raw({ type: "application/json" })` on your webhook route so `req.body` stays a raw `Buffer` instead of a parsed object.
+
+  </TabItem>
+</Tabs>
+
+## Rotate signing secrets without downtime
+
+Each endpoint supports dual-secret rotation with an overlap window (default `24` hours, configurable from `0` to `168` hours):
+
+1. Trigger rotation in the Provider Portal (**Webhooks** -> **Rotate secret**) or via `POST /api/provider/v1/webhooks/[id]/rotate-secret` with `{ "grace_hours": 24 }`.
+2. Copy the new `whsec_...` secret (shown once). During the overlap window, Agent Registrar signs every delivery with both secrets and emits `X-AgentRegistrar-Signature: v1=<new_hex>,v1=<old_hex>`.
+3. Deploy your receiver with both secrets configured (`[newSecret, oldSecret]`).
+4. Send a `webhook.test` ping and confirm `200`.
+5. Wait for the overlap window to expire automatically, or revoke the previous secret immediately by calling `POST /api/provider/v1/webhooks/[id]/rotate-secret` with `{ "expire_previous_now": true }` (or clicking **Expire previous secret** in the portal), then remove the old secret from your receiver config.
+
+## Retries, timeouts, and circuit breaker
+
+Agent Registrar enforces strict transport limits on every delivery attempt:
+
+- **Timeout:** `5,000` ms total per attempt. Return `2xx` quickly and process slow work asynchronously.
+- **Success status:** Only HTTP `2xx` counts as delivered.
+- **Redirects blocked:** `3xx` responses are never followed and fail immediately with `redirect_blocked`.
+- **Response logging:** Only the first `512` bytes of the response body are read and stored as a sanitized snippet in delivery logs.
+
+### Retry schedule (7 attempts total)
+
+Attempt 1 runs immediately when the event is enqueued. Failed deliveries retry on a durable outbox swept every 5 minutes:
+
+| Attempt | Schedule after prior failure | Outcome on failure |
+| :--- | :--- | :--- |
+| Attempt 1 | Immediate best-effort | Schedules Attempt 2 (`+5 min`) |
+| Attempt 2 | `+5 minutes` | Schedules Attempt 3 (`+15 min`) |
+| Attempt 3 | `+15 minutes` | Schedules Attempt 4 (`+1 hour`) |
+| Attempt 4 | `+1 hour` | Schedules Attempt 5 (`+4 hours`) |
+| Attempt 5 | `+4 hours` | Schedules Attempt 6 (`+12 hours`) |
+| Attempt 6 | `+12 hours` | Schedules Attempt 7 (`+24 hours`) |
+| Attempt 7 | `+24 hours` | Marked `dead_letter` (no further automatic retries) |
+
+### Circuit breaker
+
+Each endpoint tracks `consecutive_failures` and `first_failure_at`, resetting both on any `2xx` response. If an endpoint reaches **10 or more consecutive failures** spanning **at least 24 hours**, Agent Registrar automatically:
+
+1. Disables the endpoint (`enabled: false`, `disabled_reason: "consecutive_failures"`).
+2. Records `provider.webhook.auto_disabled` in the [organization audit log](/providers/events-and-audit/).
+3. Sends one alert email to your verified organization contact email.
+
+After fixing your receiver, re-enable the endpoint in the portal (or via `PATCH /api/provider/v1/webhooks/[id]` with `{ "enabled": true }`) and replay any failed or `dead_letter` deliveries.
+
+### Delivery logs and manual replay
+
+Inspect recent deliveries and per-attempt HTTP status, latency, and error snippets in the Provider Portal or via `GET /api/provider/v1/webhooks/[id]/deliveries`. Replay any failed or `dead_letter` delivery with **Replay** or `POST /api/provider/v1/webhooks/[id]/deliveries/[deliveryId]/replay`.
+
+Terminal delivery records (`delivered`, `dead_letter`, `canceled`) are retained for **30 days**. If your receiver was offline longer than 30 days or you want to backfill missed events without replaying individual deliveries, poll the [Pull Events API](/providers/events-and-audit/).
+
+## Verify your receiver
+
+1. Click **Send test event** in the Provider Portal (or call `POST /api/provider/v1/webhooks/[id]/test`).
+2. Confirm your endpoint logs `webhook.test`, passes HMAC verification, and returns `200` within 5 seconds.
+3. Send a test request locally with one modified byte in the JSON body and confirm your handler rejects it with `401`.
+4. Send a test request with `X-AgentRegistrar-Timestamp` set 600 seconds in the past and confirm your handler rejects it with `401`.
+
+## Next steps
+
+- [Pull events and audit log](/providers/events-and-audit/): backfill missed events via `GET /api/provider/v1/events` and review the 1-year audit trail.
+- [Broker HTTP and OAuth](/reference/broker-http/#provider-portal-api-apiproviderv1): exact schemas and status codes for `/api/provider/v1/webhooks/*`.
+- [Receipts and context guide](/providers/guides/issue-signup-receipt/): deliver async Contract F signup receipts so `signup.confirmed` webhooks fire cleanly.

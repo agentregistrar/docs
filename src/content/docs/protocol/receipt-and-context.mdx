@@ -2,7 +2,7 @@
 title: Receipt and context
 description: The provider-signed Contract E signup receipt, its historical validity window, proof sources, Contract F ingestion, and the hash-pinned context pointer.
 audience: both
-verifiedAgainst: "spec v2.2.0, 2026-11-23"
+verifiedAgainst: "spec v2.3.0, 2026-11-23"
 ---
 
 A successful signup can return two identity artifacts: a provider-signed signup
@@ -84,7 +84,13 @@ removed. No free-form vendor `metadata` object exists.
 
 ## Contract F and proof sources
 
-Contract F (`POST /api/broker/signup-receipt`) accepts exactly:
+Starting in `v2.3.0`, relying parties SHOULD discover the broker's Contract F
+endpoint from `GET <broker_issuer>/.well-known/agent-broker.json` via the
+optional `signup_receipt_endpoint` field ([spec section
+16](/protocol/specification/#16-contract-i--broker-metadata-and-attestation-status)), falling back to
+`<broker_issuer>/api/broker/signup-receipt` when omitted or unavailable.
+
+Contract F accepts exactly:
 
 ```json
 {
@@ -93,7 +99,15 @@ Contract F (`POST /api/broker/signup-receipt`) accepts exactly:
 }
 ```
 
-Both fields are required. The broker checks the effective RP-broker trust list
+Both fields are required. Relying parties SHOULD persist the account, enqueue
+`{ signup_token, rp_attestation }` keyed by `signup_token_jti`, return the
+signup response immediately to the agent, and deliver Contract F asynchronously
+with exponential-backoff retries on network errors, `429` (respecting
+`Retry-After`), `503 rp_broker_unavailable`, and other `5xx` responses; `200`,
+`201`, `400`, `401`, and `409` are terminal ([spec section
+11](/protocol/specification/#11-contract-e-identity-facts--the-context-pointer)).
+
+The broker checks the effective RP-broker trust list
 before any JWKS fetch, verifies the historical attestation and the receipt
 signature, and records an `event_kind: "signup"` verification snapshot with
 `proof_source: "rp_callback"`. It never uses a broker key and never substitutes

@@ -2,7 +2,7 @@
 title: Trust and limits
 description: The liability chain, provider verification modes, trust policy, receipts, abuse reporting, and known gaps.
 audience: both
-verifiedAgainst: "spec v2.2.0, 2026-11-23"
+verifiedAgainst: "spec v2.3.0, 2026-11-23"
 sidebar:
   order: 3
 ---
@@ -289,9 +289,13 @@ Revocation affects new `identity_signup` and `identity_login` calls and
 identity-bound tool calls (`identity_whoami`, `inbox_read`). It does not delete
 a provider account, invalidate an assertion already handed over (which expires
 within 120 seconds for login or five minutes for signup), or reclaim provider
-credentials. A human kill switch sets `revoked`. An operator protective action
-sets `suspended`; the human cannot clear a suspension with the kill switch, and
-new OAuth connections are blocked until the suspension is resolved.
+credentials. Providers subscribed to the signed [`agent.status_changed`
+webhook](/providers/webhooks/) receive a real-time notification carrying
+`agent_id`, the status transition, and their own `provider_account_id` values so
+they can decide locally whether to revoke sessions or API keys. A human kill
+switch sets `revoked`. An operator protective action sets `suspended`; the human
+cannot clear a suspension with the kill switch, and new OAuth connections are
+blocked until the suspension is resolved.
 
 ## Known gaps
 
@@ -354,7 +358,7 @@ it, the broker abuse endpoint.
 
 ## Read the contract
 
-- [Specification](/protocol/specification/): the normative v2.2.0 contract.
+- [Specification](/protocol/specification/): the normative v2.3.0 contract.
 - [Scope boundaries](/protocol/scope-boundaries/): what the protocol must never absorb.
 - [Security](/protocol/security/): wire threat model and verification rules.
 - [Receipt and context](/protocol/receipt-and-context/): Contract E and proof sources.

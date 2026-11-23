@@ -37,7 +37,7 @@ npm run dev
 In another terminal, run the conformance validator:
 
 ```bash
-npx @agentregistrar/discovery@2.2.0 validate http://127.0.0.1:3003/.well-known/agent-signup.json --probe-endpoints --json
+npx @agentregistrar/discovery@2.3.0 validate http://127.0.0.1:3003/.well-known/agent-signup.json --probe-endpoints --json
 ```
 
 Expected: exit code `0`, `"valid": true`, and zero errors.
@@ -122,3 +122,5 @@ are testing that path.
 
 - [Hosting and framework examples](https://docs.agentregistrar.dev/providers/hosting/)
 - [Provider prompt kit](https://docs.agentregistrar.dev/providers/prompt-kit/)
+- [Receipts and context guide](https://docs.agentregistrar.dev/providers/guides/issue-signup-receipt/) (discover `signup_receipt_endpoint` from `/.well-known/agent-broker.json` and deliver Contract F receipts asynchronously)
+- [Receive signed webhooks](https://docs.agentregistrar.dev/providers/webhooks/) (HMAC-SHA256 verification for Cloudflare Workers and Node.js)

@@ -1,8 +1,8 @@
 ---
 title: Receipts and context guide
-description: Issue optional RP-signed signup receipts via Contract E or F, and return a hash-pinned post-signup context guide.
+description: Issue optional RP-signed signup receipts via async Contract F delivery with broker metadata discovery, and return a hash-pinned context guide.
 audience: human
-verifiedAgainst: "spec v2.1.0, broker D22, 2026-11-22"
+verifiedAgainst: "spec v2.3.0, 2026-11-23"
 sidebar:
   order: 7
 ---
@@ -12,9 +12,9 @@ After verifying an assertion and creating or resolving an account, your signup e
 1. **`signup_token` (Contract E):** An RP-signed receipt proving who signed up, for which service, under which terms hash, and when.
 2. **`context`:** A hash-pinned pointer `{ url, sha256 }` to your post-signup vendor documentation (`SKILL.md`).
 
-Both fields are optional. Accepting agent signups requires no provider signing key because broker-managed attestations support `keys: []`. Register an Ed25519 key in the [Provider Portal Credentials tab](/providers/portal/#credentials-tab) only when you want to sign receipts or submit authenticated [abuse reports](/providers/guides/abuse-reporting/).
+Both fields are optional. Base signup conformance stays **keyless**: accepting agent signups requires no provider signing key because broker-managed attestations support `keys: []`. Receipts remain strictly RP-signed (there is no unsigned or API-key receipt tier) so attribution and abuse-report standing stay cryptographically verifiable by any federated broker. Keyless signups remain fully conformant and appear in developer and provider ledgers as **Assertion minted (unconfirmed)** or **Agent-reported** until you register an Ed25519 key in the [Provider Portal Credentials tab](/providers/portal/#credentials-tab) and adopt signed receipts.
 
-See [Receipt and context](/protocol/receipt-and-context/) for the full normative field schema.
+See [Receipt and context](/protocol/receipt-and-context/) for the full normative field schema and [spec section 11](/protocol/specification/#11-contract-e-identity-facts--the-context-pointer) for the `v2.3.0` asynchronous Contract F profile.
 
 ## Signup receipt claims (Contract E)
 
@@ -133,9 +133,49 @@ Return `signup_token` and optional `context` in your signup response alongside a
 
 Two recording paths exist:
 
-### Server-to-server callback (Contract F)
+### Discover `signup_receipt_endpoint` (Contract I, `v2.3.0`)
 
-For strongest attribution (`proof_source: "rp_callback"`, shown as **Provider-reported** in the portal), POST `{ signup_token, rp_attestation }` directly from your backend to the broker:
+Instead of hardcoding a broker receipt path, discover `signup_receipt_endpoint` from the human broker's metadata document at `GET <broker_issuer>/.well-known/agent-broker.json` (where `<broker_issuer>` is the verified assertion's `iss`):
+
+```ts
+export async function resolveSignupReceiptEndpoint(brokerIssuer: string): Promise<string> {
+  const origin = new URL(brokerIssuer).origin;
+  const fallback = `${origin}/api/broker/signup-receipt`;
+
+  try {
+    const res = await fetch(`${origin}/.well-known/agent-broker.json`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return fallback;
+    const meta = (await res.json()) as {
+      issuer?: string;
+      signup_receipt_endpoint?: string;
+    };
+    if (meta.issuer !== origin || typeof meta.signup_receipt_endpoint !== "string") {
+      return fallback;
+    }
+    const endpoint = new URL(meta.signup_receipt_endpoint);
+    if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password) {
+      return fallback;
+    }
+    return endpoint.toString();
+  } catch {
+    return fallback;
+  }
+}
+```
+
+Cache the discovered URL per broker issuer in memory (for example 15 minutes). Cross-origin `signup_receipt_endpoint` values are permitted by Contract I under standard SSRF checks (rejecting private, loopback, and link-local addresses), though same-origin is recommended. When a broker omits `signup_receipt_endpoint` or metadata is unavailable, fall back to `<broker_issuer>/api/broker/signup-receipt`.
+
+### Asynchronous server-to-server callback (Contract F, recommended)
+
+For strongest attribution (`proof_source: "rp_callback"`, shown as **Confirmed (provider-signed)** / **Provider-reported** in the portal) without adding broker latency to your signup endpoint, deliver Contract F receipts asynchronously from a durable outbox:
+
+1. Persist the local account inside your `POST endpoints.agent_signup` handler.
+2. Sign the Contract E `signup_token` using your active Ed25519 key and the exact `rp_attestation` JWS active at signing time.
+3. Enqueue `{ signup_token, rp_attestation, receipt_endpoint }` in a durable outbox table keyed by `signup_token_jti`.
+4. Return `201` (or `200` on resolve) immediately to the agent with `signup_token` and optional `context`.
+5. Trigger a best-effort background `POST` to `receipt_endpoint` (for example with `waitUntil` or `after()`), backed by a periodic retry worker sweeping pending rows.
 
 ```bash
 curl -sS -X POST https://agentregistrar.dev/api/broker/signup-receipt \
@@ -143,9 +183,23 @@ curl -sS -X POST https://agentregistrar.dev/api/broker/signup-receipt \
   -d '{"signup_token":"<compact JWS>","rp_attestation":"<exact attestation JWS>"}'
 ```
 
-- Always send the **exact historical attestation** named by `service.attestation_jti`. Never substitute a newer renewed attestation; if the exact attestation is unavailable, the broker returns `attestation_unavailable`.
-- Duplicate `jti` with identical payload returns `200` with `deduplicated: true`; conflicting payload returns `409 signup_conflict`.
-- Transient RP-broker JWKS or metadata outages return retryable `503 rp_broker_unavailable`.
+- Always store and send the **exact historical attestation** named by `service.attestation_jti`. Never substitute a newer renewed attestation; because Contract E receipts are verified historically against the attestation's `[iat, exp]` window at signing time, delayed retries succeed cleanly even after attestation renewal or expiry.
+- Receipts are idempotent forever on `jti`. Delivering a new `rp_callback` receipt also emits a [`signup.confirmed` webhook](/providers/webhooks/#subscribable-events) if you subscribe to it (or `signup.conflict` if an account mismatch is detected).
+
+#### Contract F retryability matrix
+
+Classify every Contract F response in your outbox worker as follows:
+
+| Outcome / HTTP status | `code` (when present) | Outbox action |
+| :--- | :--- | :--- |
+| Network error / timeout | - | **Retry** with exponential backoff. |
+| `429` | `rate_limited` | **Retry** with exponential backoff; honor `Retry-After` when present. |
+| `503` | `rp_broker_unavailable` | **Retry** with exponential backoff (transient trusted-broker metadata or JWKS outage). |
+| Other `5xx` | - | **Retry** with exponential backoff. |
+| `200` / `201` | - | **Terminal** (delivered or `deduplicated: true`; mark complete). |
+| `400` | `invalid_request` | **Terminal** (do not retry; fix malformed JSON or missing fields). |
+| `401` | `invalid_attestation`, `rp_broker_untrusted`, `invalid_signup_token`, `attestation_not_valid_at_signing`, `attestation_unavailable` | **Terminal** (do not retry; cryptographic, trust, or historical-window rejection). |
+| `409` | `signup_conflict` | **Terminal** (do not retry; same `jti` submitted with a conflicting body). |
 
 ### Agent-carried receipt via MCP
 

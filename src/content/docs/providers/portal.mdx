@@ -1,8 +1,8 @@
 ---
 title: Provider Portal
-description: Set up services with the 3-step wizard, inspect signups and CSV exports, manage keys, invite teammates, and review plan limits.
+description: Set up services with the 3-step wizard, inspect signups, manage webhooks, keys, and audit logs, invite teammates, and review plan limits.
 audience: human
-verifiedAgainst: "spec v2.2.0, 2026-11-23"
+verifiedAgainst: "spec v2.3.0, 2026-11-23"
 sidebar:
   order: 4
 ---
@@ -17,7 +17,7 @@ You do not need a provider account to verify assertions against public JWKS, but
 2. Enter your organization display name, permanent URL slug, and contact email.
 3. Verify your organization contact email via the link sent to that address (you can also re-send or update it later under **Settings**). An unverified contact email does not block setup, but it blocks marking a service live.
 
-Once created, your workspace lives at `/provider/[slug]` with five tabs: **Services**, **Signups**, **Credentials**, **Team**, and **Settings**.
+Once created, your workspace lives at `/provider/[slug]` with six tabs: **Services**, **Signups**, **Webhooks**, **Credentials**, **Team**, and **Settings**.
 
 ## Services tab
 
@@ -73,9 +73,22 @@ Proof strength is labeled explicitly on every row:
 | **Provider-signed** | `rp_signed` | Verified: the agent recorded an RP-signed receipt via `identity_record_signup`. |
 | **Self-report** | `agent_self_reported` | Weaker historical or unverified claim with no provider signature. |
 
-If a stronger receipt arrives for the same agent, audience, and account, the ledger displays the strongest proof and folds weaker entries into an expandable history row without double-counting the signup.
+If a stronger receipt arrives for the same agent, audience, and account, the ledger displays the strongest proof and folds weaker entries into an expandable history row without double-counting the signup. The summary bar breaks down **Confirmed (provider-signed)** receipts, **Agent-reported** signups, and **Conflicts**, and displays the discoverable Contract F receipt endpoint advertised in `/.well-known/agent-broker.json` (`signup_receipt_endpoint`).
 
 Click **Export CSV** to download `<slug>-signups.csv` directly in your browser. The export uses RFC 4180 quoting over the rendered rows and makes no additional network request.
+
+## Webhooks tab
+
+Route: `/provider/[slug]/webhooks`
+
+The **Webhooks** tab manages signed outbound HTTP endpoints (`5` on `free`, `15` on `pro`). Owners and admins can create, edit, enable, disable, rotate secrets, send test events, and delete endpoints; all organization members can view endpoints and delivery history.
+
+- **One-time secret reveal:** Creating or rotating a secret displays the `whsec_...` plaintext once. Only the 12-character `secret_prefix` is shown afterward.
+- **Dual-secret rotation:** Rotating starts a 24-hour overlap window by default (both active and previous signatures are sent in `X-AgentRegistrar-Signature`), with an option to expire the previous secret immediately.
+- **Delivery log and replay:** Inspect recent deliveries, HTTP statuses, latency, response snippets (capped at 512 bytes), and retry attempts, and replay failed or `dead_letter` deliveries directly from the drawer.
+- **Circuit breaker:** Endpoints that fail 10 or more consecutive deliveries over at least 24 hours are automatically disabled and an alert is emailed to your verified organization contact email.
+
+See [Receive signed webhooks](/providers/webhooks/) for HMAC verification code, event payloads, and retry timing.
 
 ## Credentials tab
 
@@ -101,6 +114,8 @@ Create scoped bearer API keys for CI pipelines or backend automation calling the
 | `keys:write` | Request key challenges and register, retire, or revoke RP keys. |
 | `attestation:read` | Read the current provider attestation. |
 | `attestation:write` | Issue or renew a provider attestation. |
+| `events:read` | Poll the organization audit log via `GET /api/provider/v1/events`. |
+| `webhooks:write` | Create, update, rotate secrets, test, inspect deliveries, replay, and delete webhook endpoints via `/api/provider/v1/webhooks/*`. |
 
 The full API key secret is shown **once** at creation and cannot be recovered. Store it in your secret manager and revoke unused keys immediately.
 
@@ -120,10 +135,13 @@ Route: `/provider/[slug]/settings`
 
 - **Organization details:** Owners and admins can rename the organization display name. The organization slug is permanent.
 - **Contact email:** Only the owner can change the organization contact email or re-send verification links (24-hour single-use link, 60-second resend cooldown). Changing the address clears verification until the new address is confirmed.
-- **Plan and limits:** Displays your operator-assigned plan (`free` or `pro`), enabled feature flags, and current usage against limits (live services, member seats where the owner does not consume a seat, live origins per service, and check history retention window). There is no self-serve checkout, pricing page, or invoice flow in this release; contact the broker operator if you need higher service or origin limits.
+- **Plan and limits:** Displays your operator-assigned plan (`free` or `pro`), enabled feature flags (including `webhooks` and `events_api`), and current usage against limits (live services, member seats where the owner does not consume a seat, live origins per service, webhook endpoints up to `5` on `free` or `15` on `pro`, and check history retention window). There is no self-serve checkout, pricing page, or invoice flow in this release; contact the broker operator if you need higher limits.
+- **Audit log:** Review the read-only, event-type-filterable organization audit timeline (retained for 1 year) showing actor, service, and redacted change metadata with zero raw IP or User-Agent PII. See [Pull events and audit log](/providers/events-and-audit/).
 
 ## Next steps
 
+- [Receive signed webhooks](/providers/webhooks/): subscribe to agent revocation, signup confirmation, and attestation alerts.
+- [Pull events and audit log](/providers/events-and-audit/): poll `GET /api/provider/v1/events` or review the portal audit log.
 - [Publish discovery](/providers/guides/publish-discovery/): details on identity-only fields, terms hosting, and attestation modes.
-- [Receipts and context guide](/providers/guides/issue-signup-receipt/): sign Contract E receipts and deliver them via Contract F.
+- [Receipts and context guide](/providers/guides/issue-signup-receipt/): sign Contract E receipts and deliver them asynchronously via Contract F.
 - [Report abuse](/providers/guides/abuse-reporting/): submit authenticated Contract D.2 reports.

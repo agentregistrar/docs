@@ -1,8 +1,8 @@
 ---
 title: Broker HTTP and OAuth
-description: Broker metadata, JWKS, MCP transport, OAuth 2.1 agent binding, provider-verification, abuse-report, and signup-receipt endpoints.
+description: Broker metadata, JWKS, MCP transport, OAuth 2.1 agent binding, signup receipts, abuse reports, and Provider API v1 webhooks and events.
 audience: both
-verifiedAgainst: "spec v2.2.0, 2026-11-23"
+verifiedAgainst: "spec v2.3.0, 2026-11-23"
 sidebar:
   order: 3
 ---
@@ -37,13 +37,40 @@ string, and no example contains a real token.
 
 | Method | Path | Status | Content type | Notes |
 | :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/.well-known/agent-broker.json` | `200` | `application/json` | Contract I broker metadata (`v2.3.0` adds optional `signup_receipt_endpoint`). |
 | `GET` | `/.well-known/oauth-protected-resource` | `200` | `application/json` | RFC 9728 protected resource metadata for `/mcp`. |
 | `GET` | `/.well-known/oauth-authorization-server` | `200` | `application/json` | RFC 8414 authorization server metadata. |
 | `GET` | `/.well-known/jwks.json` | `200` | `application/json` | Public Ed25519 keys. `Cache-Control: public, max-age=300`. |
 | `OPTIONS` | each of the above | `204` | none | CORS preflight. |
 
-All three set `Access-Control-Allow-Origin: *`. Only the JWKS sets an explicit
-cache directive; the two OAuth metadata documents carry no cache header.
+All four set `Access-Control-Allow-Origin: *`. Only the JWKS sets an explicit
+cache directive; the OAuth and broker metadata documents carry no cache header.
+
+`GET /.well-known/agent-broker.json` (Contract I, `v2.3.0`):
+
+```json
+{
+  "issuer": "https://agentregistrar.dev",
+  "jwks_uri": "https://agentregistrar.dev/.well-known/jwks.json",
+  "attestation_status_uri": "https://agentregistrar.dev/api/broker/attestation-status",
+  "abuse_endpoint": "https://agentregistrar.dev/api/broker/report-abuse",
+  "signup_receipt_endpoint": "https://agentregistrar.dev/api/broker/signup-receipt",
+  "protocol_versions": ["2.0"],
+  "contact": "privacy@agentregistrar.dev"
+}
+```
+
+| Field | Requirement | Rule |
+| :--- | :--- | :--- |
+| `issuer` | required | Canonical HTTPS origin equal to the document origin and attestation `iss`. |
+| `jwks_uri` | required | Absolute HTTPS URL (no userinfo), same origin as `issuer`. |
+| `attestation_status_uri` | required | Absolute HTTPS URL (no userinfo) for legacy signed attestation status queries. |
+| `abuse_endpoint` | required | Absolute HTTPS URL (no userinfo) accepting Contract D.2 abuse reports. |
+| `signup_receipt_endpoint` | optional (`v2.3.0`) | Absolute HTTPS URL (no userinfo) accepting Contract F signup receipts. Cross-origin allowed under SSRF rules; same-origin recommended. Fallback when omitted: `<issuer>/api/broker/signup-receipt`. |
+| `protocol_versions` | required | Non-empty unique array containing `"2.0"`. |
+| `contact` | required | Email address or absolute HTTPS URL. |
+
+Unknown properties are forbidden (`additionalProperties: false`). See [spec section 16](/protocol/specification/#16-contract-i--broker-metadata-and-attestation-status).
 
 `GET /.well-known/oauth-protected-resource`:
 
@@ -349,7 +376,11 @@ suspended or revoked provider.
 
 ### POST /api/broker/signup-receipt
 
-Contract F server-to-server receipt ingestion. Both fields are required:
+Contract F server-to-server receipt ingestion, advertised as
+`signup_receipt_endpoint` in `GET /.well-known/agent-broker.json` (`v2.3.0`).
+Relying parties should discover the URL from Contract I metadata (falling back
+to `<issuer>/api/broker/signup-receipt`) and deliver asynchronously from a
+durable outbox. Both body fields are required:
 
 ```json
 {
@@ -382,7 +413,12 @@ Success is `201` (created) or `200` (deduplicated or upgraded from Tier 2):
 }
 ```
 
-Error codes are listed in [Provider API and Contract F/D.2
+Retry on network errors, `429` (honoring `Retry-After`), `503
+rp_broker_unavailable`, and other `5xx` responses; treat `200`, `201`, `400`,
+`401`, and `409` as terminal. See [spec section
+11](/protocol/specification/#11-contract-e-identity-facts--the-context-pointer),
+[Receipts and context guide](/providers/guides/issue-signup-receipt/), and
+[Provider API and Contract F/D.2
 errors](/reference/error-codes/#provider-api-and-contract-fd2-errors).
 
 ### POST /api/broker/report-abuse
@@ -436,8 +472,25 @@ otherwise). Agents, harnesses, and relying parties must not call it.
 ## Provider Portal API (`/api/provider/v1/*`)
 
 The [Provider Portal](/providers/portal/) and provider automation use scoped
-REST endpoints under `/api/provider/v1/*` (authenticated by provider portal
-session or a scoped provider API key):
+REST endpoints under `/api/provider/v1/*`. Every response sets
+`Cache-Control: no-store` and returns JSON. Errors use
+`{ error, error_description, code }` (with `WWW-Authenticate: Bearer realm="provider-api"` on `401`).
+
+### Provider API key scopes
+
+Bearer keys (`Authorization: Bearer <provider_api_key>`) carry one or more of
+six scopes:
+
+| Scope | Permission |
+| :--- | :--- |
+| `account:read` | Read provider account, status, plan, and entitlements. |
+| `keys:write` | Request key challenges and register, retire, or revoke RP signing keys. |
+| `attestation:read` | Read the current provider attestation. |
+| `attestation:write` | Issue or renew a provider attestation. |
+| `events:read` | Read paginated organization events from `GET /api/provider/v1/events`. |
+| `webhooks:write` | Manage webhook endpoints, rotate secrets, send test pings, read deliveries, and replay deliveries under `/api/provider/v1/webhooks/*`. |
+
+### Route groups
 
 | Route group | Purpose |
 | :--- | :--- |
@@ -447,11 +500,65 @@ session or a scoped provider API key):
 | `/api/provider/v1/services/[id]/dry-run`, `.../dry-run/challenge`, `.../dry-run/receipt` | Run end-to-end assertion and receipt dry-run tests from the Provider Portal. |
 | `/api/provider/v1/keys`, `.../keys/challenge`, `.../keys/[kid]/retire`, `.../keys/[kid]/revoke` | Register Ed25519 signing keys with proof-of-possession (optional; required only for signed receipts or abuse reporting), retire, or revoke keys. |
 | `/api/provider/v1/attestation` | Inspect or rotate the provider's verification credential (`broker` default or `provider` opt-in). |
-| `/api/provider/v1/api-keys`, `.../api-keys/[id]/revoke` | Issue and revoke scoped provider API keys (`account:read`, `keys:write`, `attestation:read`, `attestation:write`). |
+| `/api/provider/v1/api-keys`, `.../api-keys/[id]/revoke` | Issue and revoke scoped provider API keys (`account:read`, `keys:write`, `attestation:read`, `attestation:write`, `events:read`, `webhooks:write`). |
+| `/api/provider/v1/webhooks`, `/api/provider/v1/webhooks/[id]`, `.../rotate-secret`, `.../test`, `.../deliveries`, `.../deliveries/[deliveryId]/replay` | Create, update, delete, rotate secrets, ping, inspect deliveries, and replay deliveries for signed outbound webhooks. |
+| `/api/provider/v1/events` | Cursor-paginated Pull Events API over the 1-year organization audit log. |
 | `/api/provider/v1/members/*`, `/api/provider/v1/ownership/transfer/*` | Manage team members, invites, roles, and organization ownership transfer. |
+
+### Provider Webhooks API (`/api/provider/v1/webhooks/*`)
+
+All webhook endpoints require the `webhooks` plan feature (enabled on `free` and
+`pro`) and enforce `max_webhook_endpoints` (`5` on `free`, `15` on `pro`).
+Mutations require an active provider organization (`provider_accounts.status = "active"`).
+Session callers need `owner` or `admin` for mutations and any role (`owner`,
+`admin`, `member`) for reads; API key callers require `webhooks:write`.
+
+| Method | Path | Success | Auth | Request / Response contract |
+| :--- | :--- | :-: | :--- | :--- |
+| `GET` | `/api/provider/v1/webhooks` | `200` | Member session or `webhooks:write` | Returns `{ endpoints }` (never returns encrypted or plaintext secrets; includes `secret_prefix` and `previous_secret_expires_at`). |
+| `POST` | `/api/provider/v1/webhooks` | `201` | Owner/admin session or `webhooks:write` | Body `{ url, description?, subscribed_events }`. `url` must be a public HTTPS URL (max `2048` chars, SSRF-checked); `description` optional string or `null` (max `256` chars); `subscribed_events` non-empty array of subscribable event types. Returns `{ endpoint, signing_secret }` with plaintext `whsec_...` shown **once**. |
+| `GET` | `/api/provider/v1/webhooks/[id]` | `200` | Member session or `webhooks:write` | Returns `{ endpoint }` without secrets. |
+| `PATCH` | `/api/provider/v1/webhooks/[id]` | `200` | Owner/admin session or `webhooks:write` | Body requires at least one of `{ url?, description?, subscribed_events?, enabled? }`. Re-enabling an auto-disabled endpoint clears `disabled_reason` and resets failure counters. Returns `{ endpoint }`. |
+| `DELETE` | `/api/provider/v1/webhooks/[id]` | `200` | Owner/admin session or `webhooks:write` | Deletes the endpoint and cancels pending deliveries. Returns `{ id, deleted: true }`. |
+| `POST` | `/api/provider/v1/webhooks/[id]/rotate-secret` | `200` | Owner/admin session or `webhooks:write` | Body `{ grace_hours?: 0..168 (default 24), expire_previous_now?: boolean (default false) }`. Returns `{ endpoint, signing_secret }`, where `signing_secret` is the new plaintext `whsec_...` (shown **once**) on rotation, or `null` when `{ "expire_previous_now": true }` clears the retiring secret without rotating the active secret. |
+| `POST` | `/api/provider/v1/webhooks/[id]/test` | `200` | Owner/admin session or `webhooks:write` | Dispatches a signed `webhook.test` delivery synchronously and returns `{ delivery, attempt }`. |
+| `GET` | `/api/provider/v1/webhooks/[id]/deliveries` | `200` | Member session or `webhooks:write` | Query params `cursor`, `limit`, `status`. Returns `{ deliveries, next_cursor, has_more }` (retained 30 days) with status (`pending`, `in_flight`, `delivered`, `dead_letter`, `canceled`), `attempt_count`, HTTP status, latency, and sanitized response snippet (max `512` bytes). |
+| `POST` | `/api/provider/v1/webhooks/[id]/deliveries/[deliveryId]/replay` | `202` | Owner/admin session or `webhooks:write` | Resets a failed, `dead_letter`, or `canceled` delivery scoped to `(id, provider_id)` back to `pending`, schedules an immediate delivery attempt, and returns `{ delivery }`. |
+
+Outbound webhook delivery contract (see [Receive signed webhooks](/providers/webhooks/) for copy-paste verifiers):
+
+- **Headers:** `Content-Type: application/json; charset=utf-8`, `User-Agent: AgentRegistrar-Webhooks/1.0`, `X-AgentRegistrar-Delivery-Id: whd_<ulid>`, `X-AgentRegistrar-Event: <event_type>`, `X-AgentRegistrar-Timestamp: <unix_seconds>`, `X-AgentRegistrar-Signature: v1=<hex>[,v1=<hex>]`.
+- **Signature:** `HMAC-SHA256(utf8(whsec_...), utf8("${timestamp}.${raw_utf8_json_body}"))` as lowercase hex; verify within `+/- 300` seconds in constant time.
+- **Envelope:** `{ id: "evt_<ulid>", type, api_version: "2026-11-23", created_at, provider_id, data }`.
+- **Subscribable `type` values:** `agent.status_changed`, `abuse.case.updated`, `service.health_changed`, `signup.confirmed`, `signup.conflict`, `attestation.expiring`, `attestation.status_changed` (plus manual `webhook.test`).
+- **Transport:** HTTPS-only with pre-connect public-IP DNS check, redirects disabled (`3xx` fails as `redirect_blocked`), `5,000` ms timeout, `2xx` required for delivery, 7 attempts (`immediate`, `+5m`, `+15m`, `+1h`, `+4h`, `+12h`, `+24h` -> `dead_letter`), circuit breaker auto-disables after `>= 10` consecutive failures spanning `>= 24` hours.
+
+### Pull Events API (`GET /api/provider/v1/events`)
+
+Cursor-paginated read endpoint over `provider_events` (requires the `events_api`
+plan feature, enabled on `free` and `pro`). Accessible with a provider API key
+carrying `events:read` or a provider session (`owner`, `admin`, or `member`).
+
+| Query parameter | Type | Default | Constraint |
+| :--- | :--- | :--- | :--- |
+| `cursor` | string | omitted | Opaque cursor (`1..256` chars) from the prior page. |
+| `limit` | integer | `25` | `1..100`. |
+| `type` | string | omitted | Frozen `provider.*` event name (see [Pull events and audit log](/providers/events-and-audit/#event-catalog)). |
+| `service_id` | UUID | omitted | Scope results to one service in the provider organization. |
+| `since` | ISO 8601 datetime with offset | omitted | Lower time bound; clamped to the 1-year (`365`-day) retention lookback window. |
+| `until` | ISO 8601 datetime with offset | omitted | Upper time bound. |
+
+Returns `200` with `{ events, next_cursor, has_more }`. Each event row carries
+`id`, `provider_id`, `event_type`, `actor_kind` (`member`, `operator`,
+`system`), `actor_human_id`, `service_id`, `request_id`, `metadata`, optional
+redacted scalar `changes` (max `1,024` UTF-8 bytes), and `created_at`. Raw
+client IP addresses, User-Agent strings, secrets, and provider credentials are
+never stored or returned.
 
 ## Related
 
-- [MCP tools](/reference/mcp-tools/) for the four tool contracts.
+- [Receive signed webhooks](/providers/webhooks/) for HMAC verification code and secret rotation.
+- [Pull events and audit log](/providers/events-and-audit/) for cursor backfill examples and the full event catalog.
+- [MCP tools](/reference/mcp-tools/) for the five tool contracts.
 - [Error codes](/reference/error-codes/) for every HTTP, OAuth, and MCP error code.
 - [Changelog](/protocol/changelog/) and [Specification](/protocol/specification/) for protocol versioning rules.

@@ -2,12 +2,12 @@
 title: Agent Identity Protocol
 description: Status, version, five-step handshake, and normative reference for the Agent Identity Protocol.
 audience: both
-verifiedAgainst: "spec v2.2.0, 2026-11-23"
+verifiedAgainst: "spec v2.3.0, 2026-11-23"
 ---
 
 The **Agent Identity Protocol** (`agent-identity-protocol`) is an open identity and brokerage protocol. A relying party publishes an identity-only discovery document; an agent obtains a signed assertion from its broker and completes signup or Day-2 re-login on behalf of a verified human owner. The protocol ends when the account is created or resolved (or a fresh session is issued), the terms acceptance is recorded, and the optional receipt or `handoff` is returned.
 
-**Status:** specification release `v2.2.0` (wire protocol `agent-identity-protocol`, `protocol_version: "2.0"`). Discovery carries provider-hosted terms (`terms: { version, url }`), required `endpoints.agent_signup`, optional Day-2 `endpoints.agent_login`, and optional broker- or provider-managed attestations (`keys: []` supported by default).
+**Status:** specification release `v2.3.0` (wire protocol `agent-identity-protocol`, `protocol_version: "2.0"`). Discovery carries provider-hosted terms (`terms: { version, url }`), required `endpoints.agent_signup`, optional Day-2 `endpoints.agent_login`, and optional broker- or provider-managed attestations (`keys: []` supported by default). Broker metadata (`/.well-known/agent-broker.json`) advertises optional `signup_receipt_endpoint` for asynchronous Contract F receipt delivery.
 
 ## The handshake in five steps
 
@@ -22,7 +22,7 @@ The **Agent Identity Protocol** (`agent-identity-protocol`) is an open identity 
 <CardGrid>
   <LinkCard
     title="Specification"
-    description="The normative text, rendered from v2.2.0."
+    description="The normative text, rendered from v2.3.0."
     href="/protocol/specification/"
   />
   <LinkCard
@@ -62,7 +62,7 @@ The **Agent Identity Protocol** (`agent-identity-protocol`) is an open identity 
   />
   <LinkCard
     title="Release notes and changelog"
-    description="v2.2.0 and earlier releases, newest first."
+    description="v2.3.0 and earlier releases, newest first."
     href="/protocol/changelog/"
   />
   <LinkCard
@@ -72,4 +72,4 @@ The **Agent Identity Protocol** (`agent-identity-protocol`) is an open identity 
   />
 </CardGrid>
 
-The canonical source is [agentregistrar/spec](https://github.com/agentregistrar/spec). The rendered normative pages are generated from `v2.2.0`; do not edit them by hand.
+The canonical source is [agentregistrar/spec](https://github.com/agentregistrar/spec). The rendered normative pages are generated from `v2.3.0`; do not edit them by hand.
