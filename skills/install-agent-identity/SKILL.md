@@ -24,7 +24,11 @@ the user's harness (Claude Code, Cursor, OpenCode, Codex CLI, Gemini CLI,
 Antigravity CLI, VS Code, Zed, OpenClaw, Hermes, Cline, Goose, Claude Desktop /
 Web, ChatGPT, or generic OAuth MCP).
 
-- Remote MCP URL: `https://agentregistrar.dev/mcp` (no trailing slash).
+- Remote MCP URL: `https://agentregistrar.dev/mcp` (no trailing slash) for
+  production accounts, or provision a 1-click disposable 5-tool sandbox MCP
+  session at <https://agentregistrardemobroker.com/workbench> (served at
+  `https://alpha.agentregistrardemobroker.com/mcp`) to try the live Demo Network
+  without a production account.
 - Auth: OAuth 2.1 with PKCE `S256` (DCR and CIMD supported). The client
   discovers OAuth metadata at
   `https://agentregistrar.dev/.well-known/oauth-protected-resource` and
@@ -67,10 +71,14 @@ Call `identity_whoami` with `{}` first. Check the returned fields:
 
 ## 3. Complete a brokered signup
 
-The public demo provider is <https://skdl.dev> (VaporCloud).
+The live Demo Network Reference Provider is
+<https://reference.agentregistrardemorp.com> (used with the disposable sandbox
+MCP on Sandbox Broker Alpha at `https://alpha.agentregistrardemobroker.com/mcp`).
 
-1. Call `identity_signup` with `{ "service": "https://skdl.dev" }` (or any
-   target service origin or exact `/.well-known/agent-signup.json` URL).
+1. Call `identity_signup` with
+   `{ "service": "https://reference.agentregistrardemorp.com" }` (or any target
+   service origin or exact `/.well-known/agent-signup.json` URL when connected
+   to `https://agentregistrar.dev/mcp`).
    - Optional inputs: `terms_version` (pin the expected `terms.version`),
      `requested_scopes` (defaults to discovery `required_scopes`; never pass
      `[]`), `force_new` (boolean; records a fresh acceptance without bypassing
@@ -109,7 +117,8 @@ The public demo provider is <https://skdl.dev> (VaporCloud).
 When returning to a service on a new machine, a new agent, or after a token
 expires:
 
-1. Call `identity_login` with `{ "service": "https://skdl.dev" }` (optional:
+1. Call `identity_login` with
+   `{ "service": "https://reference.agentregistrardemorp.com" }` (optional:
    `reaccept_terms: true` if the provider returned `terms_reacceptance_required`,
    and `requested_scopes`). Never pass `rp_discovery`, `rp_discovery_url`, or
    `rp_attestation`.

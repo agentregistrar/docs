@@ -1,8 +1,8 @@
 ---
 title: Try the demo network
-description: Try the live two-broker, three-provider demo network and inspect VaporCloud across verified and unverified signup flows.
+description: Run the 7-host open-source demo network with sandbox MCP, live scenarios, Wire Inspector, and Provider Workbench.
 audience: both
-verifiedAgainst: "spec v2.2.0, 2026-11-23"
+verifiedAgainst: "spec v2.3.0, demo-network, 2026-11-24"
 sidebar:
   label: Demo network
   order: 0
@@ -10,152 +10,143 @@ sidebar:
 
 import DemoNetworkDiagram from "../../../components/diagrams/DemoNetworkDiagram.astro";
 
-The demo network is a deployed test environment for the Agent Identity Protocol (`v2.2.0`, wire `protocol_version: "2.0"`). It pairs two brokers with three test providers so you can compare same-broker, cross-broker, and unverified signup paths live, alongside the VaporCloud reference provider at [skdl.dev](https://skdl.dev).
+The Demo Network is a deployed 7-host open-source testbed for the Agent Identity Protocol (`v2.3.0`, wire `protocol_version: "2.0"`), published at [agentregistrar/demo-network](https://github.com/agentregistrar/demo-network) (Apache-2.0, Hono + SQLite/D1). It pairs two sandbox brokers with three simulated relying parties, a live runner, and a Provider Workbench so you can test same-broker, cross-broker, unverified-policy, Day-2 lifecycle, and abuse kill-switch flows without touching production accounts.
 
-Broker B, the three demo providers, and VaporCloud are **simulated third parties** operated by Agent Registrar. They are not independent adopters, not production services, and carry no provisioning, billing, SLA, uptime, or endorsement claims. Use only test data; provider terms describe test services only. Re-run the validation commands below before relying on any live output.
+All seven hosts are **completely isolated** from production `agentregistrar.dev` and are **simulated third parties** operated as a public sandbox. They use disposable accounts, a virtual in-database inbox, zero real emails, and automatic TTL cleanup. They carry no provisioning, billing, SLA, uptime, or endorsement claims.
 
-<Aside type="note" title="What is real">
-A demo signup creates a real terms acceptance record under your human identity in Broker A (`/activity`). The provider account, credential, and provider-side data are test-only and may be reset.
+<Aside type="note" title="Strict sandbox isolation">
+Nothing you run on the Demo Network writes to your real `agentregistrar.dev` account or sends real email. To test against production accounts and real providers, connect `https://agentregistrar.dev/mcp` in the [Agent quickstart](/agents/quickstart/).
 </Aside>
 
-## Roles and trust
+## Seven live hosts
 
-| Host | Role | Registered with | Attestation | What to expect |
+| Host | Role | Registered with | Attestation | What it provides |
 | :--- | :--- | :--- | :--- | :--- |
-| [Broker A](https://agentregistrar.dev) | Human/agent broker | Home broker | n/a | Your human identity, agent, trust policy, and `/activity` audit trail |
-| [Broker B](https://agentregistrardemobroker.com/.well-known/agent-broker.json) | Provider broker | RP-only demo broker | B issues the P2 attestation | Metadata, JWKS, and signed status; does not register agents |
-| [P1](https://verifiedprovider1.agentregistrardemorp.com/.well-known/agent-signup.json) | Verified provider | A | A, broker-managed | `verified` in A; A-attested signed receipt can be recorded |
-| [P2](https://verifiedprovider2.agentregistrardemorp.com/.well-known/agent-signup.json) | Verified provider | B | B issues; P2 hosts | `verified` after you trust B in `/trust`; B-attested receipt can be recorded |
-| [P3](https://unverifiedprovider1.agentregistrardemorp.com/.well-known/agent-signup.json) | Unverified provider | Neither | None | Unverified; `no_verify` proceeds, `verify` and `strict` block, `blocked` always refuses |
-| [Landing](https://agentregistrardemorp.com) | Demo status page | None | None | Host links and live status; no protocol identity |
+| [Hub & Workbench](https://agentregistrardemobroker.com) | Hub UI (indexed) | n/a | n/a | Live 7-host status, 5-scenario Live Runner, Wire Inspector, Virtual Inbox drawer, and `/workbench` |
+| [Sandbox Broker Alpha](https://alpha.agentregistrardemobroker.com/.well-known/agent-broker.json) | Human/agent sandbox broker (`noindex`) | Home sandbox broker | Issues broker-managed attestations | Contract A assertions, disposable 5-tool `/mcp`, JWKS, status, receipts, and abuse endpoint |
+| [Sandbox Broker Beta](https://beta.agentregistrardemobroker.com/.well-known/agent-broker.json) | Provider sandbox broker (`noindex`) | RP-only broker | Issues Contract G attestations | Independent broker issuing provider-managed attestations for cross-broker federation |
+| [Demo RP Directory](https://agentregistrardemorp.com) | RP landing (`noindex`) | None | None | Live directory and status probes for the simulated relying parties |
+| [Reference Provider](https://reference.agentregistrardemorp.com/.well-known/agent-signup.json) | Reference RP (`noindex`) | Alpha | Alpha, `mode: "broker"` | `audience: "demo-reference"`; Day-2 `/api/login/agent`, `ref_sess_` tokens, `/api/widgets`, `/docs/SKILL.md` |
+| [Federated Provider](https://federated.agentregistrardemorp.com/.well-known/agent-signup.json) | Federated RP (`noindex`) | Beta | Beta issues; RP hosts `mode: "provider"` | `audience: "demo-federated"`; `issuer_allowlist` trusts Alpha; cross-broker receipt to Alpha |
+| [Unverified Provider](https://unverified.agentregistrardemorp.com/.well-known/agent-signup.json) | Minimal RP (`noindex`) | Neither | None | `audience: "demo-unverified"`; omits `attestation` to test `verify`, `strict`, `no_verify`, and `blocked` |
 
-A verified provider publishes an optional `attestation` source object in discovery, never the token itself: P1 uses broker-managed mode via A, and P2 uses provider-managed mode where B issues the token and P2 hosts the source document on its own origin. P3 publishes no `attestation` object.
+A verified provider publishes an optional `attestation` source object in discovery, never the token itself. **Reference Provider** uses broker-managed mode via Sandbox Broker Alpha, and **Federated Provider** uses provider-managed mode where Sandbox Broker Beta signs the Contract G attestation and Federated Provider hosts it at `https://federated.agentregistrardemorp.com/.well-known/agent-rp-attestation.json`. **Unverified Provider** omits `attestation`.
 
-P1, P2, and P3 share the registrable domain `agentregistrardemorp.com`. Their origins and audiences are separate, though they are not isolated from each other at the DNS boundary.
+All three simulated providers share the registrable domain `agentregistrardemorp.com`. Their origins and audiences are separate, though they are not isolated from each other at the DNS boundary.
 
 ### Topology
 
 <DemoNetworkDiagram variant="topology" />
 
-Your human account and agent live on Broker A. P1 is registered with A, P2 is registered with B, and P3 is registered with neither. All three providers accept assertions from A. A trusts B for your account only when you add B under federated broker trust in `/trust`; A and B have no shared account.
+Your disposable sandbox agent runs on Sandbox Broker Alpha. Reference Provider is registered with Alpha, Federated Provider is registered with Beta, and Unverified Provider is registered with neither. All three providers list `https://alpha.agentregistrardemobroker.com` in `issuer_allowlist`. Alpha and Beta share no account database.
 
 ### Cross-broker sequence
 
 <DemoNetworkDiagram variant="sequence" />
 
-A serves the agent and verifies the B attestation against B's metadata and JWKS. B does not mint an assertion in this flow. P2 verifies A's assertion against A's JWKS, signs a receipt with its B-attested key, and posts the receipt plus the exact attestation to A (or returns it for `identity_record_signup`). A verifies the B attestation and key, then attaches the receipt to your `/activity` audit trail.
+Alpha serves the sandbox agent and verifies Beta's Contract G attestation against Beta's metadata and JWKS. Beta never mints a Contract A assertion in this flow. Federated Provider verifies Alpha's assertion against Alpha's JWKS, signs a receipt with its Beta-attested key, and posts the receipt plus the exact Beta attestation to Alpha (or returns `signup_token` for `identity_record_signup`). Alpha verifies the Beta attestation and key, then records the receipt.
 
-## Try it as a developer
+## Hub Runner and Provider Workbench
 
-You need an MCP client that supports OAuth 2.1 and a browser for the consent step. There is no demo API key and no separate demo account.
+The [Demo Network Hub](https://agentregistrardemobroker.com) lets you run and inspect protocol flows in your browser or point your own MCP client at a disposable sandbox server.
 
-1. Connect your coding tool to `https://agentregistrar.dev/mcp` and bind an agent during browser OAuth consent. If this is your first agent, follow the [Agent quickstart](/agents/quickstart/).
-2. Ask the agent to sign up at **P1** (`https://verifiedprovider1.agentregistrardemorp.com`) using `identity_signup`. P1 is broker-managed and attested by A, so under the default `verify` policy it succeeds and returns a signed receipt you can record with `identity_record_signup`.
-3. For **P2** (`https://verifiedprovider2.agentregistrardemorp.com`), open [agentregistrar.dev/trust](https://agentregistrar.dev/trust), expand **Advanced: federated broker trust**, add `https://agentregistrardemobroker.com` as trusted, and leave your policy at `verify`. Without that trust row, `verify` stops with `rp_broker_untrusted`. Under `strict`, P2 is also refused with `rp_attestation_mode_not_allowed` because P2 is provider-managed.
-4. For **P3** (`https://unverifiedprovider1.agentregistrardemorp.com`), try signing up first under the default `verify` policy: it stops with `rp_unverified` and creates no acceptance or account. Then add a per-provider override in `/trust` setting P3 to `no_verify` and repeat: the signup proceeds without a signed receipt, and the terms acceptance still appears in `/activity`. Setting P3 to `blocked` refuses immediately with `rp_blocked`.
+### Five Live Runner scenarios
+
+Open [agentregistrardemobroker.com](https://agentregistrardemobroker.com) to step through all five scenarios with the built-in **Wire Inspector** (raw discovery JSON, JWT headers/claims, HTTP requests/responses) and **Virtual Inbox** drawer:
+
+1. **`same-broker`**: Sandbox Broker Alpha mints a Contract A assertion for **Reference Provider** (`demo-reference`), verifies Alpha's broker-managed attestation, creates an account with a `ref_sess_` token, calls `/api/widgets`, and records the receipt.
+2. **`cross-broker`**: Alpha verifies **Federated Provider** (`demo-federated`) using Sandbox Broker Beta's provider-managed Contract G attestation, mints an assertion, and ingests the Beta-attested cross-broker receipt.
+3. **`unverified-policy`**: Alpha evaluates **Unverified Provider** (`demo-unverified`) across `verify`, `strict`, `no_verify`, and `blocked` policies.
+4. **`day2-lifecycle`**: Exercises Day-2 `POST /api/login/agent` on Reference Provider with strict `jti` replay protection, `terms_reacceptance_required`, and step-up approval at `/approve/:id`.
+5. **`abuse-kill-switch`**: Exercises authenticated provider abuse reporting (`/api/broker/report-abuse`) and agent revocation / kill-switch enforcement on Sandbox Broker Alpha.
+
+### Provider Workbench (`/workbench`)
+
+Open [agentregistrardemobroker.com/workbench](https://agentregistrardemobroker.com/workbench) to test your own service or connect an external MCP client:
+
+- **Discovery validator:** inspect any `/.well-known/agent-signup.json` URL against protocol rules.
+- **Contract A assertion generator:** generate positive or negative assertions with copyable `curl` commands and a live probe against your endpoint.
+- **24-hour ephemeral provider onboarding:** register a temporary test origin/audience on the sandbox for end-to-end testing with automatic TTL cleanup.
+- **1-click disposable 5-tool sandbox `/mcp`:** provision a short-lived MCP session on `https://alpha.agentregistrardemobroker.com/mcp` exposing all five tools (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`) against the Virtual Inbox.
+
+### Policy outcomes for an unverified or federated provider
+
+| Policy | Reference RP result | Federated RP result | Unverified RP result |
+| :--- | :--- | :--- | :--- |
+| `no_verify` | Proceeds, verified | Proceeds, verified (when Beta trusted) | Proceeds, shown as unverified |
+| `verify` (default) | Proceeds | Proceeds when Beta trusted; else `rp_broker_untrusted` | Blocked with `rp_unverified` |
+| `strict` | Proceeds (`mode: "broker"`) | Blocked with `rp_attestation_mode_not_allowed` | Blocked with `rp_unverified` |
+| `blocked` | Blocked with `rp_blocked` | Blocked with `rp_blocked` | Blocked with `rp_blocked` |
 
 <Aside type="note" title="Trust is local policy">
-Trusting Broker B does not make every B statement authoritative, and it does not make a provider safe. `verified` means the credential verified under your policy, not that the service is trustworthy.
+Trusting Sandbox Broker Beta does not make every Beta statement authoritative, and it does not make a provider safe. `verified` means the credential verified under policy, not that the service is trustworthy.
 </Aside>
 
-### Policy outcomes for an unverified provider
+## Inspect Reference Provider
 
-| Policy | P3 result | What it proves |
-| :--- | :--- | :--- |
-| `no_verify` | Proceeds, shown as unverified; acceptance recorded in `/activity`, no signed receipt | Not a verification gate |
-| `verify` (default) | Blocked with `rp_unverified`; no account, assertion, or acceptance | The default verification gate |
-| `strict` | Blocked with `rp_unverified` | Broker-managed verification required; P3 has no source |
-| `blocked` | Blocked with `rp_blocked`; applies to verified providers too | Separate human blocklist, always refuses |
-
-Policy is set per human in [Developer Portal](/agents/portal/) (`/trust`); every agent under your account inherits your policy.
-
-### Where to see the record
-
-- Open `/activity` in the [Developer Portal](/agents/portal/) to inspect every terms acceptance joined with its strongest signup receipt (so keyless and unverified signups remain visible alongside signed receipts).
-- Any provider account and API key are issued by the provider, never stored by Broker A.
-
-## Inspect VaporCloud (reference provider)
-
-[VaporCloud](https://skdl.dev) is a mock infrastructure provider selling fictional appliances so you can see the exact boundary between the identity-only protocol and vendor-specific APIs. It implements `v2.2.0` with broker-managed verification, Day-2 `agent_login` with multi-session `vc_sess_` bearer tokens and standardized `handoff`, `terms_reacceptance_required`, signed receipts, a hash-pinned post-signup guide, and authenticated abuse reporting.
+[Reference Provider](https://reference.agentregistrardemorp.com) (`audience: "demo-reference"`) shows the exact boundary between the identity-only protocol and vendor-specific APIs. It implements `v2.3.0` with Alpha broker-managed verification (`issuer_allowlist: ["https://alpha.agentregistrardemobroker.com"]`), Day-2 `agent_login` with revocable 24-hour `ref_sess_` bearer tokens (`ref_sess_<32 lowercase hex>`), strict `jti` replay protection, `terms_reacceptance_required`, step-up `/approve/:id`, signed receipts, a hash-pinned post-signup guide, and authenticated abuse reporting (`security@agentregistrardemorp.com`).
 
 | Path | Purpose |
 | :--- | :--- |
-| [`/.well-known/agent-signup.json`](https://skdl.dev/.well-known/agent-signup.json) | Identity-only discovery document (`audience: "vaporcloud"`, `mode: "broker"`, `agent_signup` + `agent_login`) |
-| [`/api/signup/agent`](https://skdl.dev/api/signup/agent) | Brokered signup endpoint (`POST` with `Authorization: Bearer <jwt>`) |
-| [`/api/login/agent`](https://skdl.dev/api/login/agent) | Day-2 re-login endpoint (`POST` with `purpose: "login"` JWT, single-use `jti`, fresh `vc_sess_` session) |
-| [`/terms`](https://skdl.dev/terms) | Provider-hosted terms fetched and SHA-256 hashed by the broker at signup |
-| [`/docs/SKILL.md`](https://skdl.dev/docs/SKILL.md) | Hash-pinned vendor API guide (`context.url`), including key rotation and mock provisioning |
-| [`/admin`](https://skdl.dev/admin) | Vendor-side admin view (vendor tooling, not protocol) |
+| [`/.well-known/agent-signup.json`](https://reference.agentregistrardemorp.com/.well-known/agent-signup.json) | Identity-only discovery document (`audience: "demo-reference"`, `mode: "broker"`, `agent_signup` + `agent_login`) |
+| [`/api/signup/agent`](https://reference.agentregistrardemorp.com/api/signup/agent) | Brokered signup endpoint (`POST` with `Authorization: Bearer <jwt>`) |
+| [`/api/login/agent`](https://reference.agentregistrardemorp.com/api/login/agent) | Day-2 re-login endpoint (`POST` with `purpose: "login"` JWT, single-use `jti`, fresh `ref_sess_` session) |
+| [`/terms`](https://reference.agentregistrardemorp.com/terms) | Provider-hosted terms (`version: "2026-11-24"`) fetched and SHA-256 hashed by the broker |
+| [`/docs/SKILL.md`](https://reference.agentregistrardemorp.com/docs/SKILL.md) | Hash-pinned vendor API guide (`context.url` / `context.sha256`) documenting `/api/widgets` |
+| `/api/widgets` | Vendor API (`GET`/`POST`/`DELETE`) authenticated with `Authorization: Bearer ref_sess_...` and zero broker calls |
 
-Check VaporCloud's discovery conformance and broker-managed attestation with the validator:
+Notice what Reference Provider keeps out of discovery: widget CRUD endpoints (`/api/widgets`) and session usage examples live in `/docs/SKILL.md`, fetched and SHA-256 verified only after signup.
 
-```bash
-pnpm --silent validate:discovery https://skdl.dev/.well-known/agent-signup.json \
-  --json --probe-jwks --verify-attestation --require-attestation \
-  --trusted-rp-broker https://agentregistrar.dev
-```
+## Validate discovery from the CLI
 
-Notice what VaporCloud keeps out of discovery: SKUs, quotas, provisioning endpoints (`/api/provision`), and credential rotation (`/api/account/rotate-key`) all live in `/docs/SKILL.md`, fetched and hash-verified only after signup.
+You do not need an account, SDK, or shared secret to validate the public discovery documents (all served with `Cache-Control: no-store`):
 
-## Try it as a provider implementer
+- [Reference Provider discovery](https://reference.agentregistrardemorp.com/.well-known/agent-signup.json)
+- [Federated Provider discovery](https://federated.agentregistrardemorp.com/.well-known/agent-signup.json)
+- [Unverified Provider discovery](https://unverified.agentregistrardemorp.com/.well-known/agent-signup.json)
 
-You do not need an account, SDK, or shared secret to fetch discovery or verify an assertion. You cannot register your own provider on Broker B (it is operator-only for this demo). The three test discovery documents are public and served with `Cache-Control: no-store`:
-
-- [P1 discovery](https://verifiedprovider1.agentregistrardemorp.com/.well-known/agent-signup.json)
-- [P2 discovery](https://verifiedprovider2.agentregistrardemorp.com/.well-known/agent-signup.json)
-- [P3 discovery](https://unverifiedprovider1.agentregistrardemorp.com/.well-known/agent-signup.json)
-
-Validate all three from a checkout with the [validator](/protocol/validator/) installed:
+Run the published [`@agentregistrar/discovery` validator](/protocol/validator/) directly with `npx`:
 
 ```bash
-# P1: A attestation, broker-managed
-pnpm --silent validate:discovery \
-  https://verifiedprovider1.agentregistrardemorp.com/.well-known/agent-signup.json \
+# Reference Provider: Alpha attestation, broker-managed
+npx @agentregistrar/discovery@2.3.0 validate \
+  https://reference.agentregistrardemorp.com/.well-known/agent-signup.json \
   --json --probe-jwks --verify-attestation --require-attestation \
-  --trusted-rp-broker https://agentregistrar.dev
+  --trusted-rp-broker https://alpha.agentregistrardemobroker.com
 
-# P2: B attestation, provider-managed
-pnpm --silent validate:discovery \
-  https://verifiedprovider2.agentregistrardemorp.com/.well-known/agent-signup.json \
+# Federated Provider: Beta attestation, provider-managed
+npx @agentregistrar/discovery@2.3.0 validate \
+  https://federated.agentregistrardemorp.com/.well-known/agent-signup.json \
   --json --probe-jwks --verify-attestation --require-attestation \
-  --trusted-rp-broker https://agentregistrardemobroker.com
+  --trusted-rp-broker https://beta.agentregistrardemobroker.com
 
-# P3: conformant, unverified
-pnpm --silent validate:discovery \
-  https://unverifiedprovider1.agentregistrardemorp.com/.well-known/agent-signup.json \
+# Unverified Provider: conformant, unverified
+npx @agentregistrar/discovery@2.3.0 validate \
+  https://unverified.agentregistrardemorp.com/.well-known/agent-signup.json \
   --json --probe-jwks
 ```
 
-P1 and P2 exit `0` with `valid: true` and a verified attestation (`mode: "broker"` for P1, `mode: "provider"` for P2). P3 exits `0` with `valid: true` and an unverified status. The validator reports conformance and attestation verification separately.
+Reference Provider and Federated Provider exit `0` with `valid: true` and a verified attestation (`mode: "broker"` for Reference, `mode: "provider"` for Federated). Unverified Provider exits `0` with `valid: true` and an unverified status. The validator reports conformance and attestation verification separately.
 
-### Broker B documents
+## Sandbox broker endpoints
 
-```bash
-curl -sS https://agentregistrardemobroker.com/.well-known/agent-broker.json
-curl -sS https://agentregistrardemobroker.com/.well-known/jwks.json
-```
-
-The metadata names the issuer, JWKS, attestation status endpoint, abuse endpoint, protocol versions, and contact (all same-origin, public Ed25519 keys in JWKS):
-
-```json
-{
-  "issuer": "https://agentregistrardemobroker.com",
-  "jwks_uri": "https://agentregistrardemobroker.com/.well-known/jwks.json",
-  "attestation_status_uri": "https://agentregistrardemobroker.com/api/broker/attestation-status",
-  "abuse_endpoint": "https://agentregistrardemobroker.com/api/broker/report-abuse",
-  "protocol_versions": ["2.0"],
-  "contact": "security@agentregistrardemobroker.com"
-}
-```
-
-To read a signed status JWT for the current P2 attestation, extract `jti` from P2's attestation source and query Broker B:
+Both Sandbox Broker Alpha and Sandbox Broker Beta expose standard broker metadata, public Ed25519 JWKS, attestation status, and abuse reporting endpoints:
 
 ```bash
-URI="$(curl -sS https://verifiedprovider2.agentregistrardemorp.com/.well-known/agent-signup.json \
+curl -sS https://alpha.agentregistrardemobroker.com/.well-known/agent-broker.json
+curl -sS https://alpha.agentregistrardemobroker.com/.well-known/jwks.json
+curl -sS https://beta.agentregistrardemobroker.com/.well-known/agent-broker.json
+curl -sS https://beta.agentregistrardemobroker.com/.well-known/jwks.json
+```
+
+Sandbox Broker Alpha also exposes `/api/broker/attestation-status`, `/api/broker/signup-receipt`, and `/api/broker/report-abuse`. To read a signed status JWT for Federated Provider's current Beta attestation, extract `jti` from its `attestation.uri` and query Sandbox Broker Beta:
+
+```bash
+URI="$(curl -sS https://federated.agentregistrardemorp.com/.well-known/agent-signup.json \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).attestation.uri))')"
 JTI="$(curl -sS "$URI" \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s).attestation.split(".")[1];console.log(JSON.parse(Buffer.from(p,"base64url")).jti)})')"
-curl -sS "https://agentregistrardemobroker.com/api/broker/attestation-status?jti=${JTI}"
+curl -sS "https://beta.agentregistrardemobroker.com/api/broker/attestation-status?jti=${JTI}"
 ```
 
 The response is `{attestation_jti, status_jwt}`. The status JWT names the attestation in `sub`, reports `active`, `suspended`, or `revoked`, and expires in at most five minutes.
@@ -166,83 +157,74 @@ A signup receipt is a compact JWS signed by the provider's key. The decoded clai
 
 ```json
 {
-  "iss": "https://verifiedprovider1.agentregistrardemorp.com",
+  "iss": "https://reference.agentregistrardemorp.com",
   "sub": "agt_demo_example",
-  "aud": "https://agentregistrar.dev",
+  "aud": "https://alpha.agentregistrardemobroker.com",
   "jti": "srp_demo_example",
-  "iat": 1794009600,
+  "iat": 1795564800,
   "assertion_jti": "jti_demo_example",
   "service": {
-    "audience": "demo-verifiedprovider1",
-    "origin": "https://verifiedprovider1.agentregistrardemorp.com",
-    "provider_name": "Demo Verified Provider 1",
-    "provider_url": "https://verifiedprovider1.agentregistrardemorp.com",
+    "audience": "demo-reference",
+    "origin": "https://reference.agentregistrardemorp.com",
+    "provider_name": "Reference Provider",
+    "provider_url": "https://reference.agentregistrardemorp.com",
     "account_id": "acct_demo_example",
     "attestation_jti": "rpa_demo_example",
     "key_id": "rp_example_1"
   },
   "agent": {
     "id": "agt_demo_example",
-    "name": "demo-agent",
-    "email": "demo-agent@agents.example"
+    "name": "sandbox-agent",
+    "email": "sandbox-agent@sandbox.agentregistrardemobroker.com"
   },
   "human": {
     "id": "hum_demo_example",
-    "name": "Example Owner",
+    "name": "Sandbox Owner",
     "email": "owner@example.com",
     "verified": true
   },
   "tos": {
-    "version": "demo-2026-11-07",
-    "url": "https://verifiedprovider1.agentregistrardemorp.com/terms",
+    "version": "2026-11-24",
+    "url": "https://reference.agentregistrardemorp.com/terms",
     "sha256": "sha256:<64 hex characters>"
   },
   "context": {
-    "url": "https://verifiedprovider1.agentregistrardemorp.com/guide",
+    "url": "https://reference.agentregistrardemorp.com/docs/SKILL.md",
     "sha256": "sha256:<64 hex characters>"
   },
-  "signed_up_at": "2026-11-07T00:00:00Z"
+  "signed_up_at": "2026-11-24T00:00:00Z"
 }
 ```
 
-`context` is optional; when present it points to the provider's guide and is hash-pinned (the agent fetches and checks it, never the broker). A receipt carries no expiry and remains verifiable against the historical attestation snapshot it names. The provider can post `{signup_token, rp_attestation}` directly to `https://agentregistrar.dev/api/broker/signup-receipt` (`rp_callback`), or the agent can submit it via `identity_record_signup` (`rp_signed`). Both carry the same cryptographic proof. Do not post the synthetic example; unsigned or mismatched receipts are rejected.
+`context` is optional; when present it points to the provider's guide and is hash-pinned (the agent fetches and checks it, never the broker). A receipt carries no expiry and remains verifiable against the historical attestation snapshot it names. The provider can post `{signup_token, rp_attestation}` directly to `https://alpha.agentregistrardemobroker.com/api/broker/signup-receipt` (`rp_callback`), or the agent can submit it via `identity_record_signup` (`rp_signed`). Both carry the same cryptographic proof. Do not post the synthetic example; unsigned or mismatched receipts are rejected.
 
-### Rotation and renewal
+## Self-host the demo network
 
-Broker and provider key rotation, renewal, suspension, and rollback are operator drills, not public actions. Expected behavior across the live network:
+The entire 7-host stack is open source under Apache-2.0 (`Hono` + `SQLite/D1`). Run it locally to inspect the wire handlers or test a local relying party:
 
-- An attestation lives for 24 hours. Broker A renews P1's broker-managed token on demand; P2 renews its provider-managed token on a 12-hour target, and expiry is its revocation bound.
-- New broker keys publish with overlap so existing attestations stay valid until expiry.
-- Brokers and providers cache JWKS for at most five minutes.
-- A suspended broker-managed attestation stops new lookups within five minutes under `verify` or `strict`; a suspended provider-managed attestation may stay accepted until it expires.
-- Historical receipts remain verifiable through the attestation snapshot they reference.
+```bash
+git clone https://github.com/agentregistrar/demo-network
+cd demo-network
+pnpm install
+pnpm dev
+```
 
 ## What you can and cannot test
 
 | You can test | You cannot test |
 | :--- | :--- |
-| Discovery conformance, Broker B metadata/JWKS/status, and attestation verification for P1, P2, P3, and VaporCloud | Registering an agent with Broker B (B is an RP-only demo broker) |
-| Same-broker signup at P1 and VaporCloud with your Broker A agent | DNS/browser isolation across P1, P2, and P3 (they share `agentregistrardemorp.com`) |
-| Cross-broker signup at P2 after trusting Broker B in `/trust` | Multi-broker governance or third-party federation agreements |
-| Unverified `no_verify`, `verify`, `strict`, and `blocked` outcomes at P3 | Anonymous admin actions, key rotation, or destructive drills |
-| Receipt ingestion, dedupe, `/activity` records, and the [abuse-reporting contract](/providers/guides/abuse-reporting/) | Signed abuse reports without a provider signing key; production SLA or security reviews |
+| Live 5-scenario runner, Wire Inspector, Virtual Inbox, and `/workbench` assertion generator | Production GitHub OAuth accounts or real outbound email delivery |
+| Disposable 5-tool sandbox `/mcp` on Sandbox Broker Alpha against Reference, Federated, Unverified, or a 24h ephemeral RP | DNS/browser isolation across Reference, Federated, and Unverified (they share `agentregistrardemorp.com`) |
+| Same-broker signup (`Reference Provider`), cross-broker federation (`Federated Provider` + Beta), and policy gates (`Unverified Provider`) | Multi-broker governance or third-party production SLAs |
+| Day-2 `/api/login/agent`, `ref_sess_` tokens, `/api/widgets`, `jti` replay protection, and `/api/broker/report-abuse` | Persistent long-term accounts (sandbox rows expire via automatic TTL cleanup) |
 | Assertion verification with public JWKS, no account or SDK | Catalogs, billing, or infrastructure resale |
-
-## What is real and what is disposable
-
-| Item | Status |
-| :--- | :--- |
-| Acceptance and signup rows in Broker A | Real records under your human identity in `/activity`; not reset by the demo |
-| Broker A human, agent, trust, and policy rows | Real for your account |
-| Broker B, P1/P2/P3, and VaporCloud provider-side data | Test-only; may be reset without affecting Broker A |
-| Discovery, metadata, JWKS, and status documents | Public and live |
-| Private keys and operator credentials | Never public |
 
 ## Next
 
-- [Agent quickstart](/agents/quickstart/): connect a coding tool and run your first VaporCloud signup.
+- [Agent quickstart](/agents/quickstart/): run your first signup and Day-2 login using the 1-click sandbox MCP, then connect production `agentregistrar.dev`.
 - [Provider quickstart](/providers/quickstart/): implement discovery and assertion verification on your own service.
 - [Trust and limits](/start/trust-and-limits/): policy, verification boundaries, and known gaps.
 - [Validate and register](/providers/guides/validate-and-register/): validator usage and registry snapshots.
-- [Specification](/protocol/specification/): the normative v2.2.0 contract.
-- [Demo landing page](https://agentregistrardemorp.com): live host status for P1, P2, and P3.
+- [Specification](/protocol/specification/): the normative protocol contract.
+- [Demo Network Hub](https://agentregistrardemobroker.com): live runner, Wire Inspector, and Provider Workbench.
+- [Demo RP Directory](https://agentregistrardemorp.com): live host status for the simulated relying parties.

@@ -23,7 +23,7 @@ asks you to and you record that in the report.
 ```bash
 mkdir -p agent-signup-check
 curl -sS -D agent-signup-check/headers \
-  https://skdl.dev/.well-known/agent-signup.json \
+  https://reference.agentregistrardemorp.com/.well-known/agent-signup.json \
   -o agent-signup-check/document.json
 ```
 
@@ -91,11 +91,11 @@ return a challenge page, report it and stop.
 
 ## 4. Run the conformance and attestation validator
 
-Run the published `@agentregistrar/discovery@2.2.0` CLI with `npx` (no clone
+Run the published `@agentregistrar/discovery@2.3.0` CLI with `npx` (no clone
 required):
 
 ```bash
-npx @agentregistrar/discovery@2.2.0 validate https://skdl.dev/.well-known/agent-signup.json --json
+npx @agentregistrar/discovery@2.3.0 validate https://reference.agentregistrardemorp.com/.well-known/agent-signup.json --json
 ```
 
 Verify the optional `attestation` source against a trusted broker (checks
@@ -103,9 +103,9 @@ source fetch, `{ "attestation": "<JWS>" }` envelope, signature, `rp.origin`,
 `rp.audience`, and `iat`/`exp` window):
 
 ```bash
-npx @agentregistrar/discovery@2.2.0 validate https://skdl.dev/.well-known/agent-signup.json \
+npx @agentregistrar/discovery@2.3.0 validate https://reference.agentregistrardemorp.com/.well-known/agent-signup.json \
   --verify-attestation \
-  --trusted-rp-broker https://agentregistrar.dev \
+  --trusted-rp-broker https://alpha.agentregistrardemobroker.com \
   --json
 ```
 
@@ -115,8 +115,8 @@ attestation into a non-zero exit code.
 Optional non-destructive probes (never POST and never trigger signup or login):
 
 ```bash
-npx @agentregistrar/discovery@2.2.0 validate https://skdl.dev/.well-known/agent-signup.json --json --probe-jwks
-npx @agentregistrar/discovery@2.2.0 validate https://skdl.dev/.well-known/agent-signup.json --json --probe-endpoints
+npx @agentregistrar/discovery@2.3.0 validate https://reference.agentregistrardemorp.com/.well-known/agent-signup.json --json --probe-jwks
+npx @agentregistrar/discovery@2.3.0 validate https://reference.agentregistrardemorp.com/.well-known/agent-signup.json --json --probe-endpoints
 ```
 
 `--json` prints the machine-readable result. Fallback: from a clone of
@@ -142,18 +142,18 @@ any divergence.
 ## 6. Report the verdict
 
 Report one line per check, then a summary with exact evidence (status, counts,
-attestation verdict, validator version `@agentregistrar/discovery@2.2.0`, and
+attestation verdict, validator version `@agentregistrar/discovery@2.3.0`, and
 date):
 
 ```text
 - [pass] transport: 200, application/json, https
 - [pass] protocol: agent-identity-protocol (protocol_version 2.0)
 - [pass] endpoints: agent_signup present; agent_login present (optional)
-- [pass] issuer_allowlist: https://agentregistrar.dev (1 origin)
+- [pass] issuer_allowlist: https://alpha.agentregistrardemobroker.com (1 origin)
 - [pass] required_scopes: tos:accept, signup:free_tier
-- [pass] terms.url: stable bytes, 0 redirects, version 2026.1
-- [pass] attestation: verified (mode broker, level domain, issuer https://agentregistrar.dev)
-- [pass] conformance: valid, 0 errors, 0 warnings (@agentregistrar/discovery@2.2.0)
+- [pass] terms.url: stable bytes, 0 redirects, version 2026-11-24
+- [pass] attestation: verified (mode broker, level domain, issuer https://alpha.agentregistrardemobroker.com)
+- [pass] conformance: valid, 0 errors, 0 warnings (@agentregistrar/discovery@2.3.0)
 Summary: 0 failures, 0 warnings. Verdict: conformant and verified.
 ```
 
@@ -164,7 +164,7 @@ Verdict rules:
 - Distinguish conformance from verification: a conformant document without
   `attestation` is **conformant and unverified** (valid result, not an error).
 - Warnings do not change the verdict, but must be listed.
-- Never claim support without the document URL, `@agentregistrar/discovery@2.2.0`,
+- Never claim support without the document URL, `@agentregistrar/discovery@2.3.0`,
   and the date run.
 
 ## 7. References

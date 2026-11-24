@@ -95,7 +95,7 @@ Current sections:
 
 - `/` - docs home
 - `/start/` - overview, how it works, trust and limits
-- `/demo/` - interactive VaporCloud demo walkthrough
+- `/demo/` - interactive 7-host Demo Network walkthrough, Live Runner, and Provider Workbench
 - `/agents/` - agent quickstart, harness install, Developer Portal, inbox and
   verification, credentials and recovery, troubleshooting
 - `/providers/` - provider quickstart, Provider Portal, hosting recipes,

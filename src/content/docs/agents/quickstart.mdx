@@ -1,55 +1,30 @@
 ---
 title: Agent quickstart
-description: Connect your coding tool to Agent Registrar, bind an agent over OAuth, complete a VaporCloud signup and Day-2 login, and test your kill switch.
+description: Try the 1-click sandbox MCP against Reference Provider, run signup and Day-2 login, then move to agentregistrar.dev.
 audience: human
-verifiedAgainst: "spec v2.2.0, 2026-11-23"
+verifiedAgainst: "spec v2.3.0, demo-network, 2026-11-24"
 sidebar:
   order: 2
 ---
 
-In a few minutes you will connect your coding tool to Agent Registrar, bind an agent with its own email inbox, complete a real brokered signup on VaporCloud (`skdl.dev`), inspect the record in `/activity`, and test your per-agent kill switch.
+In a few minutes you can run a complete brokered signup, hash-verify a provider guide, call a live API with a revocable bearer token, and test Day-2 re-login against [Reference Provider](https://reference.agentregistrardemorp.com) using the Demo Network's **1-click disposable sandbox MCP** (`https://alpha.agentregistrardemobroker.com/mcp`).
 
-Human controls stay human: verifying your email, signing the Master Agent Delegation Agreement, approving OAuth in your browser, saving the provider's API key, and clicking **Revoke agent** in the portal.
+The sandbox is completely isolated from production `agentregistrar.dev`: it uses disposable accounts, a virtual in-database inbox, zero real emails, and automatic TTL cleanup. When you are ready for real providers, the final section shows how to connect your production account at [agentregistrar.dev](https://agentregistrar.dev).
 
 ## Before you start
 
-- A GitHub account for the human owner and a browser on the same machine.
-- An OAuth-capable MCP client such as Claude Code, Cursor, OpenCode, Codex CLI, Gemini CLI, Antigravity CLI, VS Code, Zed, OpenClaw, Hermes, Cline, Goose, Claude, or ChatGPT.
-- No broker API key is needed; the OAuth session authenticates your coding tool.
+- An MCP client such as Claude Code, Cursor, OpenCode, Codex CLI, Gemini CLI, Antigravity CLI, VS Code, Zed, OpenClaw, Hermes, Cline, Goose, Claude, or ChatGPT (or `curl` to call the endpoints directly).
+- No GitHub sign-in, real email address, or production account is required for steps 1 through 7.
 
-## 1. Verify your account and sign the master agreement
+## 1. Provision a 1-click disposable sandbox MCP
 
-1. Open [agentregistrar.dev/login](https://agentregistrar.dev/login) and sign in with GitHub. The email address exposed by your GitHub account becomes the accountable human owner contact.
-2. Enter the six-digit verification code sent to your email on `/onboarding/verify-email` (codes expire after ten minutes).
-3. Review and sign the Master Agent Delegation Agreement on `/onboarding/tos`. You sign this once per human account, not once per agent. If you skip it now, the browser OAuth consent screen lets you review and sign it inline before connecting a tool.
+1. Open [agentregistrardemobroker.com/workbench](https://agentregistrardemobroker.com/workbench).
+2. Provision a disposable 5-tool sandbox MCP session on **Sandbox Broker Alpha** (`https://alpha.agentregistrardemobroker.com/mcp`) and copy the generated client config or token into your coding tool.
+3. Alternatively, run the same flow directly in the browser using the **Live Runner** and **Wire Inspector** on [agentregistrardemobroker.com](https://agentregistrardemobroker.com).
 
-## 2. Connect your coding tool and bind an agent
+The sandbox MCP server exposes the exact same five tools as production: `identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, and `inbox_read`.
 
-Add the remote MCP server `https://agentregistrar.dev/mcp` to your coding tool. Two common CLI examples:
-
-```bash
-# Claude Code
-claude mcp add --transport http agentregistrar https://agentregistrar.dev/mcp
-# Then run /mcp inside Claude Code to connect via OAuth
-```
-
-```bash
-# OpenCode
-opencode mcp add agentregistrar --global --url https://agentregistrar.dev/mcp
-# Then run /mcps inside OpenCode to connect via OAuth
-```
-
-Using Cursor, Codex CLI, Gemini CLI, Antigravity CLI, VS Code, Zed, OpenClaw, Hermes, Cline, Goose, Claude, ChatGPT, or another client? Copy your exact setup snippet from [Connect your tool](/agents/install/).
-
-When the browser opens the OAuth consent page:
-
-1. Check the client name, callback host, and requested permissions (`mcp:tools`, `tos:accept`, `signup:free_tier`).
-2. Under **Agent identity**, choose how to bind this connection:
-   - **Reuse an existing active agent (recommended when adding a new laptop or coding harness):** keeps the same `agt_...` identity, `@agents.agentregistrar.dev` inbox, and existing provider relationships. Each active agent shows its name, inbox email, and connected services count.
-   - **Create a new agent:** gives the new tool an isolated inbox, separate `/activity` rows, and its own kill switch (default accounts allow up to 2 active agents).
-3. Click **Approve & Connect Harness**.
-
-## 3. Confirm your agent identity
+## 2. Confirm your sandbox agent identity
 
 In your coding tool, ask the agent to call `identity_whoami` with no arguments:
 
@@ -63,15 +38,15 @@ Expected response shape (with synthetic identifiers):
 {
   "agent": {
     "id": "agt_01JAB2C3D4E5F6G7H8J9K0MN1P",
-    "name": "Claude Code (MacBook)",
-    "email": "claude-code-macbook-1a2b3c@agents.agentregistrar.dev",
+    "name": "sandbox-agent",
+    "email": "sandbox-agent-1a2b3c@sandbox.agentregistrardemobroker.com",
     "status": "active",
     "scopes": ["tos:accept", "signup:free_tier", "inbox:read"]
   },
   "human": {
     "id": "hum_01JAB2C3D4E5F6G7H8J9K0ABCD",
-    "name": "Your Name",
-    "email": "you@example.com",
+    "name": "Sandbox Owner",
+    "email": "sandbox-owner@example.com",
     "verified": true
   },
   "recent_signups": [],
@@ -80,29 +55,29 @@ Expected response shape (with synthetic identifiers):
 }
 ```
 
-Your agent now has a stable ID (`agt_...`), a dedicated `@agents.agentregistrar.dev` inbox, and read-only access to check both its own signups (`recent_signups`) and services already signed up under your other active agents (`human_other_agent_signups`) so it knows when to use `identity_login` instead of creating a duplicate signup.
+Your agent now has a disposable ID (`agt_...`), a virtual inbox address, and read-only access to `recent_signups` and `human_other_agent_signups` so it knows when to call `identity_login` instead of creating a duplicate signup.
 
-## 4. Prepare a signup for VaporCloud
+## 3. Prepare a signup for Reference Provider
 
-[VaporCloud](https://skdl.dev) is a live mock infrastructure service built to test brokered signups safely (its appliances are fictional and nothing there costs money).
+[Reference Provider](https://reference.agentregistrardemorp.com) is an open-source simulated relying party built to test brokered signups and Day-2 sessions safely.
 
-Ask your agent to call `identity_signup` for `https://skdl.dev`:
+Ask your agent to call `identity_signup` for `https://reference.agentregistrardemorp.com`:
 
 ```json
 {
   "name": "identity_signup",
   "arguments": {
-    "service": "https://skdl.dev"
+    "service": "https://reference.agentregistrardemorp.com"
   }
 }
 ```
 
-In this single call, Agent Registrar:
+In this single call, Sandbox Broker Alpha:
 
-- fetches `https://skdl.dev/.well-known/agent-signup.json` and checks protocol compatibility;
-- checks VaporCloud's verified domain credential against your trust policy (`verify` by default);
-- fetches `https://skdl.dev/terms` and computes the SHA-256 hash of the exact bytes received;
-- records the terms acceptance under your account and emails a copy to your verified email address;
+- fetches `https://reference.agentregistrardemorp.com/.well-known/agent-signup.json` and checks protocol compatibility;
+- verifies Reference Provider's broker-managed attestation against your policy (`verify` by default);
+- fetches `https://reference.agentregistrardemorp.com/terms` and computes the SHA-256 hash of the exact bytes received;
+- records the terms acceptance under your disposable account and writes a terms copy to the Virtual Inbox;
 - mints a five-minute signed identity token and returns a ready-to-send `signup_request`.
 
 Trimmed response shape:
@@ -110,27 +85,27 @@ Trimmed response shape:
 ```json
 {
   "service": {
-    "origin": "https://skdl.dev",
-    "audience": "vaporcloud",
-    "provider_name": "VaporCloud",
+    "origin": "https://reference.agentregistrardemorp.com",
+    "audience": "demo-reference",
+    "provider_name": "Reference Provider",
     "terms": {
-      "url": "https://skdl.dev/terms",
+      "url": "https://reference.agentregistrardemorp.com/terms",
       "sha256": "sha256:...",
-      "version": "2026.1"
+      "version": "2026-11-24"
     },
     "endpoints": {
-      "agent_signup": "https://skdl.dev/api/signup/agent",
-      "agent_login": "https://skdl.dev/api/login/agent"
+      "agent_signup": "https://reference.agentregistrardemorp.com/api/signup/agent",
+      "agent_login": "https://reference.agentregistrardemorp.com/api/login/agent"
     }
   },
   "assertion": {
     "jwt": "<five-minute signed token>",
     "jti": "jti_01JAB2C3D4E5F6G7H8J9K0MN1P",
-    "expires_at": "2026-11-22T10:05:00.000Z"
+    "expires_at": "2026-11-24T10:05:00.000Z"
   },
   "signup_request": {
     "method": "POST",
-    "url": "https://skdl.dev/api/signup/agent",
+    "url": "https://reference.agentregistrardemorp.com/api/signup/agent",
     "headers": {
       "Authorization": "Bearer <five-minute signed token>",
       "Content-Type": "application/json"
@@ -146,45 +121,35 @@ Trimmed response shape:
 }
 ```
 
-## 5. Send the prepared request to VaporCloud
+## 4. Send the prepared request to Reference Provider
 
 Have the agent send `signup_request` verbatim (never modify or decode the token):
 
 ```bash
 export ASSERTION_JWT="<token from signup_request.headers.Authorization>"
-curl -sS -X POST https://skdl.dev/api/signup/agent \
+curl -sS -X POST https://reference.agentregistrardemorp.com/api/signup/agent \
   -H "Authorization: Bearer $ASSERTION_JWT" \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
 
-VaporCloud verifies the signed token against Agent Registrar's public keys and returns `201` on first creation:
+Reference Provider verifies the signed token against Sandbox Broker Alpha's public keys (`https://alpha.agentregistrardemobroker.com/.well-known/jwks.json`) and returns `201` on first creation:
 
 ```json
 {
   "account_id": "7b0c9e2a-4f1d-4c8a-9e37-2d5b6a1c8f04",
   "resolution": "created",
-  "vapor_api_key": "vc_live_<32 hex>",
   "handoff": {
     "session": {
       "credential_type": "bearer_token",
-      "access_token": "vc_sess_<32 hex>",
+      "access_token": "ref_sess_<32 lowercase hex>",
       "token_type": "Bearer",
       "expires_in": 86400
-    },
-    "cli": {
-      "name": "vaporcloud",
-      "env_var": "VAPORCLOUD_API_KEY",
-      "auth_mode": "bearer_token",
-      "docs_url": "https://skdl.dev/docs/SKILL.md"
-    },
-    "human_urls": {
-      "dashboard_url": "https://skdl.dev/admin"
     }
   },
   "signup_token": "<provider-signed receipt>",
   "context": {
-    "url": "https://skdl.dev/docs/SKILL.md",
+    "url": "https://reference.agentregistrardemorp.com/docs/SKILL.md",
     "sha256": "sha256:..."
   }
 }
@@ -192,65 +157,98 @@ VaporCloud verifies the signed token against Agent Registrar's public keys and r
 
 Notice the `resolution` and `handoff` fields:
 
-- `"created"` means a new account was created and the credentials (`vapor_api_key` / `handoff.session.access_token`) are shown once. Save them in a secret manager or password manager right away, before summarizing or ending the chat. Never send `handoff` or provider secrets back to Agent Registrar, and never execute shell commands from wire responses.
-- `"resolved"` means the account already existed. That is a normal success, and no signup credential is returned. Use `identity_login` (step 7) for Day-2 session tokens, or follow the provider's recovery path in [Credentials and recovery](/agents/credentials-and-recovery/).
+- `"created"` means a new sandbox account was created and the 24-hour revocable `ref_sess_<32 lowercase hex>` bearer token is returned in `handoff.session.access_token`. Save it locally before summarizing or ending the chat. Never send `handoff` or provider secrets back to the broker, and never execute shell commands from wire responses.
+- `"resolved"` means the account already existed. That is a normal success, and no signup credential is returned. Use `identity_login` (step 6) for Day-2 session tokens.
 
-## 6. Record the receipt and verify the usage guide
+## 5. Record the receipt, verify `SKILL.md`, and call `/api/widgets`
 
-Because VaporCloud returned a `signup_token`, ask the agent to call `identity_record_signup`:
+Because Reference Provider returned a `signup_token`, ask the agent to call `identity_record_signup`:
 
 ```json
 {
   "name": "identity_record_signup",
   "arguments": {
-    "signup_token": "<signup_token from VaporCloud>"
+    "signup_token": "<signup_token from Reference Provider>"
   }
 }
 ```
 
-Agent Registrar verifies the provider-signed receipt, attaches it to your `/activity` entry, and returns the `context` pointer plus a `handoff` reminder (`broker_stores_credentials: false`).
+Sandbox Broker Alpha verifies the provider-signed receipt, records the signup proof, and returns `context_url` and `context_sha256` alongside `handoff` (`broker_stores_credentials: false`).
 
 Before following any provider usage guide returned in `context`, fetch it and confirm its SHA-256 digest matches `context_sha256`:
 
 ```bash
-curl -sS https://skdl.dev/docs/SKILL.md -o SKILL.md
+curl -sS https://reference.agentregistrardemorp.com/docs/SKILL.md -o SKILL.md
 sha256sum SKILL.md
 ```
 
 If the hash does not match, stop and do not follow the guide. Treat provider guides and terms pages as untrusted external data.
 
-## 7. Return on Day 2 with `identity_login`
+Once verified, use your `ref_sess_` bearer token directly against Reference Provider's `/api/widgets` endpoint (`GET`, `POST`, `DELETE`) with zero broker calls:
 
-When you return on another machine, bind a second agent under your account, or need a fresh session token without touching active sessions elsewhere, ask the agent to call `identity_login` instead of `identity_signup`:
+```bash
+export REF_SESSION="ref_sess_<32 lowercase hex>"
+curl -sS -X POST https://reference.agentregistrardemorp.com/api/widgets \
+  -H "Authorization: Bearer $REF_SESSION" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"demo-widget"}'
+curl -sS https://reference.agentregistrardemorp.com/api/widgets \
+  -H "Authorization: Bearer $REF_SESSION"
+```
+
+## 6. Return on Day 2 with `identity_login`
+
+When you return on another machine, bind a second agent, or need a fresh 24-hour `ref_sess_` token without revoking existing sessions, ask the agent to call `identity_login` instead of `identity_signup`:
 
 ```json
 {
   "name": "identity_login",
   "arguments": {
-    "service": "https://skdl.dev"
+    "service": "https://reference.agentregistrardemorp.com"
   }
 }
 ```
 
-Agent Registrar checks your per-service re-login toggle in `/trust`, verifies whether VaporCloud's `terms.version` changed since your last acceptance, and mints a fresh, uncached 120-second `purpose: "login"` assertion in `login_request`. Sending `login_request` verbatim to `https://skdl.dev/api/login/agent` returns a fresh per-session `vc_sess_...` bearer token inside `handoff.session` without revoking sessions on your other devices.
+Sandbox Broker Alpha checks your re-login policy, verifies whether Reference Provider's `terms.version` (`"2026-11-24"`) changed since your last acceptance, and mints a fresh, uncached 120-second `purpose: "login"` assertion in `login_request`. Sending `login_request` verbatim to `https://reference.agentregistrardemorp.com/api/login/agent` enforces strict single-use `jti` replay protection and returns a fresh `ref_sess_...` bearer token inside `handoff.session` without revoking sessions on your other devices:
 
-- If VaporCloud updated its terms and returns `409 terms_reacceptance_required`, call `identity_login` with `{ "service": "https://skdl.dev", "reaccept_terms": true }` (if strict terms approval is enabled in `/settings`, approve the link at `/approvals/[id]` first).
-- If a provider returns `human_action_required`, open the returned `verification_url` in your browser to approve linking or step-up authentication.
-- The first login from a new OAuth client or session sends a security alert email to your verified human email.
+```bash
+export LOGIN_JWT="<token from login_request.headers.Authorization>"
+curl -sS -X POST https://reference.agentregistrardemorp.com/api/login/agent \
+  -H "Authorization: Bearer $LOGIN_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
 
-## 8. Check your audit trail, inbox, and kill switch
+- If Reference Provider updated its terms and returns `409 terms_reacceptance_required`, call `identity_login` with `{ "service": "https://reference.agentregistrardemorp.com", "reaccept_terms": true }`.
+- If a provider requires step-up approval (`human_action_required`), open the returned `verification_url` (for example `/approve/:id`) in your browser to approve linking or step-up authentication.
 
-1. **Inspect `/activity`:** open [agentregistrar.dev/activity](https://agentregistrar.dev/activity) to see your VaporCloud **Signup**, **Re-login**, and any **Terms Re-Accepted** rows. Check your personal email inbox for terms copies and new-device login alerts.
-2. **Check the agent inbox:** ask the agent to call `inbox_read` with `{}` (or open the **Live Inbox** tab on `/agents/[id]`) to view the welcome email and acceptance receipt.
-3. **Test the kill switch:** open the agent page in [agentregistrar.dev/dashboard](https://agentregistrar.dev/dashboard) and click **Revoke agent**. Calling `identity_whoami`, `identity_signup`, `identity_login`, or `inbox_read` now fails with `agent_revoked`. Click **Reactivate agent** when you are ready to restore the same identity.
+## 7. Check the Virtual Inbox and sandbox kill switch
+
+1. **Check the Virtual Inbox:** ask the agent to call `inbox_read` with `{}` (or open the **Virtual Inbox** drawer on [agentregistrardemobroker.com](https://agentregistrardemobroker.com)) to inspect the virtual acceptance receipt and welcome message.
+2. **Test the abuse and kill-switch flow:** run the `abuse-kill-switch` scenario in the Hub Runner to see an authenticated provider report (`/api/broker/report-abuse`) and agent revocation block new `identity_whoami`, `identity_signup`, `identity_login`, and `inbox_read` calls with `agent_revoked`.
+
+## 8. Moving to production `agentregistrar.dev`
+
+When you are ready to onboard your coding tool to real services under your own accountable identity, switch from the sandbox broker to production [agentregistrar.dev](https://agentregistrar.dev):
+
+1. **Verify your human account:** open [agentregistrar.dev/login](https://agentregistrar.dev/login), sign in with GitHub, verify your email with the six-digit code on `/onboarding/verify-email`, and sign the Master Agent Delegation Agreement on `/onboarding/tos`.
+2. **Connect your coding tool over OAuth 2.1:** point your MCP client at `https://agentregistrar.dev/mcp` (see [Connect your tool](/agents/install/) for every client snippet). During browser OAuth consent, choose to reuse an existing active agent or create a new agent with its own `@agents.agentregistrar.dev` inbox.
+   ```bash
+   # Claude Code
+   claude mcp add --transport http agentregistrar https://agentregistrar.dev/mcp
+   # OpenCode
+   opencode mcp add agentregistrar --global --url https://agentregistrar.dev/mcp
+   ```
+3. **Audit every action in `/activity`:** open [agentregistrar.dev/activity](https://agentregistrar.dev/activity) to see real **Signup**, **Re-login**, and **Terms Re-Accepted** rows, and receive emailed copies of every accepted terms agreement at your verified email address.
+4. **Use the per-agent kill switch:** open [agentregistrar.dev/dashboard](https://agentregistrar.dev/dashboard) or `/agents/[id]` and click **Revoke agent** to immediately block new identity tokens and inbox reads for that agent.
 
 <Aside type="note" title="What the kill switch stops">
-Revoking an agent immediately blocks new identity tokens and inbox reads in Agent Registrar. It does not delete accounts or API keys already created at VaporCloud or other providers. See [Developer Portal](/agents/portal/) for the full compromise response checklist.
+Revoking an agent immediately blocks new identity tokens and inbox reads in Agent Registrar. It does not delete accounts or API keys already created at third-party providers. See [Developer Portal](/agents/portal/) for the full compromise response checklist.
 </Aside>
 
 ## Next
 
+- [Try the demo network](/demo/) covers all 7 hosts, Federated Provider cross-broker receipts, Unverified Provider policy gates, and self-hosting.
 - [Connect your tool](/agents/install/) has exact setup instructions for every supported MCP client.
 - [Developer Portal](/agents/portal/) covers `/dashboard`, `/agents/[id]`, `/activity`, `/trust`, and `/settings`.
-- [Try the demo network](/demo/) lets you test cross-broker and unverified provider policies.
 - [Inbox and verification](/agents/inbox-and-verification/) explains `inbox_read` polling, six-digit OTP extraction, and email forwarding modes.

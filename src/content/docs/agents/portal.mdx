@@ -89,7 +89,7 @@ Every agent under your account inherits your trust policy from [agentregistrar.d
   - **`strict`:** requires a valid broker-managed verification credential and rejects provider-managed sources.
 - **Per-provider rules, re-login toggle, and blocklist:** override the default verification policy for a specific provider origin and audience, toggle **Day-2 re-login** (`Allowed` by default or `Disabled` - failing closed with `service_relogin_disabled`), or mark any service as **blocked** (`rp_blocked` refuses both signup and login regardless of verification status).
 - **Submitted provider reports and `/trust/report`:** if a provider misbehaves, use [agentregistrar.dev/trust/report](https://agentregistrar.dev/trust/report) to submit a report naming the origin, audience, reason, and optional evidence. You can optionally block the provider or distrust its attesting broker in the same step. Provider reports open a case and update your personal policy; they do not adjudicate disputes.
-- **Advanced: federated broker trust:** collapsed by default on `/trust`. Expand it to view broker defaults or explicitly trust or distrust another broker (for example, trusting the demo Broker B in [Try the demo network](/demo/)).
+- **Advanced: federated broker trust:** collapsed by default on `/trust`. Expand it to view broker defaults or explicitly trust or distrust another broker (for example, trusting [Sandbox Broker Beta](https://beta.agentregistrardemobroker.com/.well-known/agent-broker.json) in [Try the demo network](/demo/)).
 
 <Aside type="note" title="Verification is identity, not safety">
 A verified provider proved control of its domain (or legal-entity details at the `entity` level). It is not an endorsement, security audit, or safety guarantee.
