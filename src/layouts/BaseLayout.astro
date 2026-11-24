@@ -18,7 +18,10 @@ import NimbusHead from "@cloudflare/nimbus-docs/components/NimbusHead.astro";
 import WebMCP from "@/components/WebMCP.astro";
 import type { BasePageProps } from "@cloudflare/nimbus-docs/types";
 
-type Props = BasePageProps;
+type Props = BasePageProps & {
+  /** External canonical URL override for mirrored specification pages. */
+  canonicalUrl?: string;
+};
 
 const {
   title,
@@ -33,7 +36,12 @@ const {
   entryId,
   apiVersion,
   coordinate,
+  canonicalUrl,
 } = Astro.props;
+
+if (canonicalUrl) {
+  Astro.locals.canonicalUrl = canonicalUrl;
+}
 
 const lang = config.locale ?? "en";
 // Per-page agent-index pointer. For pages in non-primary or version

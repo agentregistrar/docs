@@ -6,9 +6,11 @@ source: "spec:v2.3.0#implementing-agent-identity-protocol.md"
 specTag: "v2.3.0"
 generated: true
 lastReviewed: 2026-11-23
+canonicalUrl: "https://agentidentityprotocol.dev/implement/"
 ---
 
 > Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/99f61a91032560753dcffc4f42565db7b6c2e924/implementing-agent-identity-protocol.md) at `v2.3.0` (tag `v2.3.0`).
+> Canonical page: [agentidentityprotocol.dev](https://agentidentityprotocol.dev/implement/).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Implementing the Agent Identity Protocol (Relying Party Guide)

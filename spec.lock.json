@@ -2,7 +2,7 @@
   "tag": "v2.3.0",
   "commit": "99f61a91032560753dcffc4f42565db7b6c2e924",
   "source": "https://github.com/agentregistrar/spec",
-  "generated_at": "2026-11-23T21:04:20Z",
+  "generated_at": "2026-11-24T16:11:27Z",
   "files": [
     {
       "path": "agent-identity-protocol.md",
@@ -76,23 +76,23 @@
   "outputs": [
     {
       "path": "src/content/docs/protocol/specification.md",
-      "sha256": "sha256:0b6a7364135959459512ef07c86232ff06454481f134010ef71b7212c4d1f31a"
+      "sha256": "sha256:328c0428bb72387312ef4322e3743ef6a286ce70aa28fc4469a67e62e15e011b"
     },
     {
       "path": "src/content/docs/protocol/scope-boundaries.md",
-      "sha256": "sha256:2281c473be8c604f5f7bd8297e647d32466fe3a59c3d87652a0ab0091217952f"
+      "sha256": "sha256:1321e4cb3137a4f244e65ec31b5a2eca5e60b2d50159bea10d60912b2454d8cb"
     },
     {
       "path": "src/content/docs/protocol/implementation-guide.md",
-      "sha256": "sha256:c14e9ef856f6837075c603d75cd776098834f8e97ae75f0f61de6f7c62f74031"
+      "sha256": "sha256:e2c735b12a236c055be2b2e6c26d8297cb5ee967ac945201fd7534a26cac528b"
     },
     {
       "path": "src/content/docs/protocol/validator.md",
-      "sha256": "sha256:827c25c5f600e66a43d461a5fbd9f98175f617381b88b0b03630c229858f4b75"
+      "sha256": "sha256:2ba6a712eb51ea12f9216e6ed2ff4eeebd1919fe462e256f67a2abed10ef97df"
     },
     {
       "path": "src/content/docs/protocol/changelog.md",
-      "sha256": "sha256:e15e0aeb7222f80cf460cfbb5afe06e351341e5d6350a88646ab015fd21924fb"
+      "sha256": "sha256:8c7508b18f5f659715cc3faf2fd087a8d15f317022c7b7b71f37843cdb2f0046"
     },
     {
       "path": "public/protocol/agent-signup.schema.json",

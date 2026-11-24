@@ -41,6 +41,7 @@ export const collections = {
         sourceRef: z.string().min(1).optional(),
         sourceNote: z.string().min(1).optional(),
         generated: z.boolean().optional(),
+        canonicalUrl: z.url().optional(),
       },
     }),
   ),

@@ -6,9 +6,11 @@ source: "spec:v2.3.0#agent-identity-protocol.md"
 specTag: "v2.3.0"
 generated: true
 lastReviewed: 2026-11-23
+canonicalUrl: "https://agentidentityprotocol.dev/spec/v2.3/"
 ---
 
 > Generated from [`agentregistrar/spec`](https://github.com/agentregistrar/spec/blob/99f61a91032560753dcffc4f42565db7b6c2e924/agent-identity-protocol.md) at `v2.3.0` (tag `v2.3.0`).
+> Canonical page: [agentidentityprotocol.dev](https://agentidentityprotocol.dev/spec/v2.3/).
 > Do not edit this page; edit the spec and re-run `pnpm sync:spec`.
 
 # Agent Identity Protocol — Relying Party Discovery (`agent-signup.json`)

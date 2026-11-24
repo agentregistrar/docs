@@ -51,6 +51,7 @@ const LOCK_PATH = join(ROOT, "spec.lock.json");
 const SPEC_REPO = "agentregistrar/spec";
 const SPEC_ORIGIN = `https://github.com/${SPEC_REPO}`;
 const DOCS_ORIGIN = "https://docs.agentregistrar.dev";
+const PROTOCOL_SITE_ORIGIN = "https://agentidentityprotocol.dev";
 const CANONICAL_SCHEMA_ID = `${DOCS_ORIGIN}/protocol/agent-signup.schema.json`;
 const API_ROOT = `https://api.github.com/repos/${SPEC_REPO}`;
 const USER_AGENT = "agentregistrar-docs-sync";
@@ -81,6 +82,7 @@ const PAGES = [
     title: "Agent Identity Protocol specification",
     description:
       "The normative definition of the Agent Identity Protocol discovery document and brokered signup handshake.",
+    canonicalPath: (pin) => `/spec/${minorVersion(pin.tag)}/`,
   },
   {
     source: "scope-boundaries.md",
@@ -88,6 +90,7 @@ const PAGES = [
     title: "Scope boundaries",
     description:
       "What the identity protocol owns, what the vendor owns, and the checklist for future protocol changes.",
+    canonicalPath: "/scope-boundaries/",
   },
   {
     source: "implementing-agent-identity-protocol.md",
@@ -95,6 +98,7 @@ const PAGES = [
     title: "Implementation guide",
     description:
       "A relying-party checklist for publishing discovery, verifying assertions and returning a receipt.",
+    canonicalPath: "/implement/",
   },
   {
     source: "validator.md",
@@ -102,13 +106,29 @@ const PAGES = [
     title: "Conformance validator",
     description:
       "How to run the discovery conformance validator, read its exit codes and parse its JSON output.",
+    canonicalPath: "/validate/",
   },
 ];
 
 const CHANGELOG = {
   output: "src/content/docs/protocol/changelog.md",
   title: "Release notes and changelog",
+  canonicalPath: "/releases/",
 };
+
+function minorVersion(tag) {
+  const match = String(tag).match(/^v?(\d+\.\d+)/);
+  if (!match) {
+    throw new Error(`Cannot derive minor version from tag ${JSON.stringify(tag)}`);
+  }
+  return `v${match[1]}`;
+}
+
+function resolveCanonicalUrl(canonicalPath, pin) {
+  const path =
+    typeof canonicalPath === "function" ? canonicalPath(pin) : canonicalPath;
+  return path ? `${PROTOCOL_SITE_ORIGIN}${path}` : null;
+}
 
 const SCHEMA_OUTPUT = "public/protocol/agent-signup.schema.json";
 
@@ -573,6 +593,9 @@ function frontmatter(page, pin, lastReviewed, extra = {}) {
     ...(pin.note ? [`sourceNote: ${JSON.stringify(pin.note)}`] : []),
     "generated: true",
     `lastReviewed: ${lastReviewed}`,
+    ...(page.canonicalUrl
+      ? [`canonicalUrl: ${JSON.stringify(page.canonicalUrl)}`]
+      : []),
     ...Object.entries(extra).map(([key, value]) => `${key}: ${value}`),
     "---",
     "",
@@ -581,7 +604,7 @@ function frontmatter(page, pin, lastReviewed, extra = {}) {
   return fields.join("\n");
 }
 
-function banner(pin, sourceUrl) {
+function banner(pin, sourceUrl, canonicalUrl) {
   const location =
     pin.kind === "commit"
       ? `commit \`${pin.commit}\`${pin.ref ? ` on \`${pin.ref}\`` : ""}`
@@ -590,6 +613,9 @@ function banner(pin, sourceUrl) {
     pin.kind === "commit" ? `protocol release \`${pin.tag}\`` : `tag \`${pin.tag}\``;
   return [
     `> Generated from [\`agentregistrar/spec\`](${sourceUrl}) at ${location} (${identity}).`,
+    ...(canonicalUrl
+      ? [`> Canonical page: [agentidentityprotocol.dev](${canonicalUrl}).`]
+      : []),
     ...(pin.note ? [`> Source note: ${pin.note}`] : []),
     "> Do not edit this page; edit the spec and re-run `pnpm sync:spec`.",
     "",
@@ -605,13 +631,15 @@ function buildPage(page, sources, pin, lastReviewed) {
     pin.commit,
   );
   const sourceUrl = githubUrl(pin.commit, page.source, "");
+  const canonicalUrl = resolveCanonicalUrl(page.canonicalPath, pin);
   const pageForFrontmatter = {
     ...page,
     source: `spec:${pin.tag}#${page.source}`,
+    canonicalUrl,
   };
   return [
     frontmatter(pageForFrontmatter, pin, lastReviewed),
-    banner(pin, sourceUrl),
+    banner(pin, sourceUrl, canonicalUrl),
     body,
   ].join("");
 }
@@ -630,10 +658,12 @@ function buildChangelog(sources, pin, lastReviewed) {
     .join("\n\n");
 
   const versions = notes.map((source) => releaseNoteVersion(source));
+  const canonicalUrl = resolveCanonicalUrl(CHANGELOG.canonicalPath, pin);
   const page = {
     ...CHANGELOG,
     description: `Release notes for Agent Identity Protocol ${formatVersionList(versions)}, newest first.`,
     source: `spec:${pin.tag}#release-notes`,
+    canonicalUrl,
   };
   const sourceUrl = `${SPEC_ORIGIN}/tree/${pin.commit}`;
   return [
@@ -643,7 +673,7 @@ function buildChangelog(sources, pin, lastReviewed) {
       // disabled for this generated page only.
       nimbusDisableRules: '["nimbus/duplicate-heading-text"]',
     }),
-    banner(pin, sourceUrl),
+    banner(pin, sourceUrl, canonicalUrl),
     `${body}\n`,
   ].join("");
 }

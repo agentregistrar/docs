@@ -27,9 +27,11 @@ type Props = DocsPageProps & {
    * instead of editing the body.
    */
   bodyHasH1?: boolean;
+  /** External canonical URL override for mirrored specification pages. */
+  canonicalUrl?: string;
 };
 
-const { title, description, sidebar, headings, breadcrumbs, prevNext, mode = "doc", banner, head = [], searchable, noindex, markdownUrl, socialImage, lastUpdated, editUrl, draft, audience, collection, entryId, bodyHasH1 = false } = Astro.props;
+const { title, description, sidebar, headings, breadcrumbs, prevNext, mode = "doc", banner, head = [], searchable, noindex, markdownUrl, socialImage, lastUpdated, editUrl, draft, audience, collection, entryId, bodyHasH1 = false, canonicalUrl } = Astro.props;
 
 // `searchable` derives from `noindex` when omitted: a non-crawlable page is
 // by default not in the site search either. Explicit `searchable: true`
@@ -85,7 +87,7 @@ const hasContentFooter = Astro.slots.has("content-footer");
 const hasPagination = Astro.slots.has("pagination");
 ---
 
-<BaseLayout title={title} description={description} noindex={noindex || draft} markdownUrl={markdownUrl} socialImage={socialImage} lastUpdated={lastUpdated} head={head} collection={collection} entryId={entryId}>
+<BaseLayout title={title} description={description} noindex={noindex || draft} markdownUrl={markdownUrl} socialImage={socialImage} lastUpdated={lastUpdated} head={head} collection={collection} entryId={entryId} canonicalUrl={canonicalUrl}>
   <div class="flex flex-col min-h-screen">
     {hasHeader ? <slot name="header" /> : <Header collection={collection} entryId={entryId} showSidebar={showSidebar} />}
 
@@ -202,6 +204,12 @@ const hasPagination = Astro.slots.has("pagination");
                       ? `This is the <strong>${versionStatus.version}</strong> version of the docs and is no longer maintained. The latest version of this page is at <a href="${currentSiblingUrl}">${currentSiblingUrl}</a>.`
                       : `This is the <strong>${versionStatus.version}</strong> version of the docs and is no longer maintained. See the <a href="${homeHref}">current docs</a> for up-to-date content.`
                   }
+                />
+              )}
+              {canonicalUrl && (
+                <Banner
+                  variant="note"
+                  content={`The canonical home of this Agent Identity Protocol page is <a href="${canonicalUrl}">${canonicalUrl}</a>.`}
                 />
               )}
               {banner && <Banner content={banner.content} variant={banner.type} dismissible={banner.dismissible} />}
