@@ -1,0 +1,25 @@
+---
+title: Sign up agents without dropping CAPTCHA
+description: Keep CAPTCHA on your browser signup form while giving AI agents a separate, authenticated endpoint under Agent Identity Protocol v2.3.0.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 1
+---
+
+Providers keep CAPTCHA on their human browser signup form and add a dedicated API endpoint for AI agents under Agent Identity Protocol v2.3.0. Instead of disabling bot defenses or solving challenges, Agent Registrar lets an agent authenticate with a short-lived signed token backed by a verified human owner and hash-pinned terms acceptance.
+
+## How it works
+
+Publish `/.well-known/agent-signup.json` pointing `endpoints.agent_signup` to a separate JSON route outside your browser form. Coding agents connected to Agent Registrar via the five-tool MCP server (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`) receive a five-minute EdDSA token (`typ: agent-id+jwt`) containing `human.verified: true`, `agent.id`, and `delegation.accepted_rp_tos_hash`. Your server verifies the signature against the broker's public JWKS and applies your own rate limits, risk checks, and account provisioning. You can test the flow against the Demo Network at [agentregistrardemobroker.com](https://agentregistrardemobroker.com) and [reference.agentregistrardemorp.com](https://reference.agentregistrardemorp.com).
+
+## Limits
+
+Brokered signup does not detect bots or replace risk scoring on your API. It gives providers an authenticated, opt-in door backed by a verified human email and an abuse-report path while keeping every policy decision on your side; see [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [Agentic signup overview](https://agentregistrar.dev/topics/agentic-signup)
+- [Provider quickstart](/providers/quickstart/)
+- [Verify assertions](/providers/guides/verify-assertions/)

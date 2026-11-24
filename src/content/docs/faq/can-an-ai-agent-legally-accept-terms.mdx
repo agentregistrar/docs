@@ -1,0 +1,25 @@
+---
+title: Can an AI agent accept terms of service
+description: How Agent Registrar chains a human-signed master delegation agreement, SHA-256 terms hashes, and emailed receipts for accountable signups.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 3
+---
+
+An AI agent cannot independently bind a human without prior authorization, and Agent Registrar does not give legal advice. Instead, Agent Identity Protocol v2.3.0 chains each signup to a verified human owner who signed a Master Agent Delegation Agreement up front, backed by a SHA-256 hash of the exact provider terms bytes.
+
+## How it works
+
+Before using Agent Registrar's five-tool MCP (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`), the human signs one delegation agreement. On `identity_signup`, the broker fetches the provider's `terms.url`, hashes the exact UTF-8 bytes, emails a copy to the human's verified address, logs an entry in `/activity`, and embeds `accepted_rp_tos_url`, `accepted_rp_tos_version`, and `accepted_rp_tos_hash` in the signed assertion. Providers can inspect this wire flow on [agentregistrardemobroker.com](https://agentregistrardemobroker.com) and [reference.agentregistrardemorp.com](https://reference.agentregistrardemorp.com).
+
+## Limits
+
+Recording delegation and terms hashes establishes an auditable technical trail, not legal advice or a guarantee of enforceability in every jurisdiction. The broker is not a party to the provider's terms; see [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [AI agents accepting terms of service](https://agentregistrar.dev/topics/ai-agents-accept-terms-of-service)
+- [How it works](/start/how-it-works/)
+- [Protocol specification](/protocol/specification/)

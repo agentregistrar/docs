@@ -70,6 +70,11 @@ const nimbusConfig = defineNimbusConfig({
         collapsed: false,
       },
       {
+        label: "FAQ",
+        autogenerate: { directory: "faq" },
+        collapsed: false,
+      },
+      {
         label: "Contribute",
         autogenerate: { directory: "contribute" },
         collapsed: false,

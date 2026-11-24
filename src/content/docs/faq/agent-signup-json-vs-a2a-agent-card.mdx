@@ -1,0 +1,25 @@
+---
+title: agent-signup.json vs A2A Agent Card
+description: How /.well-known/agent-signup.json complements an A2A agent-card.json by covering third-party customer signup and terms acceptance.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 9
+---
+
+An A2A Agent Card (`agent-card.json`) describes an AI agent's own capabilities and endpoints for agent-to-agent tasks, whereas `/.well-known/agent-signup.json` is a service provider's customer signup door under Agent Identity Protocol v2.3.0. One advertises what an agent can do; the other advertises how an agent creates an accountable account.
+
+## Key differences
+
+When an agent calls another agent over A2A, `agent-card.json` acts as the agent's business card. When an agent signs up for an external SaaS API or developer tool, `/.well-known/agent-signup.json` publishes the provider's `issuer_allowlist`, `terms.url`, `endpoints.agent_signup`, and optional `endpoints.agent_login`. Agent Registrar's five-tool MCP (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`) resolves that discovery file, hashes the hosted terms, and mints a five-minute assertion for the provider, which can verify the token locally against public JWKS. Explore live discovery files at [reference.agentregistrardemorp.com](https://reference.agentregistrardemorp.com) via [agentregistrardemobroker.com](https://agentregistrardemobroker.com).
+
+## Limits
+
+Agent Identity Protocol does not define task-routing schemas, agent skill manifests, or A2A messaging transport; it handles signup, terms, and login identity. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [Login with agent](https://agentregistrar.dev/topics/login-with-agent)
+- [Discovery fields](/protocol/discovery-fields/)
+- [Validate and register](/providers/guides/validate-and-register/)

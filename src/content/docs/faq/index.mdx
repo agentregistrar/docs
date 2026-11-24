@@ -1,0 +1,46 @@
+---
+title: Frequently asked questions
+description: Answers for service providers, agent developers, and security reviewers on Agent Registrar, the Agent Identity Protocol, and trust limits.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 0
+---
+
+Direct answers to common questions from service providers, developers running AI coding agents, and security reviewers evaluating Agent Registrar and Agent Identity Protocol `v2.3.0`.
+
+## For providers
+
+- [Let AI agents sign up without removing CAPTCHA](/faq/let-ai-agents-sign-up-without-removing-captcha/) - Publish an opt-in agent signup endpoint backed by verified human owners instead of weakening browser CAPTCHAs.
+- [Prevent AI agent abuse on your free tier](/faq/prevent-ai-agent-abuse-on-free-tier/) - Require verified human owners, hash-pinned terms, per-agent inboxes, and authenticated abuse reports while keeping local risk checks.
+- [Can an AI agent legally accept terms](/faq/can-an-ai-agent-legally-accept-terms/) - A verified human signs one master delegation agreement up front and receives SHA-256 hash-pinned copies of each service's terms.
+- [Does Agent Registrar sit in the request path](/faq/does-agent-registrar-sit-in-request-path/) - No; providers verify signed tokens on their own domain and serve all post-signup API traffic directly.
+- [Do I need an account or SDK for agent signups](/faq/do-i-need-account-or-sdk-for-agent-signups/) - Standard JWT/JWKS verification is permissionless with no SDK required, while a free portal account unlocks domain verification and abuse reporting.
+- [What is well-known agent-signup.json](/faq/what-is-well-known-agent-signup-json/) - An identity-only discovery document telling agents your terms URL, signup and login endpoints, and accepted brokers.
+- [What happens if an AI agent abuses my service](/faq/what-happens-if-an-ai-agent-abuses-my-service/) - Providers with an RP signing key file authenticated JWS abuse reports to open cases and trigger protective suspensions.
+
+## For developers and agents
+
+- [How AI agents pass email verification](/faq/how-can-an-ai-agent-pass-email-verification/) - Every agent gets an `@agents.agentregistrar.dev` inbox and reads verification mail and `detected_otp` codes via `inbox_read`.
+- [Let Claude Code sign up for services](/faq/let-claude-code-sign-up-for-services/) - Add `https://agentregistrar.dev/mcp` to Claude Code over OAuth 2.1 for five-tool brokered signup and Day-2 login.
+- [Let Cursor or Codex sign up for APIs](/faq/let-cursor-or-codex-sign-up-for-apis/) - Configure Cursor or Codex CLI against the remote MCP endpoint with CIMD or DCR discovery and zero static keys.
+- [Should an AI agent use my passwords](/faq/should-i-give-my-ai-agent-my-password-manager/) - Avoid sharing personal password managers or cookies; give each agent an isolated sub-identity and per-agent kill switch.
+- [How to revoke an AI agent's access](/faq/how-to-revoke-an-ai-agent-access/) - Flip the portal kill switch or disconnect an OAuth session to block new tokens immediately, then rotate provider keys.
+- [Get a dedicated email inbox for agents](/faq/dedicated-email-inbox-for-ai-agent/) - Browser OAuth consent automatically provisions a fixed, receive-only `@agents.agentregistrar.dev` address per agent.
+
+## Comparisons
+
+- [Claimable resources vs brokered signup](/faq/claimable-resources-vs-brokered-signup/) - Compare anonymous claim links against verified human delegation, terms hashing, and Day-2 agent login.
+- [Stripe Projects vs Agent Identity Protocol](/faq/stripe-projects-vs-agent-identity-protocol/) - Compare billing and provisioning platforms against an open identity-only protocol that leaves payments with the provider.
+- [Agent signup JSON vs A2A Agent Card](/faq/agent-signup-json-vs-a2a-agent-card/) - An A2A Agent Card describes an agent, while `agent-signup.json` advertises a service's signup terms and endpoints.
+- [Brokered identity vs enterprise workload IAM](/faq/brokered-identity-vs-enterprise-workload-iam/) - Enterprise IAM governs internal workloads, whereas Agent Registrar solves external third-party self-serve signups.
+
+## Trust, security, and limits
+
+- [Does Agent Registrar store API keys](/faq/does-agent-registrar-store-api-keys/) - No; providers return credentials directly to your agent at handoff, and recovery stays with the provider.
+- [Is human.verified the same as KYC](/faq/is-human-verified-kyc/) - No; `human.verified` means OTP-verified email ownership for the human account, not government-ID proofing.
+- [What does verified provider mean](/faq/what-does-verified-provider-mean/) - It confirms a broker verified origin control or legal-entity evidence, never product safety or endorsement.
+- [What happens if the broker goes down](/faq/what-happens-if-the-broker-goes-down/) - New token minting and inbox reads pause until recovery, while existing provider accounts and API keys keep working.
+
+For long-form architectural guides and deep dives, read the [Agent Registrar topic guides](https://agentregistrar.dev/topics).

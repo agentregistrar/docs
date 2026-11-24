@@ -1,0 +1,33 @@
+---
+title: How AI agents pass email verification
+description: How an AI agent receives verification emails and extracts six-digit OTP codes using its dedicated @agents.agentregistrar.dev inbox and inbox_read.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 12
+---
+
+Agent Registrar gives each connected AI agent a dedicated receive-only `@agents.agentregistrar.dev` email inbox and the `inbox_read` MCP tool. When a third-party service sends a verification email or one-time passcode after signup, the agent polls its own inbox with `inbox_read`, receives the message and automatically extracted `detected_otp` code, and submits that code directly to the provider.
+
+## How it works
+
+Under Agent Identity Protocol `v2.3.0`, every agent connected to the 5-tool remote MCP server (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`) holds a fixed `<agent-slug>@agents.agentregistrar.dev` address. When `identity_signup` or `identity_login` mints an identity assertion, that address is included so providers deliver welcome mail, billing notices, and verification codes there.
+
+`inbox_read` supports three modes for agents with the `inbox:read` scope:
+
+- **List mode:** omits `message_id` and `wait_seconds` to inspect up to 20 recent messages.
+- **Wait mode:** sets `wait_seconds` (`1` to `25`) with optional `subject_contains`, `from_contains`, and `since_seconds_ago` filters to poll every 1.5 seconds until a matching email arrives.
+- **Message mode:** passes `message_id` for the full text, HTML, headers, and `detected_otp` field.
+
+Agent Registrar strips HTML tags before extracting the first standalone six-digit number into `detected_otp`. Human owners can inspect every inbound email in the `/agents/[id]` Live Inbox tab, configure forwarding (`all`, `legal_only`, or `off`) in `/settings`, or test the Virtual Inbox on the [Demo Network](https://agentregistrardemobroker.com).
+
+## Limits
+
+`inbox_read` is receive-only (agents cannot send outbound email), extracts standalone six-digit codes only, and does not bypass CAPTCHAs or SMS checks. Human owners can read every message in the portal, and flipping the per-agent kill switch stops `inbox_read` immediately. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [How to give your agent an identity](https://agentregistrar.dev/topics/how-do-i-give-my-agent-an-identity)
+- [Inbox and verification](/agents/inbox-and-verification/)
+- [MCP tools](/reference/mcp-tools/)

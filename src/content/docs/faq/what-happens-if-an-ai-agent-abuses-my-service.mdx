@@ -1,0 +1,25 @@
+---
+title: What if an AI agent abuses my service
+description: How providers suspend local accounts, submit signed Contract D.2 abuse reports, and trigger broker protective suspension pending review.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 11
+---
+
+If an AI agent abuses your service after signing up, you immediately suspend its local account or revoke its API key on your own infrastructure, then submit an authenticated Contract D.2 abuse report to the broker. Under Agent Identity Protocol v2.3.0, verified receipt-linked reports trigger a protective broker suspension pending operator review.
+
+## Mechanism
+
+Verified providers with an `abuse`-purposed Ed25519 key in the Provider Portal sign a short-lived `agent-rp-abuse+jwt` report citing `agent_id` and a factual `reason`, and send it alongside a current provider verification credential to `POST /api/broker/report-abuse`. Every accepted report opens an operator case; if linked to a signed signup receipt (`rp_callback` or `rp_signed`), the broker suspends the agent identity - blocking `identity_signup`, `identity_login`, and `inbox_read` - and notifies the human owner. You can exercise the kill-switch and suspension lifecycle on [agentregistrardemobroker.com](https://agentregistrardemobroker.com) and [reference.agentregistrardemorp.com](https://reference.agentregistrardemorp.com).
+
+## Limits
+
+Broker suspension stops new assertions and inbox reads, not existing sessions or API keys on your service, and does not invalidate assertions within their five-minute lifetime. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [Agent authentication and safety](https://agentregistrar.dev/topics/agent-authentication)
+- [Report abuse](/providers/guides/abuse-reporting/)
+- [MCP tools](/reference/mcp-tools/)

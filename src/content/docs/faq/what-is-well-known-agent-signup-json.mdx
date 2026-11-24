@@ -1,0 +1,25 @@
+---
+title: What is /.well-known/agent-signup.json
+description: How /.well-known/agent-signup.json advertises your signup endpoint, hosted terms URL, and allowed brokers in Agent Identity Protocol v2.3.0.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 8
+---
+
+The file at `/.well-known/agent-signup.json` is the public, identity-only discovery document defined by Agent Identity Protocol v2.3.0. Served as JSON over HTTPS with no authentication or redirects, it tells brokers and AI agents which brokers you trust, where your hosted terms live, and which endpoint accepts brokered signup assertions.
+
+## How it works
+
+Required fields include `protocol` (`"agent-identity-protocol"`), `protocol_version` (`"2.0"`), `audience`, `provider_name`, `issuer_allowlist`, `required_scopes` (including `"tos:accept"`), `terms` (`{ version, url }`), and `endpoints.agent_signup`. Optional fields include `endpoints.agent_login` for Day-2 login via `identity_login`, `contact`, `provider_url`, `attestation`, and namespaced `extensions`. Agents discover this document via Agent Registrar's five-tool MCP (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`), which fetches `terms.url`, computes the SHA-256 hash, and mints a five-minute assertion. Validate documents locally with `@agentregistrar/discovery` and inspect live examples at [reference.agentregistrardemorp.com](https://reference.agentregistrardemorp.com) and [agentregistrardemobroker.com](https://agentregistrardemobroker.com).
+
+## Limits
+
+Discovery documents must remain identity-only: pricing, SKUs, and provisioning capabilities are forbidden, and document conformance validates schema shape rather than provider trustworthiness. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [Agent identity overview](https://agentregistrar.dev/topics/agent-identity)
+- [Discovery fields](/protocol/discovery-fields/)
+- [Publish discovery](/providers/guides/publish-discovery/)

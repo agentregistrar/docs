@@ -1,0 +1,25 @@
+---
+title: Stripe Projects vs brokered signup
+description: How Stripe Projects provisioning and billing bundles differ from the open Agent Identity Protocol v2.3.0 identity-only signup standard.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 5
+---
+
+Stripe Projects bundles catalog discovery, resource provisioning, and consolidated billing through Stripe's marketplace rails, while Agent Identity Protocol v2.3.0 is an open, identity-only standard. Agent Registrar verifies the human owner, records terms acceptance, and hands a short-lived signed token directly to the provider's own domain.
+
+## Key differences
+
+With Stripe Projects, Stripe sits in the provisioning and billing loop for participating vendors. With Agent Identity Protocol v2.3.0, discovery at `/.well-known/agent-signup.json` intentionally forbids catalogs, SKUs, pricing tiers, and provisioning endpoints. Coding tools use Agent Registrar's five-tool MCP (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`) to sign up directly at your `endpoints.agent_signup` URL. Your backend verifies the five-minute EdDSA token against public JWKS while keeping your own billing, pricing, credentials, and product UX. Test the flow on [reference.agentregistrardemorp.com](https://reference.agentregistrardemorp.com) via [agentregistrardemobroker.com](https://agentregistrardemobroker.com).
+
+## Limits
+
+Agent Identity Protocol deliberately excludes payment rails, wallets, and resource provisioning; providers handle billing and entitlements on their own systems. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [Agentic signup guide](https://agentregistrar.dev/topics/agentic-signup)
+- [Scope boundaries](/protocol/scope-boundaries/)
+- [Providers overview](/providers/)

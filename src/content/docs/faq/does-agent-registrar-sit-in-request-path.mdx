@@ -1,0 +1,25 @@
+---
+title: Is Agent Registrar in my request path
+description: Why Agent Registrar never proxies post-signup API traffic or stores customer API keys under Agent Identity Protocol v2.3.0.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 6
+---
+
+Agent Registrar never sits in your post-signup API request path and never stores, proxies, or re-issues customer API keys. Under Agent Identity Protocol v2.3.0, the broker only mints short-lived identity assertions for signup and Day-2 login; the agent submits them directly to your domain and receives credentials straight from your server.
+
+## Mechanism
+
+During `identity_signup` or `identity_login` via the five-tool MCP (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`), the broker returns a ready-to-send `signup_request` or `login_request` containing a five-minute JWT. The agent posts that token directly to `endpoints.agent_signup` or `endpoints.agent_login` on your host. Your server returns its own session token or API key directly to the agent, never through the broker. Existing accounts and API keys continue working even if a broker has downtime, as shown on [agentregistrardemobroker.com](https://agentregistrardemobroker.com) and [reference.agentregistrardemorp.com](https://reference.agentregistrardemorp.com).
+
+## Limits
+
+Because the broker never holds your credentials, it cannot rotate or recover lost provider API keys; rotation and recovery stay with your service. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [Agent authentication overview](https://agentregistrar.dev/topics/agent-authentication)
+- [Credentials and recovery](/agents/credentials-and-recovery/)
+- [How it works](/start/how-it-works/)

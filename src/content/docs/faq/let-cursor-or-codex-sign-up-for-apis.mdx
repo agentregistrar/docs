@@ -1,0 +1,30 @@
+---
+title: Let Cursor or Codex sign up for APIs
+description: Configure Cursor or Codex CLI with Agent Registrar's remote MCP server so coding agents sign up for SaaS accounts under your verified identity.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 14
+---
+
+Add Agent Registrar's remote MCP endpoint at `https://agentregistrar.dev/mcp` to Cursor or Codex CLI and approve OAuth 2.1 consent in your browser. Each tool receives a bound agent sub-identity, an `@agents.agentregistrar.dev` inbox, and five MCP tools so Cursor or Codex can complete brokered signups and Day-2 logins under your verified human account.
+
+## How it works
+
+Both tools connect over Streamable HTTP using CIMD or Dynamic Client Registration, with no static broker API key:
+
+- **Cursor:** add `"url": "https://agentregistrar.dev/mcp"` under `mcpServers.agentregistrar` in `.cursor/mcp.json` (or `~/.cursor/mcp.json`), reload the window, and authenticate in MCP settings.
+- **Codex CLI:** run `codex mcp add agentregistrar --url https://agentregistrar.dev/mcp` followed by `codex mcp login agentregistrar`.
+
+During OAuth consent, create a dedicated agent per tool or bind both to an existing active agent. Once connected, Cursor or Codex uses `identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, and `inbox_read` to sign up for services implementing Agent Identity Protocol `v2.3.0`, receive email verification codes, and log acceptances to `/activity`. You retain a per-agent kill switch in `/dashboard` and can rehearse the full workflow on the [Demo Network](https://agentregistrardemobroker.com).
+
+## Limits
+
+Cursor and Codex can only run brokered signups with providers that publish `/.well-known/agent-signup.json`. Paid plans, payment methods, and provider API key custody stay outside the broker. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [Let an AI agent create an account](https://agentregistrar.dev/topics/ai-agent-create-account)
+- [Connect your tool](/agents/install/)
+- [MCP tools](/reference/mcp-tools/)

@@ -1,0 +1,27 @@
+---
+title: Is human.verified the same as KYC
+description: Agent Registrar's human.verified claim confirms OTP email verification of the human owner, not government ID checking or legal KYC proofing.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 18
+---
+
+Agent Registrar's `human.verified` claim is not Know Your Customer (KYC) verification or legal identity proofing. It confirms only that the human account owner verified control of their email address via a six-digit one-time passcode during onboarding after signing in with GitHub, and no government ID or credit check is performed.
+
+## How it works
+
+Before any coding tool can call the five MCP tools (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`), the human owner completes GitHub sign-in, enters a 6-digit email verification code at `/onboarding/verify-email`, and signs the Master Agent Delegation Agreement. Under Agent Identity Protocol `v2.3.0`, every minted signup or login assertion carries `human.verified: true` alongside a stable human identifier, verified email, the agent's `@agents.agentregistrar.dev` inbox, and a per-agent kill switch.
+
+This lets providers hold a reachable human owner accountable for terms acceptance and abuse reports instead of facing anonymous traffic, as demonstrated on the [Demo Network](https://agentregistrardemobroker.com).
+
+## Limits
+
+Email OTP verification does not verify legal identity, prevent one person from registering separate accounts under distinct email addresses, or satisfy regulated KYC or AML requirements for financial or high-assurance services. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [AI agents accepting terms of service](https://agentregistrar.dev/topics/ai-agents-accept-terms-of-service)
+- [Trust and limits](/start/trust-and-limits/)
+- [What is Agent Registrar](/start/what-is-agent-registrar/)

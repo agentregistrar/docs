@@ -1,0 +1,30 @@
+---
+title: How to revoke an AI agent's access
+description: Use the per-agent kill switch or OAuth session disconnect in the Developer Portal to block new identity tokens and rotate provider keys safely.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 16
+---
+
+Open the Developer Portal at `/dashboard` or `/agents/[id]` and click **Revoke agent** to flip the per-agent kill switch. Revoking an agent immediately blocks new `identity_signup` and `identity_login` assertions, `identity_whoami`, and `inbox_read` calls for that agent, while disconnecting an OAuth session revokes that coding tool's MCP bearer token without affecting other agents.
+
+## How it works
+
+Agent Registrar gives human owners two immediate controls in `/agents/[id]`:
+
+- **Disconnect OAuth session:** revokes one coding tool's `mca_...` bearer token while keeping the agent identity active for other connected tools.
+- **Revoke agent (kill switch):** sets the agent to `revoked` so all five MCP tools (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`) fail closed with `agent_revoked` and stop reading its `@agents.agentregistrar.dev` inbox.
+
+Providers subscribed to the signed `agent.status_changed` webhook under Agent Identity Protocol `v2.3.0` receive real-time notice with their `provider_account_id` so they can revoke local sessions or API keys. Verified provider abuse reports can also trigger an operator `suspended` state, which blocks new OAuth approvals until resolved. You can run the `abuse-kill-switch` scenario on the [Demo Network](https://agentregistrardemobroker.com) to inspect this flow.
+
+## Limits
+
+The kill switch is a broker control, not a remote delete button at third-party services. It does not delete provider accounts, invalidate assertions already handed over (120-second login or 5-minute signup lifetime), or rotate provider API keys. Review `/activity` and rotate affected provider keys directly. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [Agent identity overview](https://agentregistrar.dev/topics/agent-identity)
+- [Developer Portal](/agents/portal/)
+- [Credentials and recovery](/agents/credentials-and-recovery/)

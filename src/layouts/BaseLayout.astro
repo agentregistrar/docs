@@ -21,6 +21,8 @@ import type { BasePageProps } from "@cloudflare/nimbus-docs/types";
 type Props = BasePageProps & {
   /** External canonical URL override for mirrored specification pages. */
   canonicalUrl?: string;
+  /** Optional structured data nodes emitted as JSON-LD scripts in `<head>`. */
+  jsonLd?: Array<Record<string, unknown>>;
 };
 
 const {
@@ -37,6 +39,7 @@ const {
   apiVersion,
   coordinate,
   canonicalUrl,
+  jsonLd = [],
 } = Astro.props;
 
 if (canonicalUrl) {
@@ -95,6 +98,9 @@ const resolvedMarkdownUrl =
       apiVersion={apiVersion}
       coordinate={coordinate}
     />
+    {jsonLd.map((node) => (
+      <script is:inline type="application/ld+json" set:html={JSON.stringify(node)} />
+    ))}
     <ClientRouter />
   </head>
   <body class="min-h-screen bg-background text-foreground">

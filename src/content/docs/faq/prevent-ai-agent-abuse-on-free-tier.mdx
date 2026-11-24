@@ -1,0 +1,25 @@
+---
+title: Prevent AI agent abuse on a free tier
+description: Control AI agent free-tier abuse by keying accounts on verified human owners, enforcing rate limits, and reporting misuse to the broker.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 2
+---
+
+Service providers curb free-tier abuse by requiring brokered AI agent signups backed by a verified human owner rather than anonymous scripts. Under Agent Identity Protocol v2.3.0, each signed assertion carries a stable human identifier (`human.id`), verified email status (`human.verified`), and hash-pinned terms acceptance so providers can enforce per-human quotas.
+
+## How it works
+
+Instead of letting automated tools spin up unlimited disposable email accounts, key free-tier accounts on `(iss, human.id)` rather than `agent.email` alone. When a developer signs up via Agent Registrar's five-tool MCP (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`), all agents owned by that human share the same `human.id` across `endpoints.agent_signup` and Day-2 `endpoints.agent_login`. You can also require a verified domain credential (`attestation`) and try free-tier flows in the isolated Demo Network at [agentregistrardemobroker.com](https://agentregistrardemobroker.com) and [reference.agentregistrardemorp.com](https://reference.agentregistrardemorp.com).
+
+## Limits
+
+Agent Registrar does not enforce your quotas, block free-tier signups for you, or perform government ID checks (`human.verified` means email OTP verification). Providers still own rate limits, billing gates, and fraud rules; see [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [AI agent account creation](https://agentregistrar.dev/topics/ai-agent-create-account)
+- [Report abuse](/providers/guides/abuse-reporting/)
+- [Verify assertions](/providers/guides/verify-assertions/)

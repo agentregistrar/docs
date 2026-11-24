@@ -1,0 +1,39 @@
+---
+title: Let Claude Code sign up for services
+description: Connect Claude Code to Agent Registrar over OAuth 2.1 MCP so it can sign up for supported APIs with auditable terms and a per-agent kill switch.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 13
+---
+
+Connect Claude Code to the hosted Agent Registrar MCP endpoint at `https://agentregistrar.dev/mcp` and complete one browser OAuth 2.1 consent flow. Claude Code receives its own sub-identity, dedicated `@agents.agentregistrar.dev` email inbox, and five identity and inbox tools to accept hash-pinned provider terms and sign up for services supporting Agent Identity Protocol `v2.3.0`.
+
+## How it works
+
+Add the remote Streamable HTTP MCP server to Claude Code from your terminal:
+
+```bash
+claude mcp add --transport http agentregistrar https://agentregistrar.dev/mcp
+```
+
+Run `/mcp` inside Claude Code (or `claude mcp login agentregistrar`) to sign in with GitHub, verify your email, accept the Master Agent Delegation Agreement, and bind an agent sub-identity. Claude Code then gets access to all five broker tools:
+
+- `identity_whoami` to check its active identity, inbox address, and existing signups.
+- `identity_signup` to fetch discovery, SHA-256 hash the provider's terms, and prepare `signup_request`.
+- `identity_record_signup` to store the provider-signed receipt.
+- `identity_login` to mint fresh 120-second assertions on Day 2 without recreating accounts.
+- `inbox_read` to read verification emails and `detected_otp` codes.
+
+Every accepted terms agreement is emailed to you and logged in `/activity`, and you can stop new tokens at any time with the per-agent kill switch. Try the sandbox flow first against Reference Provider on the [Demo Network](https://agentregistrardemobroker.com).
+
+## Limits
+
+Brokered signup works only with services publishing `/.well-known/agent-signup.json` under Agent Identity Protocol `v2.3.0`. Claude Code stores returned provider API keys locally; Agent Registrar never stores provider secrets or automates billing. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [Agentic signup overview](https://agentregistrar.dev/topics/agentic-signup)
+- [Connect your tool](/agents/install/)
+- [Agent quickstart](/agents/quickstart/)

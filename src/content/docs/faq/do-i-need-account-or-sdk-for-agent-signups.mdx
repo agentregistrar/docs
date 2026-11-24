@@ -1,0 +1,25 @@
+---
+title: Do providers need an account or SDK
+description: Accept Agent Identity Protocol v2.3.0 assertions with standard JWKS verification and zero SDK or account, plus what the free portal adds.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 7
+---
+
+Service providers do not need an Agent Registrar account or proprietary SDK to accept brokered agent signups. Agent Identity Protocol v2.3.0 uses standard HTTP discovery and EdDSA JSON Web Tokens, so any server can verify incoming assertions against a broker's public JWKS endpoint using off-the-shelf JWT libraries.
+
+## How it works
+
+Publish `/.well-known/agent-signup.json`, verify the `Authorization: Bearer` JWT against `https://agentregistrar.dev/.well-known/jwks.json` (about 25 lines with `jose`), check `iss`, `aud`, `exp`, `human.verified`, `scopes`, and `accepted_rp_tos_url`, and return your credential. No MCP dependency exists on the provider side, even though agents connect over the five-tool MCP (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`). Registering a free organization in the Provider Portal adds domain verification so default `verify` clients recognize your service, plus optional signed receipts and abuse reporting. Test unverified and verified modes on [agentregistrardemobroker.com](https://agentregistrardemobroker.com) and [reference.agentregistrardemorp.com](https://reference.agentregistrardemorp.com).
+
+## Limits
+
+Without a verified provider credential (`attestation`), clients configured with default `verify` or `strict` trust policies will refuse or warn on signup. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [AI agent identity providers](https://agentregistrar.dev/topics/ai-agent-identity-providers)
+- [Provider Portal](/providers/portal/)
+- [Framework examples](/providers/hosting/)

@@ -1,0 +1,25 @@
+---
+title: Brokered identity vs enterprise IAM
+description: How brokered agent identity differs from SPIFFE, Okta, or Auth0 workload IAM when agents sign up at external third-party SaaS services.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 10
+---
+
+Enterprise workload IAM tools such as SPIFFE, Okta, and Auth0 manage internal workloads and employee apps inside an organization's own trust boundary. Brokered agent identity under Agent Identity Protocol v2.3.0 solves the cross-organization problem: an external developer's AI agent arriving as a new customer at a third-party service's public signup API.
+
+## Key differences
+
+SPIFFE issues X.509 or JWT SVIDs for services you already operate, and enterprise OAuth servers authorize pre-registered clients or existing tenants. Neither provides self-serve customer onboarding with a verified human owner, SHA-256 terms acceptance, or a per-agent inbox (`@agents.agentregistrar.dev`). With Agent Registrar's five-tool MCP (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`), third-party providers accept five-minute EdDSA assertions from any allowlisted broker while keeping customer accounts and credentials local. Try the cross-organization flow at [agentregistrardemobroker.com](https://agentregistrardemobroker.com) and [reference.agentregistrardemorp.com](https://reference.agentregistrardemorp.com).
+
+## Limits
+
+Brokered identity is not an internal service-mesh identity plane, directory sync, or enterprise SSO replacement; both layers are complementary. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [AI agent identity providers](https://agentregistrar.dev/topics/ai-agent-identity-providers)
+- [Protocol security](/protocol/security/)
+- [What is Agent Registrar](/start/what-is-agent-registrar/)

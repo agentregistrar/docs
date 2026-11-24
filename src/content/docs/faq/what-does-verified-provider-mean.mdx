@@ -1,0 +1,31 @@
+---
+title: What does verified provider mean
+description: What domain and entity verification mean for Agent Registrar providers, how trust policies enforce them, and why verified never means safe.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 19
+---
+
+A verified provider in Agent Registrar holds a signed provider verification credential from a trusted broker binding its canonical origin, discovery audience, and assurance level. At `domain` level, a broker checked HTTPS or DNS control of that origin; at `entity` level, an operator also reviewed legal-entity registration and official contact evidence.
+
+## How it works
+
+Under Agent Identity Protocol `v2.3.0`, providers publish an optional `attestation` source (`broker`-managed or `provider`-managed) in `/.well-known/agent-signup.json`. When an agent calls `identity_signup` or `identity_login` via the five-tool MCP server (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`), the broker evaluates that credential against the human owner's `/trust` policy:
+
+- `verify` (default): requires a valid `broker`-managed or `provider`-managed verification credential.
+- `strict`: requires a valid `broker`-managed credential only.
+- `no_verify`: allows unverified providers while recording their unverified status in `/activity`.
+
+You can compare verified, unverified, and cross-broker providers live on the [Demo Network](https://agentregistrardemobroker.com).
+
+## Limits
+
+Verification proves origin or legal-entity control at `checked_at` - it never means safe, approved, endorsed, audited, or reliable. Verified providers still receive contact details in the assertion and can misbehave; humans retain per-provider blocks, per-agent kill switches, and `/trust/report`. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [AI agent identity providers](https://agentregistrar.dev/topics/ai-agent-identity-providers)
+- [Trust and limits](/start/trust-and-limits/)
+- [Provider Portal](/providers/portal/)

@@ -58,6 +58,68 @@ const bodyHasH1 = (() => {
   }
   return false;
 })();
+
+const siteOrigin = (Astro.site?.origin ?? "https://docs.agentregistrar.dev").replace(/\/$/, "");
+const pageUrl = `${siteOrigin}${currentSlug === "/" ? "/" : `${currentSlug}/`}`;
+
+function firstFaqParagraph(body: string | undefined): string {
+  if (!body) return "";
+  const paragraphs = body
+    .replace(/\r\n?/g, "\n")
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter((block) => block && !block.startsWith("#") && !block.startsWith("import ") && !block.startsWith("```"));
+  if (paragraphs.length === 0) return "";
+  return paragraphs[0]
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const isFaqLeaf =
+  currentSlug.startsWith("/faq/") && currentSlug !== "/faq" && currentSlug !== "/faq/";
+
+const faqJsonLd: Array<Record<string, unknown>> = [];
+if (isFaqLeaf) {
+  const answerText = firstFaqParagraph(entry.body) || entry.data.description || "";
+  faqJsonLd.push(
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: entry.data.title,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: answerText,
+          },
+        },
+      ],
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Docs", item: `${siteOrigin}/` },
+        { "@type": "ListItem", position: 2, name: "FAQ", item: `${siteOrigin}/faq/` },
+        { "@type": "ListItem", position: 3, name: entry.data.title, item: pageUrl },
+      ],
+    },
+  );
+} else if (currentSlug === "/faq" || currentSlug === "/faq/") {
+  faqJsonLd.push({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Docs", item: `${siteOrigin}/` },
+      { "@type": "ListItem", position: 2, name: "FAQ", item: `${siteOrigin}/faq/` },
+    ],
+  });
+}
 ---
 
 <DocsLayout
@@ -82,6 +144,7 @@ const bodyHasH1 = (() => {
   entryId={entry.id}
   bodyHasH1={bodyHasH1}
   canonicalUrl={entry.data.canonicalUrl}
+  jsonLd={faqJsonLd}
 >
   <Content components={components} />
 </DocsLayout>

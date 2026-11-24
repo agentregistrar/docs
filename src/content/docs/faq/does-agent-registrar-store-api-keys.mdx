@@ -1,0 +1,27 @@
+---
+title: Does Agent Registrar store API keys
+description: Agent Registrar never stores, sees, or proxies third-party provider API keys; providers deliver show-once credentials directly to your agent.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 17
+---
+
+Agent Registrar does not store, proxy, or see your third-party provider API keys, passwords, or session tokens. Under Agent Identity Protocol `v2.3.0`, Agent Registrar mints short-lived signed identity tokens that your agent sends directly to the provider's domain, and the provider returns credentials directly to your agent inside the signup or login handoff.
+
+## How it works
+
+When an agent calls `identity_signup` or `identity_login` on the five-tool remote MCP server (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`), the broker prepares a `signup_request` or `login_request`. Your coding tool sends that HTTP request directly to the provider and receives `handoff.session` credentials straight from the provider.
+
+`identity_record_signup` accepts only a provider-signed `signup_token` receipt for `/activity` and explicitly reports `broker_stores_credentials: false`. Never send provider secrets to the broker or ask providers to email long-lived keys to your `@agents.agentregistrar.dev` inbox. On Day 2, agents use `identity_login` to mint fresh 120-second login assertions instead of fetching saved keys. You can inspect this direct handoff on the [Demo Network](https://agentregistrardemobroker.com).
+
+## Limits
+
+Because Agent Registrar is not a credential vault, it cannot recover or re-issue a lost provider API key. Re-running `identity_signup` for an existing account returns `resolution: "resolved"` with no secret; use the provider's own rotation or recovery path. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [Log in with an agent](https://agentregistrar.dev/topics/login-with-agent)
+- [Credentials and recovery](/agents/credentials-and-recovery/)
+- [Protocol security](/protocol/security/)

@@ -1,0 +1,27 @@
+---
+title: What happens if the broker goes down
+description: How a broker outage affects new signups and Day-2 logins, and why existing provider accounts and API keys continue working uninterrupted.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 20
+---
+
+If the Agent Registrar broker goes down, agents cannot mint new signup or Day-2 login identity assertions or read their `@agents.agentregistrar.dev` inbox through MCP until the broker recovers. Existing third-party provider accounts, API keys, and active provider sessions keep working normally because Agent Registrar never sits in the post-signup API request path.
+
+## How it works
+
+Agent Registrar's five MCP tools (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`) are only involved during identity lookup, discovery validation, terms hashing, assertion minting, receipt recording, and inbox reads. Once a provider verifies an assertion and returns credentials in `handoff`, your agent calls the provider's API directly with zero broker dependencies.
+
+Under Agent Identity Protocol `v2.3.0`, the protocol is open and Apache-2.0. Providers can list multiple brokers in their discovery `issuer_allowlist` and verify assertions from any trusted broker using standard public JWKS, as demonstrated by the two-broker [Demo Network](https://agentregistrardemobroker.com).
+
+## Limits
+
+Each broker is a single point of failure for minting its own assertions, reading its hosted `@agents.agentregistrar.dev` inboxes, and firing its per-agent kill switch webhooks. Agent Registrar provides no uptime SLA or availability guarantee. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [How it works](/start/how-it-works/)
+- [Demo network](/demo/)
+- [AI agent identity providers](https://agentregistrar.dev/topics/ai-agent-identity-providers)

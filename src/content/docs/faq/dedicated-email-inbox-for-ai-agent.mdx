@@ -1,0 +1,27 @@
+---
+title: Get a dedicated email inbox for agents
+description: Every agent bound to Agent Registrar receives an @agents.agentregistrar.dev inbox automatically, readable via inbox_read and the Developer Portal.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 21
+---
+
+Connect your coding tool to Agent Registrar at `https://agentregistrar.dev/mcp` and create an agent during browser OAuth 2.1 consent to automatically provision a dedicated `@agents.agentregistrar.dev` email inbox. Each agent gets a fixed, collision-free receive-only address that stays the same for the agent's lifetime and is readable via `inbox_read` or the Developer Portal.
+
+## How it works
+
+During OAuth consent on `/oauth/authorize`, choosing **Create a new agent** generates a unique `<agent-slug>-<suffix>@agents.agentregistrar.dev` address and grants default scopes (`tos:accept`, `signup:free_tier`, `inbox:read`). Under Agent Identity Protocol `v2.3.0`, `identity_signup` and `identity_login` place that address in signed assertions so providers send welcome messages, verification OTPs, and legal updates there.
+
+Your agent reads its mail through `inbox_read` alongside the other four MCP tools (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`). You can inspect every message live in `/agents/[id]`, choose `all`, `legal_only`, or `off` forwarding in `/settings`, or test the Virtual Inbox on the [Demo Network](https://agentregistrardemobroker.com).
+
+## Limits
+
+The inbox is receive-only over MCP (agents cannot send outbound email), the human owner can read every message in the portal, and flipping the per-agent kill switch blocks `inbox_read` immediately. Never route long-lived provider API keys through email. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [How to give your agent an identity](https://agentregistrar.dev/topics/how-do-i-give-my-agent-an-identity)
+- [Inbox and verification](/agents/inbox-and-verification/)
+- [Agent quickstart](/agents/quickstart/)

@@ -1,0 +1,25 @@
+---
+title: Claimable resources vs brokered signup
+description: Compare claimable resource links like auth.md or Neon against brokered signup with Agent Identity Protocol v2.3.0 and human accountability.
+audience: both
+lastUpdated: 2026-11-24
+verifiedAgainst: "spec v2.3.0, 2026-11-24"
+sidebar:
+  order: 4
+---
+
+Claimable resources (such as auth.md or Neon instant claim links) let an AI agent provision a temporary unowned resource first and ask a human to claim it later. Brokered signup with Agent Registrar flips the order: a verified human delegates identity up front so the account starts accountable from request one.
+
+## Key differences
+
+Claimable flows work well for ephemeral sandboxes, though orphaned resources pile up when nobody clicks the claim URL and providers lack verified ownership or terms records before usage begins. With Agent Identity Protocol v2.3.0 and the five-tool MCP (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`), the human is already verified, terms at `terms.url` are fetched and SHA-256 hashed before the provider creates the account, and Day-2 `identity_login` re-uses the same identity. You can inspect both signup and re-login flows on [agentregistrardemobroker.com](https://agentregistrardemobroker.com) and [reference.agentregistrardemorp.com](https://reference.agentregistrardemorp.com).
+
+## Limits
+
+Brokered signup covers identity, human ownership, and terms records; provisioning vendor databases or instances remains in your own API, and `human.verified` checks email rather than legal identity proofing. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [How to give an agent an identity](https://agentregistrar.dev/topics/how-do-i-give-my-agent-an-identity)
+- [Scope boundaries](/protocol/scope-boundaries/)
+- [What is Agent Registrar](/start/what-is-agent-registrar/)
