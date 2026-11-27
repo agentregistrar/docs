@@ -113,16 +113,21 @@ Unknown properties are forbidden (`additionalProperties: false`). See [spec sect
       "kid": "broker-key-1",
       "alg": "EdDSA",
       "use": "sig"
+    },
+    {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "<32-byte x coordinate, base64url>",
+      "y": "<32-byte y coordinate, base64url>",
+      "kid": "broker-es256-1",
+      "alg": "ES256",
+      "use": "sig"
     }
   ]
 }
 ```
 
-The `iss` in an assertion equals this issuer origin. Assertions carry `alg`
-`EdDSA`, a `kid` matching a key in the issuer's current JWKS, and `typ`
-`agent-id+jwt`. Verify against the JWKS, never against a key URL supplied by the
-assertion, and never hard-code `kid`. See [Issuer and JWKS
-assumptions](/protocol/specification/#10-issuer--jwks-assumptions).
+The `iss` in an assertion equals this issuer origin. Native Agent Identity Protocol assertions carry `alg` `EdDSA`, a `kid` matching the Ed25519 key in the issuer's current JWKS, and `typ` `agent-id+jwt`. For `auth.md` interoperability, `oauth-id-jag+jwt` assertions and `secevent+jwt` revocation tokens carry `alg` `ES256` and a `kid` matching the `P-256` key; see [Already using auth.md?](/providers/auth-md/). Verify against the JWKS, never against a key URL supplied by the assertion, and never hard-code `kid`. See [Issuer and JWKS assumptions](/protocol/specification/#10-issuer--jwks-assumptions).
 
 ## OAuth 2.1 with agent binding
 

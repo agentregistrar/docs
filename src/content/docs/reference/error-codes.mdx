@@ -1,8 +1,8 @@
 ---
 title: Error codes
-description: Canonical error reference across discovery validation, MCP transport, all 32 MCP tool codes, provider HTTP, broker APIs, and OAuth.
+description: Canonical error reference across discovery validation, MCP transport, all 35 MCP tool codes, provider HTTP, broker APIs, and OAuth.
 audience: both
-verifiedAgainst: "spec v2.3.0, 2026-11-23"
+verifiedAgainst: "spec v2.3.0, 2026-11-27"
 sidebar:
   order: 4
 ---
@@ -16,7 +16,7 @@ and the Agent Identity Protocol. Identify the layer first, then branch on
 | :--- | :--- | :--- |
 | Discovery validation | Conformance validator CLI | Exit code (`0`, `1`, `2`) plus `errors`, `warnings`, `conformance`, `attestation` |
 | MCP transport | `POST /mcp` before any tool runs | HTTP status plus JSON-RPC `error` object (`id: null`) |
-| MCP tools | Inside a tool result | HTTP `200` with `isError: true` and `{ error: { code, message, retryable, side_effects, next_step?, docs } }` |
+| MCP tools | Inside a tool result | HTTP `200` with `isError: true` and `{ error: { code, message, retryable, side_effects, next_step?, docs, extra? } }` |
 | Provider handshake | Relying party's `POST endpoints.agent_signup` / `endpoints.agent_login` | HTTP status plus `{ error, error_description?, retryable? }` (plus Day-2 step-up/terms fields) |
 | Broker APIs and OAuth | `/api/broker/*`, `/api/provider/v1/*`, `/api/oauth/*` | HTTP status plus `{ error, error_description, code? }` |
 
@@ -77,9 +77,9 @@ Returned with a non-`200` HTTP status from `POST /mcp`, before any tool runs
 | `-32003` | `403` | no | Human owner account is suspended, email is unverified, or current Master Agent Delegation Agreement is unsigned. | Human resolves the account gate in the Developer Portal. |
 | `-32000` | `406` | no | Request did not accept an allowed media type (for example `GET /mcp` without `Accept: text/event-stream`). | Send `POST /mcp` with `Accept: application/json, text/event-stream`. |
 
-## MCP tool errors (32 stable codes)
+## MCP tool errors (35 stable codes)
 
-All 32 codes defined by the broker's MCP error schema:
+All 35 codes defined by the broker's MCP error schema:
 
 | Code | Tools | Retryable | Meaning | Next action |
 | :--- | :--- | :-: | :--- | :--- |
@@ -115,6 +115,9 @@ All 32 codes defined by the broker's MCP error schema:
 | `login_not_supported` | `identity_login` | no | Relying party discovery omits `endpoints.agent_login`. | Do not retry `identity_login`; follow the provider's `SKILL.md` (if returned) or human-facing re-auth flow. |
 | `service_relogin_disabled` | `identity_login` | no | Human owner disabled Day-2 re-login for this service in `/trust`. | Do not retry unless the human re-enables re-login for this service in `/trust`. |
 | `terms_approval_required` | `identity_login` | no | Human owner enabled strict terms approval in `/settings`, and service terms changed. | Direct the human to `approval_url` (or the emailed approval link), then retry `identity_login` once approved. |
+| `auth_md_approval_required` | `identity_signup`, `identity_login` | no | Human approval is required before sharing an ID-JAG assertion with an `auth.md` service (`extra` includes `approval_id`, `approval_url`, `service_origin`, `as_issuer`, `resource`, `op_tos_uri`, `terms_sha256`, `fallback_login_hint`, `expires_at`). | Direct the human to `error.extra.approval_url`, wait for approval, and retry the same tool call. If the service does not trust this broker, guide the human using `error.extra.fallback_login_hint`. |
+| `auth_md_reauth_required` | `identity_signup`, `identity_login` | no | Caller passed `require_fresh_auth: true` after `401 login_required`, and the human's `auth_time` is older than 15 minutes (`extra` includes `approval_id`, `approval_url`, `service_origin`, `as_issuer`, `resource`, `expires_at`, `fallback_login_hint`). | Direct the human to `error.extra.approval_url` to confirm fresh re-authentication, then retry the same tool call without `require_fresh_auth`. |
+| `auth_md_fallback_available` | `identity_signup`, `identity_login` | no | Detected `auth.md` service does not support or trust ID-JAG assertions from this broker (`extra` includes `fallback_login_hint` and any available service fallback metadata). | Do not retry ID-JAG. Follow `error.next_step` to use `fallback_login_hint` or the service's `claim_token` / `service_auth` / `anonymous` flow. |
 
 `unverified` is not `invalid`. Absence of `attestation` in discovery is
 conformant; only `verify` and `strict` policies refuse it. An operator-suspended
@@ -237,6 +240,8 @@ Returned by `/oauth/authorize`, `/api/oauth/*`, and operator webhooks using RFC
 | `tos_version_mismatch` or `tos_hash_mismatch` | Retry the same pinned version or assertion | Re-read `terms.url` and call `identity_signup` with the current version (or omit `terms_version`) |
 | `terms_reacceptance_required` | Re-run `identity_signup` for an existing account | Call `identity_login` with `reaccept_terms: true` and resend `login_request` |
 | `terms_approval_required` | Retry `identity_login` before approval | Direct the human to `approval_url` (or `/approvals/[id]`), then retry `identity_login` |
+| `auth_md_approval_required` / `auth_md_reauth_required` | Mint or retry in a loop without approval | Direct the human to `error.extra.approval_url`, then retry (`auth_md_reauth_required` retries without `require_fresh_auth`) |
+| `auth_md_fallback_available` | Keep retrying ID-JAG or claim broker trust | Follow `error.next_step` with `error.extra.fallback_login_hint` or the service's own claim flow |
 | `service_relogin_disabled` / `login_not_supported` | Retry `identity_login` unchanged | Ask human to check `/trust` (`service_relogin_disabled`) or follow `SKILL.md` (`login_not_supported`) |
 | `human_action_required` | Auto-retry in a loop | Direct the human to `verification_url` (plus `user_code` if provided) |
 | `rp_unverified` under `verify` or `strict` | Treat the provider as invalid or unsafe | Ask the human to adjust `/trust` policy or choose a verified provider |

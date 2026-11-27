@@ -82,14 +82,40 @@ MCP on Sandbox Broker Alpha at `https://alpha.agentregistrardemobroker.com/mcp`)
    - Optional inputs: `terms_version` (pin the expected `terms.version`),
      `requested_scopes` (defaults to discovery `required_scopes`; never pass
      `[]`), `force_new` (boolean; records a fresh acceptance without bypassing
-     gates or policy).
+     gates or policy), `require_fresh_auth` (boolean; for `auth.md` services
+     that returned `401 login_required`).
    - Never pass `rp_discovery`, `rp_discovery_url`, or `rp_attestation` (doing
      so fails with `discovery_source_not_allowed`).
-   - The broker fetches discovery and `terms.url`, hashes the exact UTF-8
-     bytes, verifies any optional provider attestation against the human's
-     trust policy (`verify` default, `no_verify`, or `strict`), records the
-     acceptance, emails a terms copy to the human, and returns a prepared
-     `signup_request`.
+   - Native Agent Identity Protocol (`/.well-known/agent-signup.json`): the
+     broker fetches discovery and `terms.url`, hashes the exact UTF-8 bytes,
+     verifies any optional provider attestation against the human's trust policy
+     (`verify` default, `no_verify`, or `strict`), records the acceptance,
+     emails a terms copy to the human, and returns a prepared `signup_request`.
+   - Automatic `auth.md` ID-JAG fallback: if `/.well-known/agent-signup.json`
+     returns `404` or `410`, the broker probes RFC 9728 / RFC 8414 `agent_auth`
+     discovery automatically. When `auth.md` is detected, the broker enforces a
+     1-click human approval (`auth_md_approval_required` with
+     `error.extra.approval_url`) or fresh `auth_time` confirmation
+     (`auth_md_reauth_required`), then returns `protocol: "auth.md"` with
+     `service` (including `service.identity_endpoint`), an `ES256`
+     `oauth-id-jag+jwt`, a prepared top-level `identity_request` (`object` or
+     `null`), a prepared form-encoded `token_exchange_request`, `next_steps`,
+     and `fallback_login_hint`. When `identity_request` is non-null, execute
+     Step 1 (`POST` `identity_request.url` with `Content-Type: application/json`
+     and `{ "type": "identity_assertion", "assertion_type": "urn:ietf:params:oauth:token-type:id-jag", "assertion": "<id_jag_jwt>" }`)
+     and read the service-signed `identity_assertion` returned on HTTP `200`,
+     then execute Step 2 (`POST` `token_exchange_request.url` with
+     `Content-Type: application/x-www-form-urlencoded` and
+     `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=<service_identity_assertion>`,
+     replacing `<identity_assertion_from_identity_request_response>`, or using
+     the direct ID-JAG when `identity_request` is `null`). Follow `next_steps`
+     for `200`, `401 login_required` (retry with `require_fresh_auth: true`),
+     `401 interaction_required` (service claim/authorization URL), and `400
+     invalid_issuer` / `issuer_not_enabled` or `auth_md_fallback_available`
+     (`service_auth` `{"type":"service_auth","login_hint":"<fallback_login_hint>"}`
+     + `claim_token` polling with
+     `grant_type=urn:workos:agent-auth:grant-type:claim`, or
+     `fallback_login_hint`).
 2. Send `signup_request` verbatim: `POST` `signup_request.url` with exact
    `signup_request.headers` (`Authorization: Bearer <jwt>` and
    `Content-Type: application/json`) and raw body `{}`.
@@ -120,14 +146,19 @@ expires:
 1. Call `identity_login` with
    `{ "service": "https://reference.agentregistrardemorp.com" }` (optional:
    `reaccept_terms: true` if the provider returned `terms_reacceptance_required`,
-   and `requested_scopes`). Never pass `rp_discovery`, `rp_discovery_url`, or
+   `requested_scopes`, and `require_fresh_auth: true` for `auth.md` `401
+   login_required`). Never pass `rp_discovery`, `rp_discovery_url`, or
    `rp_attestation`.
-   - The broker verifies discovery (requiring `endpoints.agent_login`), checks
-     the human's per-service re-login toggle (`/trust`), checks terms freshness
-     (autonomously re-accepting drifted terms under the Master Agreement unless
-     the human enabled strict terms approval in `/settings`), and returns a
-     prepared `login_request` carrying a fresh, uncached 120-second
-     `purpose: "login"` assertion.
+   - For native providers, the broker verifies discovery (requiring
+     `endpoints.agent_login`), checks the human's per-service re-login toggle
+     (`/trust`), checks terms freshness (autonomously re-accepting drifted
+     terms under the Master Agreement unless the human enabled strict terms
+     approval in `/settings`), and returns a prepared `login_request` carrying
+     a fresh, uncached 120-second `purpose: "login"` assertion.
+   - If `/.well-known/agent-signup.json` returns `404`/`410` and `auth.md`
+     metadata is present, `identity_login` falls back to the same `auth.md`
+     ID-JAG flow (`protocol: "auth.md"`, `identity_request`,
+     `token_exchange_request`, `require_fresh_auth`, and `approval_url`).
 2. Send `login_request` verbatim (`POST` `login_request.url`, exact headers, raw
    body `{}`). Never cache, reuse, or decode login assertions.
 3. Handle the provider response safely:
@@ -164,8 +195,8 @@ Never guess or brute-force a verification code.
 ## 6. Failure recovery
 
 Tool errors return `isError: true` with JSON in `content[0].text`:
-`{ error: { code, message, retryable, side_effects, next_step?, docs } }`.
-Inspect `retryable` and `side_effects` before repeating a call. All 32 MCP
+`{ error: { code, message, retryable, side_effects, next_step?, docs, extra? } }`.
+Inspect `retryable` and `side_effects` before repeating a call. All 35 MCP
 error codes:
 
 | Error code / symptom | Retryable | Action |
@@ -184,6 +215,9 @@ error codes:
 | `login_not_supported` | no | Provider omits `endpoints.agent_login`. Do not retry `identity_login`; follow the provider's `SKILL.md` (if returned) or human-facing login flow. |
 | `service_relogin_disabled` | no | Human disabled Day-2 re-login for this service in `/trust`. Do not retry unless the human re-enables it. |
 | `terms_approval_required` | no | Human enabled strict terms approval in `/settings`. Direct the human to `approval_url` (or emailed link) to approve, then retry `identity_login`. |
+| `auth_md_approval_required` | no | First-time or expired 24h approval for an `auth.md` service. Direct the human to `error.extra.approval_url`, then retry the same tool call. |
+| `auth_md_reauth_required` | no | `require_fresh_auth: true` was passed and `auth_time` is older than 15m. Direct the human to `error.extra.approval_url` to re-authenticate, then retry without `require_fresh_auth`. |
+| `auth_md_fallback_available` | no | `auth.md` service does not support or trust ID-JAG from this broker. Follow `error.next_step` with `service_auth` (`{"type":"service_auth","login_hint":"<fallback_login_hint>"}`) + `claim_token` polling (`grant_type=urn:workos:agent-auth:grant-type:claim`), or `error.extra.fallback_login_hint`. |
 | `signup_token_invalid` | no | Receipt failed verification. Re-run `identity_signup` + `POST` for a fresh receipt (conformant providers resolve existing accounts idempotently), then record it. |
 | `signup_token_not_linked`, `signup_token_ownership_mismatch` | no | Stop. Ensure `identity_signup` ran for this agent and the receipt belongs to this agent. |
 | `message_not_found` | no | Call `inbox_read` with `{}` to list valid message ids for this agent. |

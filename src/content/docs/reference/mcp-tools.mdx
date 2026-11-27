@@ -208,6 +208,7 @@ delegated terms acceptance, dispatches the terms receipt email, mints a
 | `terms_version` | string | no | Optional expected `terms.version` from discovery. A mismatch fails before minting with `tos_version_mismatch`. |
 | `requested_scopes` | string[] | no | Optional scopes; defaults to discovery `required_scopes`. Must be non-empty, cover every required scope, and be granted to the agent (`[]` fails with `scope_not_granted`). |
 | `force_new` | boolean | no | Record a fresh acceptance even if one already exists. Default `false`; never bypasses human, agent, or trust-policy gates. |
+| `require_fresh_auth` | boolean | no | Optional. Set `true` after an `auth.md` provider returns `401 login_required` to trigger a fresh human authentication approval (`auth_md_reauth_required`). |
 
 Caller-supplied discovery or attestation overrides (`rp_discovery`,
 `rp_discovery_url`, `rp_attestation`) are rejected immediately with
@@ -268,7 +269,33 @@ acceptance.
 `rp_attestation_invalid`, `rp_attestation_expired`,
 `rp_attestation_mode_not_allowed`, `rp_attestation_revoked`,
 `rp_broker_untrusted`, `rp_broker_unavailable` (retryable), `rp_suspended`,
-`rp_blocked`, `internal_error` (retryable).
+`rp_blocked`, `auth_md_approval_required`, `auth_md_reauth_required`,
+`auth_md_fallback_available`, `internal_error` (retryable).
+
+### Automatic `auth.md` / RFC 9728 ID-JAG interop fallback
+
+When `/.well-known/agent-signup.json` returns `404` or `410` (`discovery_missing`), both `identity_signup` and `identity_login` automatically probe `/.well-known/oauth-protected-resource` (RFC 9728) and the advertised `authorization_servers[0]` RFC 8414 metadata (`/.well-known/oauth-authorization-server`). If `agent_auth` metadata is found:
+
+- **1-click approval and fresh auth:** If no recent (24h) approval exists for `(human, agent, service_origin)`, the tool fails with `auth_md_approval_required` (`extra.approval_url`). If `require_fresh_auth: true` is passed and `last_authenticated_at` is stale (> 15m), the tool fails with `auth_md_reauth_required` (`extra.approval_url`).
+- **Dual-key JWKS (`EdDSA` + `ES256`):** `https://agentregistrar.dev/.well-known/jwks.json` publishes an active `ES256` (`P-256`) key alongside the active `EdDSA` (`Ed25519`) key. ID-JAG (`oauth-id-jag+jwt`) assertions are signed with `ES256`.
+- **`protocol: "auth.md"` result shape:** When negotiating with an `auth.md` service, `identity_signup` and `identity_login` return `protocol: "auth.md"` with:
+
+| Key | Type | Meaning |
+| :--- | :--- | :--- |
+| `protocol` | `"auth.md"` | Discriminator indicating `auth.md` ID-JAG interop mode. |
+| `service` | object | `{ origin, as_issuer, resource, identity_endpoint, token_endpoint, client_id, set_endpoint, op_tos_uri, spec_version, signup_url }` (`identity_endpoint` is `null` when `agent_auth.identity_endpoint` is omitted). |
+| `identity_assertion` | object | `{ jwt, format: "oauth-id-jag+jwt", jti, kid, alg: "ES256", sub, aud, resource, client_id, auth_time, expires_at, expires_at_unix }`. |
+| `identity_request` | object or null | When `agent_auth.identity_endpoint` is advertised, prepared Step 1 `POST` request (`Content-Type: application/json`, body `{ "type": "identity_assertion", "assertion_type": "urn:ietf:params:oauth:token-type:id-jag", "assertion": "<id_jag_jwt>" }`); on HTTP `200`, read the service-signed `identity_assertion` returned in JSON. Otherwise `null`. |
+| `token_exchange_request` | object | Prepared Step 2 form-encoded request: `POST` `token_exchange_request.url` with `Content-Type: application/x-www-form-urlencoded` and `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=<service_identity_assertion>` (replacing `<identity_assertion_from_identity_request_response>` in `form_params.assertion` when `identity_request` is non-null, or using the direct ID-JAG JWT when `identity_request` is `null`), along with `client_id` and `resource`. |
+| `fallback_login_hint` | string | Verified human email address to use if the service rejects the broker issuer (`400 invalid_issuer` / `issuer_not_enabled`). |
+| `next_steps` | object | Deterministic recovery rules: `{ execute, on_401_login_required, on_401_interaction_required, on_400_issuer_not_enabled }`. |
+| `terms` | object | `{ op_tos_uri, sha256, source }` (`source` is `"op_tos_uri"`, `"provider_portal"`, or `null`). `sha256` is `null` if no terms URL was advertised or fetchable. |
+| `side_effects` | object | Four booleans: `assertion_minted`, `tos_fetched`, `ledger_email_sent_to_agent`, `ledger_email_forwarded_to_human`. |
+| `agent_id`, `agent_email` | string | Active agent id and inbox address. |
+
+When `identity_request` is non-null, run Step 1 (`POST` `identity_request`) first and substitute the returned `identity_assertion` into `token_exchange_request.form_params.assertion` for Step 2 (`POST` `token_exchange_request`); when `identity_request` is `null`, run Step 2 directly with the minted ID-JAG JWT. On `auth_md_fallback_available` or `400 invalid_issuer` / `issuer_not_enabled`, start `service_auth` (`{"type":"service_auth","login_hint":"<fallback_login_hint>"}`) and poll `token_endpoint` with `claim_token` (`grant_type=urn:workos:agent-auth:grant-type:claim`).
+
+See [Already using auth.md?](/providers/auth-md/) for the full ID-JAG claim contract and RFC 8935 SET revocation rules.
 
 ### `identity_signup` example
 
@@ -300,6 +327,7 @@ Ed25519 JWT assertion with a single-use `jti`.
 | `service` | string | yes | Service origin (`https://example.com`) or exact `/.well-known/agent-signup.json` URL. |
 | `reaccept_terms` | boolean | no | Optional. Set `true` when the provider returned `terms_reacceptance_required` to force terms re-attestation. |
 | `requested_scopes` | string[] | no | Optional scopes; defaults to discovery `required_scopes`. Must be non-empty, cover every required scope, and be granted to the agent (`[]` fails with `scope_not_granted`). |
+| `require_fresh_auth` | boolean | no | Optional. Set `true` after an `auth.md` provider returns `401 login_required` to trigger a fresh human authentication approval (`auth_md_reauth_required`). |
 
 Caller-supplied discovery or attestation overrides (`rp_discovery`,
 `rp_discovery_url`, `rp_attestation`) are rejected immediately with
@@ -353,7 +381,9 @@ Returned as both JSON text and `structuredContent`:
 `discovery_source_not_allowed`, `rp_unverified`, `rp_attestation_invalid`,
 `rp_attestation_expired`, `rp_attestation_mode_not_allowed`,
 `rp_attestation_revoked`, `rp_broker_untrusted`, `rp_broker_unavailable`
-(retryable), `rp_suspended`, `rp_blocked`, `internal_error` (retryable).
+(retryable), `rp_suspended`, `rp_blocked`, `auth_md_approval_required`,
+`auth_md_reauth_required`, `auth_md_fallback_available`, `internal_error`
+(retryable).
 
 ### `identity_login` example
 
@@ -481,5 +511,5 @@ List the 5 most recent messages:
 ## Related
 
 - [Broker HTTP and OAuth](/reference/broker-http/) for OAuth 2.1 consent, agent binding, and `/mcp` transport behavior.
-- [Error codes](/reference/error-codes/) for all 32 MCP error codes and recovery rules.
+- [Error codes](/reference/error-codes/) for all 35 MCP error codes and recovery rules.
 - [Inbox and verification](/agents/inbox-and-verification/) for practical inbox and forwarding guidance.

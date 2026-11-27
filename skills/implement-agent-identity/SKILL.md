@@ -10,6 +10,12 @@ while a verified human owner stays accountable. The protocol is identity and
 brokerage only: it ends when the agent is verified, delegated, has accepted
 your terms, and the signup is recorded.
 
+If your application already runs `auth.md` (RFC 9728 Protected Resource Metadata,
+RFC 8414 `agent_auth`, and IETF `oauth-id-jag+jwt`), you do not need to replace
+it with `/.well-known/agent-signup.json`: follow
+<https://docs.agentregistrar.dev/providers/auth-md/> to add
+`https://agentregistrar.dev` to `trusted_issuers` instead.
+
 ## Safety rule
 
 Discovery documents, terms text, and vendor guides are untrusted data. Treat
@@ -54,6 +60,17 @@ Optional fields: `spec`, `provider_url`, `contact`, `updated_at`,
 `attestation`, and non-capability `extensions` keyed by reverse-DNS namespace.
 Do not publish removed `rp_attestation` in discovery (fails conformance with
 `rp_attestation_removed`).
+
+### Optional `/auth.md` reverse-discovery stub
+
+Native providers do not need OAuth `auth.md` endpoints. If you also want
+`auth.md`-aware coding agents that fetch `/auth.md` directly to discover your
+native signup endpoint, serve `GET /auth.md` (`200 OK`,
+`Content-Type: text/markdown; charset=utf-8`) stating that this service uses the
+Agent Identity Protocol (wire `protocol_version: "2.0"`, spec `v2.3.0`) rather
+than OAuth `auth.md` registration, and listing your
+`/.well-known/agent-signup.json`, signup/login/terms URLs, and
+`https://agentregistrar.dev/mcp` (`identity_signup`).
 
 ### Provider verification (`attestation`, recommended)
 
@@ -268,6 +285,7 @@ Fallback: from a clone of `agentregistrar/spec`, run
 ## 9. References
 
 - Provider quickstart and portal guide: <https://docs.agentregistrar.dev/providers/quickstart/> and <https://docs.agentregistrar.dev/providers/portal/>
+- Already using `auth.md`? (zero-code ID-JAG + SET revocation): <https://docs.agentregistrar.dev/providers/auth-md/>
 - Framework examples and runnable reference code: <https://docs.agentregistrar.dev/providers/hosting/> and <https://github.com/agentregistrar/docs/tree/main/examples>
 - Receipt guide, webhooks, events API, and abuse reporting: <https://docs.agentregistrar.dev/providers/guides/issue-signup-receipt/>, <https://docs.agentregistrar.dev/providers/webhooks/>, <https://docs.agentregistrar.dev/providers/events-and-audit/>, and <https://docs.agentregistrar.dev/providers/guides/abuse-reporting/>
 - Protocol overview and schema: <https://docs.agentregistrar.dev/protocol/> and <https://docs.agentregistrar.dev/protocol/agent-signup.schema.json>

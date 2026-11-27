@@ -3,8 +3,8 @@
  * Demo network diagrams for the public docs page.
  *
  * Two variants share one component so the page imports one file:
- * - `topology`: the 7-host open-source Demo Network (Hub/Workbench, Alpha,
- *   Beta, Directory, Reference, Federated, Unverified) and trust edges.
+ * - `topology`: the 8-host open-source Demo Network (Hub/Workbench, Alpha,
+ *   Beta, Directory, Reference, Federated, Unverified, Demo auth.md) and trust edges.
  * - `sequence`: the cross-broker signup and receipt-ingestion sequence between
  *   an agent, Sandbox Broker Alpha, Sandbox Broker Beta, and Federated Provider.
  *
@@ -25,39 +25,40 @@ const isTopology = variant === "topology";
   {
     isTopology ? (
       <svg
-        viewBox="0 0 318 492"
+        viewBox="0 0 318 560"
         role="img"
         aria-labelledby="demo-topology-title"
         aria-describedby="demo-topology-desc"
         class="mx-auto block h-auto w-full"
         style="max-width: 30rem;"
       >
-        <title id="demo-topology-title">7-host open-source demo network topology</title>
+        <title id="demo-topology-title">8-host open-source demo network topology</title>
         <desc id="demo-topology-desc">
-          The Demo Network has seven hosts isolated from production
+          The Demo Network has eight hosts isolated from production
           agentregistrar.dev. The Hub and Provider Workbench run at
           agentregistrardemobroker.com. Sandbox Broker Alpha at
           alpha.agentregistrardemobroker.com is the human/agent broker hosting
-          the disposable 5-tool /mcp endpoint and issuing Contract A assertions
-          and broker-managed attestations. Sandbox Broker Beta at
+          the disposable 5-tool /mcp endpoint and issuing Contract A assertions,
+          ES256 ID-JAG assertions, SET revocations, and broker-managed
+          attestations. Sandbox Broker Beta at
           beta.agentregistrardemobroker.com is an independent relying-party
           broker issuing provider-managed Contract G attestations. Under
           agentregistrardemorp.com, Reference Provider is Alpha-attested,
           Federated Provider is Beta-attested, Unverified Provider has no
-          attestation, and the Demo RP Directory provides live status probes
-          only.
+          attestation, Demo auth.md Provider runs auth.md v0.6.0 trusting Alpha,
+          and the Demo RP Directory provides live status probes only.
         </desc>
 
         <g fill="var(--color-foreground)">
           <rect x="2" y="8" width="314" height="44" fill="none" stroke="var(--color-line)" />
           <text x="8" y="21" font-size="9" letter-spacing="0.5" fill="var(--color-muted)">HUB &amp; PROVIDER WORKBENCH</text>
           <text x="8" y="34" font-size="10">agentregistrardemobroker.com</text>
-          <text x="8" y="46" font-size="8" fill="var(--color-muted)">5-scenario Live Runner, Wire Inspector, /workbench</text>
+          <text x="8" y="46" font-size="8" fill="var(--color-muted)">6-scenario Live Runner, Wire Inspector, /workbench</text>
 
           <rect x="2" y="62" width="314" height="54" fill="none" stroke="var(--color-line)" />
           <text x="8" y="76" font-size="10" letter-spacing="0.5" fill="var(--color-accent)">SANDBOX BROKER ALPHA</text>
           <text x="8" y="91" font-size="9">alpha.agentregistrardemobroker.com</text>
-          <text x="8" y="106" font-size="8" fill="var(--color-muted)">disposable /mcp; Contract A assertions; broker attestations</text>
+          <text x="8" y="106" font-size="8" fill="var(--color-muted)">disposable /mcp; Contract A + ES256 ID-JAG + SET</text>
 
           <rect x="2" y="134" width="314" height="54" fill="none" stroke="var(--color-line)" />
           <text x="8" y="148" font-size="10" letter-spacing="0.5" fill="var(--color-muted)">SANDBOX BROKER BETA</text>
@@ -71,7 +72,7 @@ const isTopology = variant === "topology";
           <rect x="56" y="206" width="250" height="52" fill="none" stroke="var(--color-line)" />
           <text x="62" y="220" font-size="10" letter-spacing="0.5" fill="var(--color-accent)">REFERENCE - ALPHA-ATTESTED</text>
           <text x="62" y="234" font-size="9">reference.agentregistrardemorp.com</text>
-          <text x="62" y="247" font-size="8" fill="var(--color-muted)">aud demo-reference; mode broker; /api/login/agent</text>
+          <text x="62" y="247" font-size="8" fill="var(--color-muted)">aud demo-reference; mode broker; /auth.md stub</text>
 
           <rect x="56" y="272" width="250" height="52" fill="none" stroke="var(--color-line)" />
           <text x="62" y="286" font-size="10" letter-spacing="0.5" fill="var(--color-accent)">FEDERATED - BETA-ATTESTED</text>
@@ -83,31 +84,38 @@ const isTopology = variant === "topology";
           <text x="62" y="366" font-size="9">unverified.agentregistrardemorp.com</text>
           <text x="62" y="379" font-size="8" fill="var(--color-muted)">aud demo-unverified; tests verify/strict/no_verify</text>
 
-          <text x="56" y="400" font-size="8" fill="var(--color-warn)">All 3 providers: issuer_allowlist = Alpha</text>
+          <rect x="56" y="404" width="250" height="52" fill="none" stroke="var(--color-line)" />
+          <text x="62" y="418" font-size="10" letter-spacing="0.5" fill="var(--color-accent)">DEMO AUTH.MD - ID-JAG + SET</text>
+          <text x="62" y="432" font-size="9">authmd.agentregistrardemorp.com</text>
+          <text x="62" y="445" font-size="8" fill="var(--color-muted)">RFC 9728/8414; trusted_issuers = Alpha; op_tos_uri</text>
 
-          <rect x="56" y="408" width="250" height="36" fill="none" stroke="var(--color-line)" />
-          <text x="62" y="422" font-size="10" letter-spacing="0.5" fill="var(--color-muted)">DEMO RP DIRECTORY</text>
-          <text x="62" y="436" font-size="9">agentregistrardemorp.com; status probes only</text>
+          <text x="56" y="467" font-size="8" fill="var(--color-warn)">3 AIP RPs (allowlist) + 1 auth.md RP (trusted_issuers)</text>
 
-          <line x1="20" y1="116" x2="20" y2="364" stroke="var(--color-line-strong)" />
+          <rect x="56" y="476" width="250" height="36" fill="none" stroke="var(--color-line)" />
+          <text x="62" y="490" font-size="10" letter-spacing="0.5" fill="var(--color-muted)">DEMO RP DIRECTORY</text>
+          <text x="62" y="504" font-size="9">agentregistrardemorp.com; status probes only</text>
+
+          <line x1="20" y1="116" x2="20" y2="430" stroke="var(--color-line-strong)" />
           <line x1="20" y1="232" x2="52" y2="232" stroke="var(--color-line-strong)" />
           <line x1="20" y1="298" x2="52" y2="298" stroke="var(--color-line-strong)" />
           <line x1="20" y1="364" x2="52" y2="364" stroke="var(--color-line-strong)" />
+          <line x1="20" y1="430" x2="52" y2="430" stroke="var(--color-line-strong)" />
           <polygon points="52,228 52,236 56,232" fill="var(--color-line-strong)" />
           <polygon points="52,294 52,302 56,298" fill="var(--color-line-strong)" />
           <polygon points="52,360 52,368 56,364" fill="var(--color-line-strong)" />
-          <text x="24" y="200" font-size="8" fill="var(--color-muted)">assertions to RPs; receipts to Alpha</text>
+          <polygon points="52,426 52,434 56,430" fill="var(--color-line-strong)" />
+          <text x="24" y="200" font-size="8" fill="var(--color-muted)">assertions / ID-JAG / SET / receipts</text>
 
           <line x1="310" y1="188" x2="310" y2="298" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
           <line x1="310" y1="298" x2="306" y2="298" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
           <polygon points="306,294 306,302 302,298" fill="var(--color-line-strong)" />
           <text x="218" y="267" font-size="8" fill="var(--color-warn)">Beta attestation</text>
 
-          <line x1="8" y1="464" x2="28" y2="464" stroke="var(--color-line-strong)" />
-          <text x="34" y="467" font-size="8" fill="var(--color-muted)">assertion or receipt</text>
-          <line x1="150" y1="464" x2="170" y2="464" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
-          <text x="176" y="467" font-size="8" fill="var(--color-muted)">attestation or trust</text>
-          <text x="8" y="484" font-size="8" fill="var(--color-muted)">Isolated from production agentregistrar.dev; TTL cleanup.</text>
+          <line x1="8" y1="532" x2="28" y2="532" stroke="var(--color-line-strong)" />
+          <text x="34" y="535" font-size="8" fill="var(--color-muted)">assertion, SET, or receipt</text>
+          <line x1="162" y1="532" x2="182" y2="532" stroke="var(--color-line-strong)" stroke-dasharray="3 3" />
+          <text x="188" y="535" font-size="8" fill="var(--color-muted)">attestation or trust</text>
+          <text x="8" y="552" font-size="8" fill="var(--color-muted)">Isolated from production agentregistrar.dev; TTL cleanup.</text>
         </g>
       </svg>
     ) : (
@@ -212,7 +220,7 @@ const isTopology = variant === "topology";
   <figcaption class="mt-3 text-xs text-faint">
     {
       isTopology
-        ? "Figure 1. The 7-host open-source Demo Network: Hub/Workbench, Sandbox Brokers Alpha and Beta, Demo RP Directory, and three simulated providers. Solid edges carry Contract A assertions and receipts; dashed edges carry attestation trust or policy."
+        ? "Figure 1. The 8-host open-source Demo Network: Hub/Workbench, Sandbox Brokers Alpha and Beta, Demo RP Directory, and four simulated providers (three Agent Identity Protocol RPs plus Demo auth.md Provider). Solid edges carry Contract A assertions, ID-JAGs, SETs, and receipts; dashed edges carry attestation trust or policy."
         : "Figure 2. Cross-broker signup: Alpha verifies Beta's Contract G attestation, Federated verifies Alpha's Contract A assertion, and Alpha ingests the Beta-attested receipt. Beta never mints an assertion and no account mesh exists."
     }
   </figcaption>

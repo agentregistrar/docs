@@ -10,6 +10,8 @@ sidebar:
 
 Teams can copy one prompt straight into Claude Code, Cursor, Codex, OpenCode, Gemini CLI, or Antigravity CLI with no manual edits. The agent inspects your repository first to detect your framework, database, middleware, and existing routes, uses the matching framework example as a reference, and asks only for the service details it cannot infer (reminding you where to grab them in the Provider Portal). If you are signed into Agent Registrar, the prompt below pre-fills automatically from your Provider Portal service.
 
+If your service already runs `auth.md` (RFC 9728 / RFC 8414 `agent_auth` / ID-JAG), you do not need this implementation prompt - follow [Already using auth.md?](/providers/auth-md/) to add `https://agentregistrar.dev` to `trusted_issuers` instead.
+
 ## 1. Implementation prompt
 
 Copy and paste the prompt directly into your coding agent in your service repository (no placeholders to edit).
@@ -45,6 +47,7 @@ Discovery document (GET and OPTIONS /.well-known/agent-signup.json):
    - attestation set to { "mode": "broker", "uri": "<attestation_uri>" } only if provided by the developer from the Provider Portal; never fake an attestation
    - No capability, catalog, pricing, SKU, quota, or provisioning fields.
 5. GET returns 200 with Content-Type: application/json, Cache-Control: public, max-age=60, and Access-Control-Allow-Origin: *. OPTIONS returns 204 with matching CORS headers. Serve no redirects, and exclude /.well-known/agent-signup.json, <signup_path>, and <login_path> from authentication middleware and bot challenges.
+   Optional reverse-discovery stub for auth.md-aware coding agents: if the developer wants agents that probe /auth.md first to find your native discovery endpoint, also serve GET /auth.md (200 OK, Content-Type: text/markdown; charset=utf-8) stating that this service uses Agent Identity Protocol (wire protocol_version "2.0", spec v2.3.0) rather than OAuth auth.md registration, and pointing them to GET <origin>/.well-known/agent-signup.json, <signup_path>, optional <login_path>, <terms_url>, and https://agentregistrar.dev/mcp (identity_signup).
 
 Signup and Day-2 login endpoints (POST <signup_path> and POST <login_path>):
 6. Verify incoming Authorization: Bearer <jwt> assertions using jose (or an equivalent Ed25519 JWT verifier for this repository's language):
@@ -86,8 +89,37 @@ You can also copy a pre-filled prompt directly from Step 2 (**Publish discovery*
 
 There is no public web checker page. Use the CLI above or the Provider Portal dry-run. Do not look for a hosted checker form.
 
+## 4. Optional `/auth.md` reverse-discovery stub
+
+Native providers do not need `auth.md` endpoints, and Agent Registrar's `identity_signup` tool always checks `/.well-known/agent-signup.json` first. If you also want `auth.md`-aware coding agents that fetch `/auth.md` directly to discover your native signup endpoint, serve `GET /auth.md` (`200 OK`, `Content-Type: text/markdown; charset=utf-8`):
+
+````markdown
+# Example Service - Reverse Discovery
+
+This relying party uses Agent Identity Protocol (wire `protocol_version: "2.0"`, spec `v2.3.0`), not OAuth `auth.md` registration endpoints.
+
+## Discovery
+
+Fetch the discovery document:
+
+```http
+GET https://your-service.example/.well-known/agent-signup.json
+```
+
+- Signup endpoint: `https://your-service.example/api/signup/agent`
+- Login endpoint: `https://your-service.example/api/login/agent`
+- Terms of service: `https://your-service.example/terms`
+
+## Broker MCP Signup
+
+Use the broker MCP server at `https://agentregistrar.dev/mcp` and call `identity_signup` with `{ "service": "https://your-service.example" }`, then POST the returned `signup_request` verbatim.
+````
+
+If your application already runs `auth.md` with RFC 9728 / RFC 8414 `agent_auth` metadata, skip this stub and read [Already using auth.md?](/providers/auth-md/).
+
 ## Next steps
 
+- [Already using auth.md?](/providers/auth-md/): plug Agent Registrar into an existing `auth.md` service with `trusted_issuers`.
 - [Framework examples](/providers/hosting/): complete Next.js App Router, Hono, Express, and Cloudflare Workers handlers with a shared verifier.
 - [Provider Portal](/providers/portal/): verify your domain, generate the discovery document, and run the setup test.
 - [Verify assertions](/providers/guides/verify-assertions/): test every failure code with an offline JWKS fixture.

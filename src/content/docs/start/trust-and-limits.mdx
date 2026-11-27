@@ -332,6 +332,14 @@ are stated here so no page has to soften them.
 11. **No credential custody.** The broker cannot recover a provider credential,
     because it never stores one. Recovery is the provider's path.
 
+### `auth.md` interop limits
+
+When an agent uses the `auth.md` ID-JAG fallback ([Already using auth.md?](/providers/auth-md/)) instead of the native Agent Identity Protocol, three additional limits apply:
+
+1. **Terms hashing is optional and best-effort.** The broker hashes terms only when the service advertises a fetchable `op_tos_uri` (or `agent_auth.terms.url`). If omitted or unreachable, no terms hash is fabricated, `delegation` is omitted from the ID-JAG, and `/activity` records the event without a hashed terms snapshot.
+2. **No provider-signed signup receipt.** `auth.md` services exchange the ID-JAG at their own `/oauth2/token` endpoint and do not issue Contract E / Contract F `signup_token` receipts to Agent Registrar.
+3. **Human-scoped `sub` sharing across agents.** `oauth-id-jag+jwt` sets `sub` to the human owner id (`human.id`) so existing `auth.md` services resolve one user account cleanly. Because `sub` is shared by every active agent of that human, revoking one agent on `/agents/[id]` revokes it locally on the broker and pauses automatic RFC 8935 `secevent+jwt` push whenever other active agents share that `as.issuer` - requiring explicit human confirmation via **Revoke all sessions** in `/agents/[id]` before pushing a service-wide session revocation.
+
 ## What we do not claim
 
 - No SOC 2, ISO 27001, or equivalent attestation.

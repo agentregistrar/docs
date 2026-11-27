@@ -1,8 +1,8 @@
 ---
 title: Try the demo network
-description: Run the 7-host open-source demo network with sandbox MCP, live scenarios, Wire Inspector, and Provider Workbench.
+description: Run the 8-host open-source demo network with sandbox MCP, live scenarios, auth.md interop, Wire Inspector, and Provider Workbench.
 audience: both
-verifiedAgainst: "spec v2.3.0, demo-network, 2026-11-24"
+verifiedAgainst: "spec v2.3.0, demo-network, 2026-11-27"
 sidebar:
   label: Demo network
   order: 0
@@ -10,35 +10,36 @@ sidebar:
 
 import DemoNetworkDiagram from "../../../components/diagrams/DemoNetworkDiagram.astro";
 
-The Demo Network is a deployed 7-host open-source testbed for the Agent Identity Protocol (`v2.3.0`, wire `protocol_version: "2.0"`), published at [agentregistrar/demo-network](https://github.com/agentregistrar/demo-network) (Apache-2.0, Hono + SQLite/D1). It pairs two sandbox brokers with three simulated relying parties, a live runner, and a Provider Workbench so you can test same-broker, cross-broker, unverified-policy, Day-2 lifecycle, and abuse kill-switch flows without touching production accounts.
+The Demo Network is a deployed 8-host open-source testbed for the Agent Identity Protocol (`v2.3.0`, wire `protocol_version: "2.0"`) and `auth.md` (`v0.6.0`) interoperability, published at [agentregistrar/demo-network](https://github.com/agentregistrar/demo-network) (Apache-2.0, Hono + SQLite/D1). It pairs two sandbox brokers with four simulated relying parties (three Agent Identity Protocol providers plus one `auth.md` provider), a live runner, and a Provider Workbench so you can test same-broker, cross-broker, unverified-policy, Day-2 lifecycle, abuse kill-switch, and `auth.md` ID-JAG flows without touching production accounts.
 
-All seven hosts are **completely isolated** from production `agentregistrar.dev` and are **simulated third parties** operated as a public sandbox. They use disposable accounts, a virtual in-database inbox, zero real emails, and automatic TTL cleanup. They carry no provisioning, billing, SLA, uptime, or endorsement claims.
+All eight hosts are **completely isolated** from production `agentregistrar.dev` and are **simulated third parties** operated as a public sandbox. They use disposable accounts, a virtual in-database inbox, zero real emails, and automatic TTL cleanup. They carry no provisioning, billing, SLA, uptime, or endorsement claims.
 
 <Aside type="note" title="Strict sandbox isolation">
 Nothing you run on the Demo Network writes to your real `agentregistrar.dev` account or sends real email. To test against production accounts and real providers, connect `https://agentregistrar.dev/mcp` in the [Agent quickstart](/agents/quickstart/).
 </Aside>
 
-## Seven live hosts
+## Eight live hosts
 
 | Host | Role | Registered with | Attestation | What it provides |
 | :--- | :--- | :--- | :--- | :--- |
-| [Hub & Workbench](https://agentregistrardemobroker.com) | Hub UI (indexed) | n/a | n/a | Live 7-host status, 5-scenario Live Runner, Wire Inspector, Virtual Inbox drawer, and `/workbench` |
-| [Sandbox Broker Alpha](https://alpha.agentregistrardemobroker.com/.well-known/agent-broker.json) | Human/agent sandbox broker (`noindex`) | Home sandbox broker | Issues broker-managed attestations | Contract A assertions, disposable 5-tool `/mcp`, JWKS, status, receipts, and abuse endpoint |
+| [Hub & Workbench](https://agentregistrardemobroker.com) | Hub UI (indexed) | n/a | n/a | Live 8-host status, 6-scenario Live Runner, Wire Inspector, Virtual Inbox drawer, and `/workbench` |
+| [Sandbox Broker Alpha](https://alpha.agentregistrardemobroker.com/.well-known/agent-broker.json) | Human/agent sandbox broker (`noindex`) | Home sandbox broker | Issues broker-managed attestations | Contract A (`EdDSA`) and `auth.md` ID-JAG (`ES256`) assertions, RFC 8935 SET push, disposable 5-tool `/mcp`, JWKS, status, receipts, and abuse endpoint |
 | [Sandbox Broker Beta](https://beta.agentregistrardemobroker.com/.well-known/agent-broker.json) | Provider sandbox broker (`noindex`) | RP-only broker | Issues Contract G attestations | Independent broker issuing provider-managed attestations for cross-broker federation |
 | [Demo RP Directory](https://agentregistrardemorp.com) | RP landing (`noindex`) | None | None | Live directory and status probes for the simulated relying parties |
-| [Reference Provider](https://reference.agentregistrardemorp.com/.well-known/agent-signup.json) | Reference RP (`noindex`) | Alpha | Alpha, `mode: "broker"` | `audience: "demo-reference"`; Day-2 `/api/login/agent`, `ref_sess_` tokens, `/api/widgets`, `/docs/SKILL.md` |
+| [Reference Provider](https://reference.agentregistrardemorp.com/.well-known/agent-signup.json) | Reference RP (`noindex`) | Alpha | Alpha, `mode: "broker"` | `audience: "demo-reference"`; Day-2 `/api/login/agent`, `ref_sess_` tokens, `/api/widgets`, `/docs/SKILL.md`, `/auth.md` reverse-discovery stub |
 | [Federated Provider](https://federated.agentregistrardemorp.com/.well-known/agent-signup.json) | Federated RP (`noindex`) | Beta | Beta issues; RP hosts `mode: "provider"` | `audience: "demo-federated"`; `issuer_allowlist` trusts Alpha; cross-broker receipt to Alpha |
 | [Unverified Provider](https://unverified.agentregistrardemorp.com/.well-known/agent-signup.json) | Minimal RP (`noindex`) | Neither | None | `audience: "demo-unverified"`; omits `attestation` to test `verify`, `strict`, `no_verify`, and `blocked` |
+| [Demo auth.md Provider](https://authmd.agentregistrardemorp.com/.well-known/oauth-protected-resource) | `auth.md` `v0.6.0` RP (`noindex`) | None (`trusted_issuers` includes Alpha) | None | RFC 9728 PRM, RFC 8414 `agent_auth` + toggleable `op_tos_uri`, `/auth.md`, `/agent/identity`, `/oauth2/token`, `/agent/event/notify` (SET push), `/api/resource` |
 
-A verified provider publishes an optional `attestation` source object in discovery, never the token itself. **Reference Provider** uses broker-managed mode via Sandbox Broker Alpha, and **Federated Provider** uses provider-managed mode where Sandbox Broker Beta signs the Contract G attestation and Federated Provider hosts it at `https://federated.agentregistrardemorp.com/.well-known/agent-rp-attestation.json`. **Unverified Provider** omits `attestation`.
+A verified native provider publishes an optional `attestation` source object in discovery, never the token itself. **Reference Provider** uses broker-managed mode via Sandbox Broker Alpha, and **Federated Provider** uses provider-managed mode where Sandbox Broker Beta signs the Contract G attestation and Federated Provider hosts it at `https://federated.agentregistrardemorp.com/.well-known/agent-rp-attestation.json`. **Unverified Provider** omits `attestation`. **Demo auth.md Provider** (`provider-authmd`) exposes RFC 9728 / RFC 8414 `agent_auth` endpoints instead of `/.well-known/agent-signup.json` and trusts Sandbox Broker Alpha's `ES256` key in `trusted_issuers`.
 
-All three simulated providers share the registrable domain `agentregistrardemorp.com`. Their origins and audiences are separate, though they are not isolated from each other at the DNS boundary.
+All four simulated providers share the registrable domain `agentregistrardemorp.com`. Their origins and audiences are separate, though they are not isolated from each other at the DNS boundary.
 
 ### Topology
 
 <DemoNetworkDiagram variant="topology" />
 
-Your disposable sandbox agent runs on Sandbox Broker Alpha. Reference Provider is registered with Alpha, Federated Provider is registered with Beta, and Unverified Provider is registered with neither. All three providers list `https://alpha.agentregistrardemobroker.com` in `issuer_allowlist`. Alpha and Beta share no account database.
+Your disposable sandbox agent runs on Sandbox Broker Alpha. Reference Provider is registered with Alpha, Federated Provider is registered with Beta, Unverified Provider is registered with neither, and Demo auth.md Provider trusts Alpha in `trusted_issuers`. The three native providers list `https://alpha.agentregistrardemobroker.com` in `issuer_allowlist`. Alpha and Beta share no account database.
 
 ### Cross-broker sequence
 
@@ -50,15 +51,16 @@ Alpha serves the sandbox agent and verifies Beta's Contract G attestation agains
 
 The [Demo Network Hub](https://agentregistrardemobroker.com) lets you run and inspect protocol flows in your browser or point your own MCP client at a disposable sandbox server.
 
-### Five Live Runner scenarios
+### Six Live Runner scenarios
 
-Open [agentregistrardemobroker.com](https://agentregistrardemobroker.com) to step through all five scenarios with the built-in **Wire Inspector** (raw discovery JSON, JWT headers/claims, HTTP requests/responses) and **Virtual Inbox** drawer:
+Open [agentregistrardemobroker.com](https://agentregistrardemobroker.com) to step through all six scenarios with the built-in **Wire Inspector** (raw discovery JSON, JWT headers/claims, HTTP requests/responses) and **Virtual Inbox** drawer:
 
 1. **`same-broker`**: Sandbox Broker Alpha mints a Contract A assertion for **Reference Provider** (`demo-reference`), verifies Alpha's broker-managed attestation, creates an account with a `ref_sess_` token, calls `/api/widgets`, and records the receipt.
 2. **`cross-broker`**: Alpha verifies **Federated Provider** (`demo-federated`) using Sandbox Broker Beta's provider-managed Contract G attestation, mints an assertion, and ingests the Beta-attested cross-broker receipt.
 3. **`unverified-policy`**: Alpha evaluates **Unverified Provider** (`demo-unverified`) across `verify`, `strict`, `no_verify`, and `blocked` policies.
 4. **`day2-lifecycle`**: Exercises Day-2 `POST /api/login/agent` on Reference Provider with strict `jti` replay protection, `terms_reacceptance_required`, and step-up approval at `/approve/:id`.
 5. **`abuse-kill-switch`**: Exercises authenticated provider abuse reporting (`/api/broker/report-abuse`) and agent revocation / kill-switch enforcement on Sandbox Broker Alpha.
+6. **`auth-md-interop`**: Exercises Sandbox Broker Alpha bridging into **Demo auth.md Provider** (`https://authmd.agentregistrardemorp.com`): 1-click approval, `ES256` `oauth-id-jag+jwt` with and without `op_tos_uri` ToS hashing, `401 interaction_required` claim ceremony, `401 login_required` stale `auth_time` re-auth, `400 issuer_not_enabled` fallback to `service_auth`, kill-switch RFC 8935 `secevent+jwt` push to `/agent/event/notify`, and Reference Provider's `GET /auth.md` reverse-discovery stub pointing to `/.well-known/agent-signup.json`.
 
 ### Provider Workbench (`/workbench`)
 
@@ -93,6 +95,7 @@ Trusting Sandbox Broker Beta does not make every Beta statement authoritative, a
 | [`/api/login/agent`](https://reference.agentregistrardemorp.com/api/login/agent) | Day-2 re-login endpoint (`POST` with `purpose: "login"` JWT, single-use `jti`, fresh `ref_sess_` session) |
 | [`/terms`](https://reference.agentregistrardemorp.com/terms) | Provider-hosted terms (`version: "2026-11-24"`) fetched and SHA-256 hashed by the broker |
 | [`/docs/SKILL.md`](https://reference.agentregistrardemorp.com/docs/SKILL.md) | Hash-pinned vendor API guide (`context.url` / `context.sha256`) documenting `/api/widgets` |
+| [`/auth.md`](https://reference.agentregistrardemorp.com/auth.md) | Reverse-discovery Markdown stub directing `auth.md`-aware agents to `/.well-known/agent-signup.json` and `/mcp` |
 | `/api/widgets` | Vendor API (`GET`/`POST`/`DELETE`) authenticated with `Authorization: Bearer ref_sess_...` and zero broker calls |
 
 Notice what Reference Provider keeps out of discovery: widget CRUD endpoints (`/api/widgets`) and session usage examples live in `/docs/SKILL.md`, fetched and SHA-256 verified only after signup.
@@ -200,7 +203,7 @@ A signup receipt is a compact JWS signed by the provider's key. The decoded clai
 
 ## Self-host the demo network
 
-The entire 7-host stack is open source under Apache-2.0 (`Hono` + `SQLite/D1`). Run it locally to inspect the wire handlers or test a local relying party:
+The entire 8-host stack is open source under Apache-2.0 (`Hono` + `SQLite/D1`). Run it locally to inspect the wire handlers or test a local relying party:
 
 ```bash
 git clone https://github.com/agentregistrar/demo-network
@@ -213,9 +216,9 @@ pnpm dev
 
 | You can test | You cannot test |
 | :--- | :--- |
-| Live 5-scenario runner, Wire Inspector, Virtual Inbox, and `/workbench` assertion generator | Production GitHub OAuth accounts or real outbound email delivery |
-| Disposable 5-tool sandbox `/mcp` on Sandbox Broker Alpha against Reference, Federated, Unverified, or a 24h ephemeral RP | DNS/browser isolation across Reference, Federated, and Unverified (they share `agentregistrardemorp.com`) |
-| Same-broker signup (`Reference Provider`), cross-broker federation (`Federated Provider` + Beta), and policy gates (`Unverified Provider`) | Multi-broker governance or third-party production SLAs |
+| Live 6-scenario runner, Wire Inspector, Virtual Inbox, and `/workbench` assertion generator | Production GitHub OAuth accounts or real outbound email delivery |
+| Disposable 5-tool sandbox `/mcp` on Sandbox Broker Alpha against Reference, Federated, Unverified, Demo auth.md, or a 24h ephemeral RP | DNS/browser isolation across Reference, Federated, Unverified, and Demo auth.md (they share `agentregistrardemorp.com`) |
+| Same-broker signup (`Reference Provider`), cross-broker federation (`Federated Provider` + Beta), policy gates (`Unverified Provider`), and `auth.md` ID-JAG / SET revocation (`Demo auth.md Provider`) | Multi-broker governance or third-party production SLAs |
 | Day-2 `/api/login/agent`, `ref_sess_` tokens, `/api/widgets`, `jti` replay protection, and `/api/broker/report-abuse` | Persistent long-term accounts (sandbox rows expire via automatic TTL cleanup) |
 | Assertion verification with public JWKS, no account or SDK | Catalogs, billing, or infrastructure resale |
 

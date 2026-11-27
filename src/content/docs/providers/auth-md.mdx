@@ -1,0 +1,129 @@
+---
+title: Already using auth.md?
+description: Add Agent Registrar as a zero-code trusted ES256 ID-JAG issuer and RFC 8935 SET revocation sender for existing auth.md services.
+audience: both
+lastUpdated: 2026-11-27
+verifiedAgainst: "spec v2.3.0, auth.md v0.6.0, 2026-11-27"
+sidebar:
+  label: Already using auth.md?
+  order: 8
+---
+
+If your service already supports [auth.md](https://github.com/workos/auth.md) (RFC 9728 Protected Resource Metadata, RFC 8414 `agent_auth`, and IETF `oauth-id-jag+jwt`), you do not need to replace your auth stack or implement `/.well-known/agent-signup.json`. Add `https://agentregistrar.dev` to your service's `trusted_issuers` list so agents connected to Agent Registrar can sign up and exchange identity assertions for bearer tokens directly on your domain.
+
+Agent Registrar still recommends the native [Agent Identity Protocol](/providers/quickstart/) (`/.well-known/agent-signup.json`) for services that want mandatory hash-pinned terms acceptance, provider-signed signup receipts, and a minimal ~25-line handler without an OAuth Authorization Server. The `auth.md` plug-in path lets existing `auth.md` services accept Agent Registrar's verified human owners with zero code changes.
+
+## 1. Zero-code plug-in setup
+
+Add Agent Registrar's canonical issuer origin to your Authorization Server or `auth.md` `trusted_issuers` configuration:
+
+```json
+{
+  "trusted_issuers": [
+    "https://agentregistrar.dev"
+  ]
+}
+```
+
+When your service verifies incoming `oauth-id-jag+jwt` assertions or `secevent+jwt` revocation tokens, it resolves public keys from `https://agentregistrar.dev/.well-known/jwks.json`.
+
+That JWKS endpoint publishes dual active keys (plus any keys retained during rotation windows):
+
+- An `EdDSA` (`OKP` / `Ed25519`) key for native Agent Identity Protocol `agent-id+jwt` assertions.
+- An `ES256` (`EC` / `P-256`) key for `auth.md` `oauth-id-jag+jwt` identity assertions and `secevent+jwt` Security Event Tokens.
+
+Always select the verification key by the JWT header `kid` and `alg` (`ES256` for `auth.md` tokens). Never hard-code a key id and never accept `jku` or `x5u` headers. See [Broker HTTP and OAuth](/reference/broker-http/) for the JWKS format.
+
+## 2. The `oauth-id-jag+jwt` contract
+
+When an agent calls `identity_signup` or `identity_login` targeting an origin where `/.well-known/agent-signup.json` returns `404` or `410`, the broker runs a bounded discovery probe for `/.well-known/oauth-protected-resource` (RFC 9728) followed by the advertised `authorization_servers[0]` RFC 8414 metadata (`/.well-known/oauth-authorization-server`).
+
+When `agent_auth` metadata is present and the human owner approves sharing identity with your origin, the broker mints an `ES256` `oauth-id-jag+jwt` token (300-second default lifetime) with these header and claim values:
+
+| Field | Location | Value / Rule |
+| :--- | :--- | :--- |
+| `typ` | Header | `"oauth-id-jag+jwt"` |
+| `alg` | Header | `"ES256"` |
+| `kid` | Header | Active `P-256` key id published at `/.well-known/jwks.json` |
+| `iss` | Claims | `"https://agentregistrar.dev"` |
+| `sub` | Claims | Verified human owner id (`hum_...`) |
+| `aud` | Claims | Exact RFC 8414 Authorization Server `issuer` (`as.issuer`) |
+| `resource` | Claims | Exact RFC 9728 Protected Resource `resource` (`prm.resource`) |
+| `client_id` | Claims | `agent_auth.client_id`, `agent_auth.default_client_id`, or normalized origin |
+| `jti` | Claims | Unique token id (`idjag_...`) |
+| `iat`, `exp` | Claims | Unix epoch seconds (`exp = iat + 300`) |
+| `email` | Claims | Verified human owner email address |
+| `email_verified` | Claims | `true` |
+| `auth_time` | Claims | Unix epoch seconds of the human's real authentication or approval event |
+| `name` | Claims | Optional human display name |
+| `agent` | Claims | Optional object: `{ id, name, email, harness }` |
+| `agent_platform`, `agent_context_id`, `agent_email`, `agent_name` | Claims | Optional additive agent hints matching `agent` |
+| `delegation` | Claims | Optional `{ master_tos_version, accepted_rp_tos_url, accepted_rp_tos_hash, accepted_at }`, included only when `op_tos_uri` (or `agent_auth.terms.url`) is advertised and hashed |
+
+Note the `aud` and `resource` distinction required by `auth.md` `v0.6.0`: `aud` equals `as.issuer`, while `prm.resource` is placed in the `resource` claim.
+
+When `identity_request` is non-null (`service.identity_endpoint` / `agent_auth.identity_endpoint` advertised), the agent runs a two-step exchange:
+
+- **Step 1 (`identity_request`):** Send `POST` `identity_request.url` with `Content-Type: application/json` and body `{ "type": "identity_assertion", "assertion_type": "urn:ietf:params:oauth:token-type:id-jag", "assertion": "<id_jag_jwt>" }`. On HTTP `200`, read the service-signed `identity_assertion` returned in JSON.
+- **Step 2 (`token_exchange_request`):** Send `POST` `token_exchange_request.url` with `Content-Type: application/x-www-form-urlencoded` and `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=<service_identity_assertion>` (replacing the `<identity_assertion_from_identity_request_response>` placeholder in `token_exchange_request.form_params.assertion`, or using the direct ID-JAG JWT when `identity_request` is `null`), along with `client_id` and `resource`.
+
+The agent executes these requests directly and holds your service's access token; Agent Registrar never sends these requests and never stores or proxies your access tokens.
+
+## 3. How Agent Registrar handles `auth.md` errors
+
+The `identity_signup` and `identity_login` responses include a `next_steps` guide and `fallback_login_hint` (the human's email) so coding agents recover cleanly from standard `auth.md` responses:
+
+- **`401 login_required` (stale `auth_time`):** The agent retries `identity_signup` or `identity_login` with `require_fresh_auth: true`. If the human's last recorded authentication (`last_authenticated_at`) is older than 15 minutes, the broker returns `auth_md_reauth_required` with an `approval_url` (`/approvals/auth-md/[id]`). Once the human confirms that link, `auth_time` is refreshed and the agent retries without `require_fresh_auth`.
+- **`401 interaction_required` (service claim or account link needed):** The agent directs the human to the authorization or claim URL returned by your service (or follows `claim_token` polling if your service returned one), or falls back to guiding the human with `fallback_login_hint`. Agents are instructed not to retry `require_fresh_auth: true` until the service-side interaction completes.
+- **`400 invalid_issuer`, `issuer_not_enabled`, or `auth_md_fallback_available`:** When `identity_endpoint` / `token_endpoint` rejects the broker issuer (or the broker fails with `auth_md_fallback_available`), the agent initiates `service_auth` (`{"type":"service_auth","login_hint":"<fallback_login_hint>"}`) at `identity_endpoint` if advertised, or uses the `claim_token`, `verification_uri`, and polling interval returned by your service, surfaces the verification URL to the human, and polls `token_endpoint` with `Content-Type: application/x-www-form-urlencoded` and `grant_type=urn:workos:agent-auth:grant-type:claim`, `claim_token`, and `client_id`. If no `claim_token` or `service_auth` flow is available, the agent stops retrying ID-JAG and guides the human to sign in using `fallback_login_hint`.
+
+## 4. Optional terms hashing (`op_tos_uri`)
+
+If your RFC 8414 Authorization Server Metadata advertises `op_tos_uri` (or `agent_auth.terms.url`), the broker fetches the exact UTF-8 bytes at that URL, computes the `sha256:...` digest, attaches the `delegation` object to the ID-JAG assertion, records the hash in `/activity`, and emails a terms receipt to both the agent's inbox and the human owner.
+
+When `op_tos_uri` is omitted or cannot be fetched, Agent Registrar does not fabricate a terms hash: it omits `delegation` from the ID-JAG, records `terms.sha256: null`, and labels the `/activity` entry honestly as an `auth.md` ID-JAG assertion without a hashed terms record.
+
+## 5. Optional RFC 8935 / CAEP push revocation
+
+When an agent is revoked via the human kill switch or suspended by an operator, Agent Registrar can push an RFC 8935 / CAEP `secevent+jwt` Security Event Token to your service if your metadata advertises `agent_auth.event_notification_endpoint`, `agent_auth.set_endpoint`, or `agent_auth.events_endpoint` (checked in that order).
+
+The broker sends `POST` with `Content-Type: application/secevent+jwt` and a compact `ES256` JWT body:
+
+- **Header:** `typ: "secevent+jwt"`, `alg: "ES256"`, `kid` matching the active `P-256` key.
+- **Claims:** `iss: "https://agentregistrar.dev"`, `aud: <as.issuer>`, `sub: "<human.id>"`, `jti: "set_..."`, `iat`, and **no `exp`** (per RFC 8417).
+- **Event payload:** Inside `events` (valid per RFC 8417 Section 2.2), Agent Registrar emits both `https://schemas.workos.com/events/agent/auth/identity/assertion/revoked` and `https://schemas.openid.net/secevent/caep/event-type/session-revoked`, each with `subject: { format: "iss_sub", iss: "https://agentregistrar.dev", sub: "<human.id>" }`, `event_timestamp`, and optional `reason_admin.en`, so both `auth.md` / WorkOS servers and standard OpenID CAEP receivers act on it.
+
+### Multi-agent shared-`sub` protection
+
+In `auth.md` ID-JAG mode, `sub` is the **human owner's id** (`human.id`), not a single agent id. If a human has two active agents (`agent-a` and `agent-b`) that both signed into the same `auth.md` service and the human revokes only `agent-a`, automatically pushing a `session-revoked` SET for `sub: human.id` would invalidate `agent-b`'s sessions on that service too.
+
+To prevent unintended collateral lockouts:
+
+- When **only the revoked agent** has an `auth.md` assertion recorded for that `as.issuer`, the kill switch pushes the `secevent+jwt` automatically.
+- When **other active agents** of the same human share that `as.issuer`, the kill switch revokes the agent locally on the broker and pauses automatic SET delivery, surfacing an explicit **Revoke all sessions** control on `/agents/[id]` so the human decides whether to push the SET across that service.
+
+## 6. Native Agent Identity Protocol vs. `auth.md` plug-in mode
+
+| Capability | Native Agent Identity Protocol | `auth.md` ID-JAG plug-in mode |
+| :--- | :--- | :--- |
+| Discovery endpoint | `GET /.well-known/agent-signup.json` | RFC 9728 PRM + RFC 8414 `agent_auth` |
+| Assertion format & key | `EdDSA` (`Ed25519`), `typ: "agent-id+jwt"` | `ES256` (`P-256`), `typ: "oauth-id-jag+jwt"` |
+| Assertion `sub` & `aud` | `sub: agent.id`, `aud: discovery.audience` | `sub: human.id`, `aud: as.issuer` (plus `resource: prm.resource`) |
+| Terms acceptance & hash | Required (`terms.url` + `terms.version`, SHA-256 verified) | Optional (`op_tos_uri` best-effort hash; omitted when absent) |
+| Signed signup receipts | Optional RP-signed Contract E / Contract F receipts | Not supported (no provider-signed signup receipt) |
+| Human approval on unverified origin | Controlled by human `/trust` policy (`verify` / `strict` / `no_verify`) | 1-click human approval at `/approvals/auth-md/[id]` (24h window) |
+| Kill-switch notification | Optional signed HMAC-SHA256 `agent.status_changed` webhook | Optional RFC 8935 `secevent+jwt` push (with multi-agent `sub` guard) |
+| Best fit | New agent signup endpoints or providers wanting mandatory hashed ToS receipts | Services already running `auth.md` or WorkOS AuthKit |
+
+## 7. Try it on the Demo Network
+
+Test the full `auth.md` interoperability flow without touching production accounts on the isolated 8-host [Demo network](/demo/):
+
+- **Live `auth.md` test provider:** `https://authmd.agentregistrardemorp.com` (`/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`, `/auth.md`, `/agent/identity`, `/oauth2/token`, `/agent/event/notify`).
+- **Interactive Scenario 6 (`auth-md-interop`):** Run the step-by-step live trace in the [Demo Network Hub](https://agentregistrardemobroker.com) with the Wire Inspector and Virtual Inbox drawer.
+
+## Next steps
+
+- [Copy this prompt](/providers/prompt-kit/): generate a native discovery handler plus an optional `/auth.md` reverse-discovery stub.
+- [MCP server and tools](/reference/mcp-tools/): inspect the `protocol: "auth.md"` tool output shape and `require_fresh_auth` input.
+- [Trust and limits](/start/trust-and-limits/): review known limits for both native and `auth.md` interop flows.
