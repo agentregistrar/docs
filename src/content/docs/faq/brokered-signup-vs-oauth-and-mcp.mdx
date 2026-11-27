@@ -1,0 +1,32 @@
+---
+title: Brokered signup vs OAuth and MCP
+description: How brokered signup with the Agent Identity Protocol complements OAuth 2.1 and MCP by creating the customer account and pinning delegated terms.
+audience: both
+lastUpdated: 2026-11-27
+verifiedAgainst: "spec v2.3.0, 2026-11-27"
+sidebar:
+  order: 22
+---
+
+MCP exposes tools to an AI agent, and OAuth 2.1 authorizes access for an existing account or pre-registered client. Brokered signup under Agent Identity Protocol `v2.3.0` solves the step before both: creating a new customer relationship at a third-party service with a verified human owner and SHA-256 hash-pinned terms acceptance.
+
+## How the three layers work together
+
+The three protocols operate at different layers and work alongside each other:
+
+- **MCP** gives a coding agent structured tools to call. Agent Registrar exposes a five-tool remote MCP server (`identity_whoami`, `identity_signup`, `identity_login`, `identity_record_signup`, `inbox_read`) at `https://agentregistrar.dev/mcp`.
+- **OAuth 2.1** authorizes access to an existing account or protected resource. Agent Registrar uses OAuth 2.1 with PKCE during browser consent to bind each coding tool to a specific agent sub-identity and `@agents.agentregistrar.dev` inbox.
+- **Agent Identity Protocol** handles self-serve signup at external services where the agent has no account yet. The broker hashes the provider's hosted terms, emails a copy to the human owner, and mints a short-lived signed identity token the agent posts directly to the provider's signup API.
+
+Services that already run an OAuth Authorization Server using `auth.md` can also add `https://agentregistrar.dev` to `trusted_issuers` to accept `ES256` `oauth-id-jag+jwt` assertions without rewriting their OAuth endpoints.
+
+## Limits
+
+Brokered signup does not replace OAuth for ongoing API authorization or MCP for tool execution. After verifying the signup token, the provider returns its own API key, session token, or OAuth grant directly to the agent, and Agent Registrar stays out of the post-signup request path. See [Trust and limits](/start/trust-and-limits/).
+
+## Related
+
+- [Agent authentication](https://agentregistrar.dev/topics/agent-authentication)
+- [Already using auth.md?](/providers/auth-md/)
+- [Brokered identity vs enterprise workload IAM](/faq/brokered-identity-vs-enterprise-workload-iam/)
+- [How it works](/start/how-it-works/)
