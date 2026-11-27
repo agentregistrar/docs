@@ -1,12 +1,14 @@
 {
-  // Static-assets-only Worker for the public docs. There is no Worker script:
-  // Cloudflare serves `dist/` directly and the custom domain below is the
-  // production origin. See README.md, "Deployment".
+  // Static-assets Worker for the public docs: `worker.js` serves `dist/` via
+  // `ASSETS` and returns Markdown 404 responses for AI agent requests, while
+  // the custom domain below is the production origin. See README.md, "Deployment".
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "agentregistrar-docs",
   "compatibility_date": "2026-10-21",
+  "main": "./worker.js",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     // Serve the Nimbus 404 page for unknown paths instead of a Worker error.
     // Nimbus emits per-page directories, so the default auto-trailing-slash
     // handling keeps `/start/` canonical and 307s `/start` to it.
